@@ -350,9 +350,10 @@
 /* Родная стопка карточек Zen не показывается — её роль играет рейка */
 #zen-media-controls-toolbar { display: none !important; }
 
-/* ---------- 8. Панель адреса: без меню ☰ и родной боковой панели Firefox ----------
- * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. */
-#PanelUI-button,                      /* меню ☰: настройки — шестерёнкой, настройки мода — правой кнопкой по рейке */
+/* ---------- 8. Панель адреса: без родной боковой панели Firefox ----------
+ * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. Слева от неё — «⋯»: родное меню
+ * Zen/Firefox (#PanelUI-button, значок «три точки» даёт Zen), его ставит js/lumi-appmenu.uc.js; скрытые в настройках пункты — [lumi-hidden]. */
+#appMenu-mainView [lumi-hidden] { display: none !important; }
 #zen-sidebar-top-buttons,             /* кнопка compact mode — мод держит его включённым */
 #sidebar-button, #sidebar-box, #sidebar-splitter, #sidebar-container, #sidebar-launcher-splitter {
   display: none !important;
@@ -404,12 +405,6 @@ zen-library {
   -moz-window-dragging: no-drag;
   /* таблетка: фон, рамка, наведение, выбор */
   --pill-bg: var(--lumi-bg1); --pill-line: transparent;
-  &::before {
-    content: ""; position: absolute; z-index: -1; pointer-events: none;
-    inset: var(--lumi-pill-top) 0 auto 0; height: var(--lumi-pill-h);
-    border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
-    background: var(--pill-bg);
-  }
   & > * { pointer-events: none; flex-shrink: 0; }
   & .lumi-tab-icon { width: 16px; height: 16px; margin-left: 9px; }
   & .lumi-tab-label { flex: 1; min-width: 0; flex-shrink: 1; white-space: nowrap; overflow: hidden; mask-image: linear-gradient(to left, transparent, black 16px); }
@@ -431,6 +426,13 @@ zen-library {
   /* квадратик: закреплённые вкладки пространства всегда, остальные — когда сжались до квадрата */
   &[square] { flex: none; width: 28px; min-width: 28px; }
 }
+/* таблетка вкладки и «+» (::before; у скошенных — ещё ::after, ниже) */
+:is(.lumi-tab, #lumi-newtab-button)::before {
+  content: ""; position: absolute; z-index: -1; pointer-events: none;
+  inset: var(--lumi-pill-top) 0 auto 0; height: var(--lumi-pill-h);
+  border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
+  background: var(--pill-bg);
+}
 @container (max-width: 44px) {
   .lumi-tab-label, .lumi-tab-close, .lumi-tab-audio { display: none !important; }
   .lumi-tab-icon { margin: 0 auto !important; }
@@ -448,6 +450,8 @@ zen-library {
     &:first-child { margin-left: 3px; } /* нижние углы выступают на 2,5px — край прокрутки их срезал бы */
     &:last-child { margin-right: 3px; }
     &[selected] { z-index: 1; }
+  }
+  :is(.lumi-tab, #lumi-newtab-button) {
     /* трапеция — две половины, скошенные в разные стороны: рамка идёт по косым краям; половины заходят друг на друга на 3px, без шва.
      * clip-path не годится: срезает рамку на косых краях и сужает область клика (Фиттс от y=0) */
     &::before { right: calc(50% - 3px); border-right-width: 0;
@@ -463,15 +467,26 @@ zen-library {
   border-radius: 1px; background: var(--lumi-accent); pointer-events: none;
 }
 
-/* «+» и тонкая черта перед кнопками окна; «+» тоже кликается от верхнего края */
+/* «+» — квадратная таблетка 28×28, как вкладка-квадратик (та же форма и наведение); кликается от верхнего края.
+ * Родная отрисовка кнопки Windows (appearance) снята: при наведении она рисовала высокий блок от края окна */
 #lumi-newtab-button {
-  -moz-window-dragging: no-drag; margin: 0 0 0 8px !important;
-  padding: var(--lumi-pill-top) 0 calc(var(--lumi-strip-h) - var(--lumi-pill-top) - var(--lumi-pill-h)) 0 !important;
-  height: var(--lumi-strip-h); align-items: flex-start !important;
-  list-style-image: url("chrome://global/skin/icons/plus.svg");
-  & > .toolbarbutton-icon { width: 32px !important; height: var(--lumi-pill-h) !important; padding: 7px 9px !important; border-radius: min(8px, var(--lumi-tab-radius)); }
-  &:hover > .toolbarbutton-icon { background-color: var(--lumi-surface) !important; }
+  appearance: none !important; -moz-window-dragging: no-drag; margin: 0 0 0 8px !important; padding: 0 !important;
+  width: 28px; height: var(--lumi-strip-h); align-items: flex-start !important;
+  position: relative; isolation: isolate; color: var(--lumi-muted);
+  background: none !important; list-style-image: url("chrome://global/skin/icons/plus.svg");
+  --pill-bg: transparent; --pill-line: transparent;
+  & > .toolbarbutton-icon { width: 28px !important; height: var(--lumi-pill-h) !important; margin-top: var(--lumi-pill-top); padding: 7px !important; background: none !important; }
   & > .toolbarbutton-text { display: none !important; }
+  &:hover { --pill-bg: var(--lumi-surface); color: var(--lumi-fg); }
+  &:hover:active { --pill-bg: var(--lumi-raised); }
+}
+/* «+» сразу за последней вкладкой, как в других браузерах (настройка luminoctis.tabs.newtab-position = after-tabs):
+ * ряд вкладок не шире своих вкладок, пустое место — справа от «+». Вкладки так же сжимаются, «+» всегда виден */
+@media -moz-pref("luminoctis.tabs.newtab-position", "after-tabs") {
+  /* --lumi-tabs-w — полная ширина вкладок (считает js/lumi-tabstrip.uc.js): у прокручиваемого ряда своей ширины по содержимому нет */
+  #lumi-tabs { flex: 0 1 var(--lumi-tabs-w, auto); }
+  #lumi-newtab-button { margin-inline: 6px auto !important; }
+  @media -moz-pref("luminoctis.tabs.shape", "slanted") { #lumi-tabs { flex-basis: calc(var(--lumi-tabs-w) + 6px); } } /* выступы скошенных краёв */
 }
 #lumi-strip-separator { width: 1px; height: 18px; margin: auto 0 auto 6px; flex-shrink: 0; background: var(--lumi-raised); }
 
@@ -493,24 +508,44 @@ zen-library {
 }
 #nav-bar { padding-inline-end: 8px !important; } /* кнопки окна ушли в полосу — шестерёнке нужен отступ от края */
 
-/* Меню по правой кнопке на рейке и на закрепе (js/lumi-rail.uc.js) — Tokyo Night, как меню в концепте, без прозрачной подложки Windows */
-:is(#lumi-rail-menu, #lumi-pin-menu) {
+/* ---------- 11. Все меню и всплывающие панели браузера — в стиле мода ----------
+ * Меню рейки и закрепа, меню вкладки, страницы, адресной строки, панелей, меню «⋯» и остальные: фон, рамка, скругление,
+ * отступы, наведение и черты — из токенов палитры, без прозрачной подложки Windows. Выпадающие списки сайтов (<select>) — в цветах сайта. */
+:root {
+  --arrowpanel-border-radius: 12px !important;
+  --arrowpanel-menuitem-border-radius: 8px !important;
+  --arrowpanel-menuitem-padding-block: 7px !important;
+  --arrowpanel-menuitem-padding-inline: 10px !important;
+}
+:is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {
   appearance: none !important;
-  --panel-background: var(--lumi-surface) !important;
-  --panel-background-color: var(--lumi-surface) !important; /* ею рисуется фон меню (popup.css); иначе — полупрозрачная подложка Windows */
-  --panel-color: var(--lumi-fg) !important;
-  --panel-border-color: var(--lumi-accent) !important;
+  --panel-background-color: var(--lumi-surface) !important; /* ею рисуется фон меню (popup.css) */
+  --panel-text-color: var(--lumi-fg) !important;
+  --panel-border-color: color-mix(in srgb, var(--lumi-accent) 55%, transparent) !important;
   --panel-border-radius: 12px !important;
+  --panel-box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
+}
+menupopup:not(#ContentSelectDropdown > menupopup) {
   --panel-padding: 6px !important;
-  --panel-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
-  & menuitem {
-    min-height: 34px; padding-inline: 10px !important; border-radius: 8px !important;
-    color: var(--lumi-fg) !important; font: 13px Inter, system-ui, sans-serif;
-    &[_moz-menuactive]:not([disabled]) { background-color: var(--lumi-raised) !important; }
+  --menuitem-border-radius: 8px !important;
+  --menuitem-padding-block: 7px !important;
+  --menuitem-padding-inline: 10px !important;
+  & :is(menu, menuitem) {
+    color: var(--lumi-fg) !important;
+    &[_moz-menuactive]:not([disabled]) { background-color: var(--lumi-raised) !important; color: var(--lumi-fg) !important; }
     &[disabled] { color: var(--lumi-dim) !important; }
   }
-  & menuseparator::before { border-color: var(--lumi-line) !important; }
+  & menuseparator { padding: 4px 10px !important; &::before { border-color: var(--lumi-line) !important; } }
+  & menucaption { color: var(--lumi-dim) !important; }
 }
+/* меню рейки и закрепа — свои, короткие: строки повыше и рамка акцентом, как в концепте */
+:is(#lumi-rail-menu, #lumi-pin-menu) {
+  --panel-border-color: var(--lumi-accent) !important;
+  & menuitem { min-height: 34px; font: 13px Inter, system-ui, sans-serif; }
+}
+/* панели со списком кнопок (меню «⋯», подменю, расширения…): наведение и черты — как в меню */
+panel .subviewbutton:not([disabled]):is(:hover, [open]) { background-color: var(--lumi-raised) !important; }
+panel toolbarseparator { border-color: var(--lumi-line) !important; }
 
 /* Переключатели со страницы настроек Luminoctis (settings/settings.html) — применяются сразу, без перезапуска */
 @media -moz-pref("luminoctis.tabs.no-grey-unloaded") {

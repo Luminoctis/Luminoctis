@@ -24,6 +24,7 @@
   <section id="sidebar" role="tabpanel">
     <h2>Рабочие пространства</h2>
     <div id="spaces" class="list"></div>
+    <button id="space-add" class="dashed">+ Новое пространство</button>
 
     <h2>Закрепы <span class="hint">· общие для всех пространств</span></h2>
     <div id="pins" class="list"></div>
@@ -66,10 +67,19 @@
       <button data-value="square"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="0"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="0"/></svg>Квадратные</button>
       <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Скошенные</button>
     </div>
+
+    <div class="palette-head"><h2>Меню «⋯»</h2><span class="hint">кнопка слева от шестерёнки; какие пункты в нём видны</span></div>
+    <div id="appmenu" class="list"></div>
   </section>
 
   <section id="tabs" role="tabpanel">
     <h2>Вкладки</h2>
+    <div class="row stack">
+      <div class="text"><b>Кнопка «+» (новая вкладка)</b><span>В конце полосы — у кнопок окна; за вкладками — сразу после последней вкладки, как в других браузерах</span></div>
+      <div class="seg" data-pref="luminoctis.tabs.newtab-position" data-default="end">
+        <button data-value="end">В конце полосы</button><button data-value="after-tabs">За вкладками</button>
+      </div>
+    </div>
     <label class="row">
       <div class="text"><b>Unload Countdown Time</b>
         <span>Вкладка или закреп не выбраны, не на виду и ничего не играют — через это время Luminoctis выгружает их из памяти
@@ -90,25 +100,18 @@
   </section>
 
   <section id="keys" role="tabpanel">
-    <h2>Шорткаты мода</h2>
-    <div class="row key-row">
-      <kbd>ПКМ</kbd><div class="text"><b>По боковой панели</b><span>Меню Luminoctis: настройки, пространства, новая вкладка</span></div>
+    <div class="palette-head"><h2>Шорткаты мода</h2><span class="hint">клик по сочетанию — нажмите новое, Esc — отмена</span></div>
+    <div class="row key-row" data-key="unload">
+      <button class="bind"></button>
+      <div class="text"><b>Выгрузить вкладку или закреп</b><span>По вкладке в полосе или закрепу в рейке. Выбранная вкладка сначала сменяется соседней.
+        Сочетание — Ctrl, Alt или Shift с кнопкой мыши</span></div>
+      <button class="small reset" title="Вернуть по умолчанию">↺</button>
       <span class="ok">работает</span>
     </div>
-    <div class="row key-row disabled">
-      <kbd>Shift + ПКМ</kbd><div class="text"><b>По вкладке</b><span>Закрыть вкладку</span></div>
-      <span class="soon">скоро</span>
-    </div>
-    <div class="row key-row disabled">
-      <kbd>Shift + ЛКМ</kbd><div class="text"><b>По вкладке</b><span>Выгрузить вкладку из памяти</span></div>
-      <span class="soon">скоро</span>
-    </div>
-    <div class="row key-row">
-      <kbd>Shift + ПКМ</kbd><div class="text"><b>По закрепу</b><span>Выгрузить закреп из памяти</span></div>
-      <span class="ok">работает</span>
-    </div>
-    <div class="row key-row disabled">
-      <kbd>Tab</kbd><div class="text"><b>Inter Menu</b><span>Клавишу можно будет сменить в разделе Inter Menu</span></div>
+    <div class="row key-row" data-key="inter">
+      <button class="bind"></button>
+      <div class="text"><b>Inter Menu</b><span>Клавиша, по которой откроется Inter Menu (можно с Ctrl, Alt, Shift)</span></div>
+      <button class="small reset" title="Вернуть по умолчанию">↺</button>
       <span class="soon">скоро</span>
     </div>
   </section>
@@ -125,7 +128,7 @@
     </label>
     <div class="row disabled">
       <div class="text"><b>Клавиша</b></div>
-      <div class="key"><kbd>Tab</kbd><button disabled>Изменить</button></div>
+      <div class="key"><kbd data-key-view="inter">Tab</kbd><button id="inter-key">Изменить</button></div>
     </div>
   </section>
 </main>

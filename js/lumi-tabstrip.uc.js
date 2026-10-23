@@ -13,7 +13,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   row.setAttribute("clicktoscroll", "true");
   const dropLine = document.createElement("div");
   dropLine.id = "lumi-tab-dropline";
-  // «+» — та же родная команда, что у кнопки «Новая вкладка» Firefox (cmd_newNavigatorTab); дальше черта и кнопки окна
+  // «+» — та же родная команда, что у кнопки «Новая вкладка» Firefox (cmd_newNavigatorTab); дальше черта и кнопки окна.
+  // Место «+» (в конце полосы или сразу за вкладками) — только CSS, настройка luminoctis.tabs.newtab-position (chrome.css, раздел 9)
   const newTab = document.createXULElement("toolbarbutton");
   newTab.id = "lumi-newtab-button";
   newTab.className = "toolbarbutton-1";
@@ -66,6 +67,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const wanted = tabs.map(itemFor);
     const now = [...row.children];
     if (wanted.length != now.length || wanted.some((el, i) => el !== now[i])) row.replaceChildren(...wanted);
+    // полная ширина вкладок (без сжатия) — для «+» сразу за вкладками (chrome.css, раздел 9): 210px, квадратики 28px, зазоры 6px
+    strip.style.setProperty("--lumi-tabs-w", `${Math.max(0, tabs.reduce((w, tab) => w + (tab.pinned ? 28 : 210) + 6, -6))}px`);
     const selected = items.get(gBrowser.selectedTab);
     if (selected?.isConnected) row.ensureElementIsVisible(selected);
   };
@@ -88,6 +91,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
 
   // ---------- действия: всё через родные API ----------
   const tabOf = event => event.target.closest?.(".lumi-tab")?.tab;
+  luminoctis.unloadShortcut(row, tabOf); // «Выгрузить вкладку или закреп» (js/lumi-rail.uc.js) — до клика и меню ниже
   row.addEventListener("click", event => {
     const tab = tabOf(event);
     if (!tab || event.button != 0) return;
@@ -102,6 +106,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   row.addEventListener("contextmenu", event => {
     if (!tabOf(event)) return;
     event.preventDefault();
+    gBrowser.translateTabContextMenu(); // подписи меню Firefox подгружает по первому ПКМ над родным списком — он спрятан
     document.getElementById("tabContextMenu").openPopupAtScreen(event.screenX, event.screenY, true, event);
   });
 

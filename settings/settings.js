@@ -16,6 +16,7 @@ const DOT = { blue: "blue", turquoise: "teal", green: "green", yellow: "yellow",
 // палитра: цвета ставятся и на эту страницу (она отдельный документ и не наследует переменные окна)
 const palette = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
 palette.watch(document);
+const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
 
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
@@ -146,9 +147,35 @@ function renderSpaces() {
       ws.containerTabId = Number(container.value);
       win.gZenWorkspaces.saveWorkspace(ws);
     });
-    return el("div", { className: "item" }, grip(), icon, name, dot, container);
+    // удалить — родным removeWorkspace Zen (вкладки пространства закрываются), после подтверждения под строкой; последнее — нельзя
+    const remove = el("button", { className: "small remove", textContent: "×", disabled: spaces.length < 2,
+      title: spaces.length < 2 ? "Последнее пространство удалить нельзя" : "Удалить пространство" });
+    const row = el("div", { className: "item" }, grip(), icon, name, dot, container, remove);
+    remove.addEventListener("click", () => {
+      if (row.nextElementSibling?.classList.contains("confirm")) return row.nextElementSibling.remove();
+      const yes = el("button", { className: "danger", textContent: "Удалить" });
+      const no = el("button", { textContent: "Отмена" });
+      const ask = el("div", { className: "confirm" },
+        el("span", { textContent: `Удалить «${ws.name}»? Его вкладки закроются.` }), yes, no);
+      yes.addEventListener("click", () => {
+        if (win.gZenWorkspaces.getWorkspaces().length > 1) win.gZenWorkspaces.removeWorkspace(ws.uuid);
+        ask.remove();
+      });
+      no.addEventListener("click", () => ask.remove());
+      row.after(ask);
+      no.focus();
+    });
+    return row;
   }));
 }
+// новое — родным createAndSaveWorkspace Zen, в конце списка, без переключения на него; сразу можно ввести название
+$("#space-add").addEventListener("click", async () => {
+  await win.gZenWorkspaces.createAndSaveWorkspace("Новое пространство", undefined, true);
+  renderSpaces();
+  const name = $("#spaces .item:last-child .name");
+  name?.focus();
+  name?.select();
+});
 // родная перестановка пространств Zen (ей же пользуется перетаскивание кнопок пространств)
 sortable($("#spaces"), (from, to) => win.gZenWorkspaces.reorderWorkspace(win.gZenWorkspaces.getWorkspaces()[from].uuid, to));
 for (const type of ["ZenWorkspacesUIUpdate", "ZenWorkspaceDataChanged"]) {
@@ -225,6 +252,93 @@ const findBookmarks = async () => {
   }));
 };
 search.addEventListener("input", findBookmarks);
+
+// ---------- меню «⋯»: какие пункты видны (luminoctis.appmenu.hidden — id скрытых через запятую; прячет js/lumi-appmenu.uc.js) ----------
+const APPMENU = "luminoctis.appmenu.hidden";
+const hiddenItems = () => Services.prefs.getStringPref(APPMENU, "").split(",").filter(Boolean);
+async function renderAppMenu() {
+  const hidden = hiddenItems();
+  $("#appmenu").replaceChildren(...(await lumi.appMenuItems()).map(({ id, label }) => {
+    const box = el("input", { type: "checkbox", checked: !hidden.includes(id) });
+    box.dataset.item = id;
+    box.addEventListener("change", () => {
+      const rest = hiddenItems().filter(x => x != id);
+      Services.prefs.setStringPref(APPMENU, (box.checked ? rest : [...rest, id]).join(","));
+    });
+    return el("label", { className: "row slim" }, el("span", { textContent: label }), box);
+  }));
+}
+renderAppMenu();
+
+// ---------- шорткаты: клик по сочетанию — запись нового (js/lumi-keys.sys.mjs), Esc — отмена, ↺ — по умолчанию ----------
+// Мышь: нужен Ctrl, Alt или Shift — иначе обычный клик по вкладке перестал бы работать; нажатие без них отменяет запись.
+let recording = null; // { name, bind }
+function renderKeys() {
+  for (const row of document.querySelectorAll("[data-key]")) {
+    const name = row.dataset.key;
+    row.querySelector(".bind").textContent = keys.label(keys.get(name));
+    row.querySelector(".reset").hidden = !Services.prefs.prefHasUserValue(keys.pref(name));
+  }
+  for (const view of document.querySelectorAll("[data-key-view]")) view.textContent = keys.label(keys.get(view.dataset.keyView));
+}
+const stopRecording = () => {
+  recording?.bind.classList.remove("recording");
+  recording = null;
+  renderKeys();
+};
+function record(name) {
+  stopRecording();
+  const bind = document.querySelector(`[data-key="${name}"] .bind`);
+  recording = { name, bind };
+  bind.classList.add("recording");
+  bind.textContent = "Нажмите…"; // подсказка — в описании строки
+}
+for (const row of document.querySelectorAll("[data-key]")) {
+  const name = row.dataset.key;
+  row.querySelector(".bind").addEventListener("click", event => {
+    if (!recording) record(name);
+  });
+  row.querySelector(".reset").addEventListener("click", () => Services.prefs.clearUserPref(keys.pref(name)));
+  Services.prefs.addObserver(keys.pref(name), renderKeys);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(keys.pref(name), renderKeys));
+}
+// нажатие, которым записали сочетание, дальше не идёт: ни клик по кнопке под мышью, ни меню правой кнопки
+let swallow = false;
+window.addEventListener("mousedown", event => {
+  swallow = !!recording;
+  if (!recording) return;
+  event.preventDefault();
+  event.stopPropagation();
+  const combo = keys.KEYS[recording.name].mouse && keys.mouseCombo(event);
+  if (combo && /^(ctrl|alt|shift|meta)\+/.test(combo)) Services.prefs.setStringPref(keys.pref(recording.name), combo);
+  stopRecording();
+}, true);
+for (const type of ["click", "auxclick", "contextmenu"]) {
+  window.addEventListener(type, event => {
+    if (!swallow) return;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+}
+window.addEventListener("keydown", event => {
+  swallow = false;
+  if (!recording) return;
+  event.preventDefault();
+  event.stopPropagation(); // Esc не закрывает панель, Tab не уводит фокус
+  const { name } = recording;
+  if (event.key == "Escape") return stopRecording();
+  if (keys.KEYS[name].mouse) return;
+  const combo = keys.keyCombo(event);
+  if (!combo) return; // пока зажат только модификатор
+  Services.prefs.setStringPref(keys.pref(name), combo);
+  stopRecording();
+}, true);
+window.addEventListener("blur", stopRecording); // ушли из панели (или её закрыли) — запись не висит до следующего открытия
+$("#inter-key").addEventListener("click", () => {
+  location.replace("#keys");
+  record("inter");
+});
+renderKeys();
 
 // ---------- палитра: готовые палитры и правка каждого цвета (js/lumi-palette.sys.mjs) ----------
 const SAMPLE = ["bg0", "bg1", "surface", "raised", "fg", "accent", "red", "green"];

@@ -6,6 +6,7 @@
 (() => {
   // палитра — сразу, до отрисовки окна (скрипт идёт на DOMContentLoaded): без вспышки цветов Tokyo Night
   ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs").watch(document);
+  const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
   const h = (tag, className, props = {}) =>
     Object.assign(document.createElement(tag), { className }, props);
   const labeled = (el, text) => {
@@ -40,6 +41,7 @@
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
     pins: pinTabs, addPin, pinTab, movePin, unpin, unloadPin, showPin, hidePin, migratePins, unloadIdleTabs,
+    unload, unloadShortcut,
   };
 
   UC_API.Windows.waitWindowLoading(window).then(() => {
@@ -79,18 +81,14 @@
   function initRailMenu(rail) {
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-rail-menu">
-        <menuitem id="lumi-rail-menu-sidebar" label="Настройки боковой панели"/>
         <menuitem id="lumi-rail-menu-settings" label="Настройки мода Luminoctis"/>
         <menuseparator/>
         <menuitem label="Управление пространствами" command="cmd_zenManageWorkspaces"/>
-        <menuitem label="Новое пространство" command="cmd_zenOpenWorkspaceCreation"/>
-        <menuitem label="Новая вкладка" command="cmd_newNavigatorTab"/>
         <menuseparator/>
         <menuitem label="Настроить панель инструментов" command="cmd_CustomizeToolbars"/>
       </menupopup>`).firstElementChild;
     document.getElementById("mainPopupSet").append(menu);
     menu.querySelector("#lumi-rail-menu-settings").addEventListener("command", () => luminoctis.openSettings());
-    menu.querySelector("#lumi-rail-menu-sidebar").addEventListener("command", () => luminoctis.openSettings("sidebar"));
     rail.addEventListener("contextmenu", event => {
       if (event.target.closest("#zen-workspaces-button toolbarbutton, .lumi-pin")) return;
       event.preventDefault();
@@ -153,6 +151,24 @@
   function unloadPin(tab) {
     if (tab.selected) hidePin();
     gBrowser.explicitUnloadTabs([tab]);
+  }
+  // Выгрузить вкладку полосы или закреп. Выбранную вкладку родная выгрузка сама сначала сменяет соседней.
+  function unload(tab) {
+    if (isPin(tab)) unloadPin(tab);
+    else if (!tab.hasAttribute("pending")) gBrowser.explicitUnloadTabs([tab]);
+  }
+  // Шорткат «Выгрузить вкладку или закреп» (luminoctis.keys.unload, по умолчанию Shift+ПКМ; меняется в настройках — читаем при каждом нажатии).
+  // Ловим до своих обработчиков элемента (клик, меню): сочетание их заменяет. tabOf(event) — вкладка под мышью.
+  function unloadShortcut(el, tabOf) {
+    for (const type of ["click", "auxclick", "contextmenu"]) {
+      el.addEventListener(type, event => {
+        const tab = tabOf(event);
+        if (!tab || !keys.matches("unload", event)) return;
+        event.preventDefault();
+        event.stopPropagation();
+        unload(tab);
+      }, true);
+    }
   }
   // «Открепить» — закреп улетает влево и гаснет, вкладка закрывается совсем
   async function unpin(tab) {
@@ -302,7 +318,7 @@
     window.addEventListener("TabClose", () => setTimeout(schedule)); // закрытая ещё в списке во время своего TabClose
     render();
 
-    // ПКМ — меню закрепа, Shift+ПКМ — сразу выгрузить
+    // ПКМ — меню закрепа; шорткат (Shift+ПКМ) — сразу выгрузить
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-pin-menu">
         <menuitem id="lumi-pin-menu-unload" label="Выгрузить"/>
@@ -312,11 +328,11 @@
     let menuTab;
     menu.querySelector("#lumi-pin-menu-unload").addEventListener("command", () => unloadPin(menuTab));
     menu.querySelector("#lumi-pin-menu-unpin").addEventListener("command", () => unpin(menuTab));
+    unloadShortcut(box, event => event.target.closest?.(".lumi-pin")?.tab);
     box.addEventListener("contextmenu", event => {
       const tab = event.target.closest(".lumi-pin")?.tab;
       if (!tab) return;
       event.preventDefault();
-      if (event.shiftKey) return unloadPin(tab);
       menuTab = tab;
       menu.querySelector("#lumi-pin-menu-unload").disabled = tab.hasAttribute("pending");
       menu.openPopupAtScreen(event.screenX, event.screenY, true, event);

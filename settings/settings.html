@@ -8,22 +8,70 @@
 <script type="module" src="settings.js"></script>
 </head>
 <body>
-<main>
+<!-- Панель настроек справа от рейки (js/lumi-rail.uc.js встраивает эту страницу). Раздел — в адресе: settings.html#sidebar -->
+<header>
   <h1>Настройки Luminoctis</h1>
+  <nav class="tabs" role="tablist" aria-label="Разделы настроек">
+    <button role="tab" data-tab="sidebar">Боковая панель</button>
+    <button role="tab" data-tab="look">Внешний вид</button>
+    <button role="tab" data-tab="tabs">Вкладки</button>
+    <button role="tab" data-tab="keys">Шорткаты</button>
+    <button role="tab" data-tab="inter">Inter Menu</button>
+  </nav>
+</header>
 
-  <section>
+<main>
+  <section id="sidebar" role="tabpanel">
+    <h2>Рабочие пространства</h2>
+    <div id="spaces" class="list"></div>
+
+    <h2>Закрепы <span class="hint">· папка закладок «Luminoctis»</span></h2>
+    <div id="pins" class="list"></div>
+    <div class="actions">
+      <button id="pin-current" class="dashed">+ Текущий сайт</button>
+      <input id="pin-search" type="search" placeholder="+ Из закладок: название или адрес">
+    </div>
+    <div id="pin-results" class="list"></div>
+
+    <h2>Вид</h2>
+    <label class="row">
+      <div class="text"><b>Плееры внизу рейки</b><span>Плитки играющих вкладок</span></div>
+      <input type="checkbox" data-pref="luminoctis.rail.hide-players" data-inverted>
+    </label>
+    <label class="row">
+      <div class="text"><b>Подпись «PIN»</b><span>Над закрепами</span></div>
+      <input type="checkbox" data-pref="luminoctis.rail.hide-pin-label" data-inverted>
+    </label>
+  </section>
+
+  <section id="look" role="tabpanel">
     <h2>Оформление <span class="soon">скоро</span></h2>
-    <div class="row disabled">
+    <div class="row stack disabled">
       <div class="text"><b>Браузер</b><span>Вкладки, боковая панель и панель адреса</span></div>
       <div class="seg"><button class="on" disabled>Tokyo Night</button><button disabled>Zen Mode</button></div>
     </div>
-    <div class="row disabled">
+    <div class="row stack disabled">
       <div class="text"><b>Сайты</b><span>LumiNet: Zen — прозрачность с блюром, Tokyo Night — тёмная палитра</span></div>
       <div class="seg"><button class="on" disabled>Выкл</button><button disabled>Zen</button><button disabled>Tokyo Night</button></div>
     </div>
+    <!-- место для выбора и правки палитры (каждый цвет — своим квадратом RGB) -->
+    <h2>Цветовая палитра <span class="soon">скоро</span></h2>
+    <div id="palette" class="row stack disabled">
+      <div class="text"><b>Tokyo Night</b><span>Можно будет выбрать другую палитру и настроить каждый цвет</span></div>
+      <div class="swatches">
+        <i style="background:#16161e"></i><i style="background:#1a1b26"></i><i style="background:#24283b"></i>
+        <i style="background:#c0caf5"></i><i style="background:#7aa2f7"></i><i style="background:#bb9af7"></i>
+        <i style="background:#7dcfff"></i><i style="background:#9ece6a"></i><i style="background:#f7768e"></i>
+      </div>
+    </div>
+    <!-- место для формы вкладок -->
+    <h2>Форма вкладок <span class="soon">скоро</span></h2>
+    <div id="tab-shape" class="row stack disabled">
+      <div class="seg"><button class="on" disabled>Закруглённые</button><button disabled>Квадратные</button><button disabled>Скошенные</button></div>
+    </div>
   </section>
 
-  <section>
+  <section id="tabs" role="tabpanel">
     <h2>Вкладки</h2>
     <label class="row">
       <div class="text"><b>Unload Countdown Time</b>
@@ -44,7 +92,31 @@
     </label>
   </section>
 
-  <section>
+  <section id="keys" role="tabpanel">
+    <h2>Шорткаты мода</h2>
+    <div class="row key-row">
+      <kbd>ПКМ</kbd><div class="text"><b>По боковой панели</b><span>Меню Luminoctis: настройки, пространства, новая вкладка</span></div>
+      <span class="ok">работает</span>
+    </div>
+    <div class="row key-row disabled">
+      <kbd>Shift + ПКМ</kbd><div class="text"><b>По вкладке</b><span>Закрыть вкладку</span></div>
+      <span class="soon">скоро</span>
+    </div>
+    <div class="row key-row disabled">
+      <kbd>Shift + ЛКМ</kbd><div class="text"><b>По вкладке</b><span>Выгрузить вкладку из памяти</span></div>
+      <span class="soon">скоро</span>
+    </div>
+    <div class="row key-row disabled">
+      <kbd>Shift + ПКМ</kbd><div class="text"><b>По закрепу</b><span>Выгрузить закреп из памяти</span></div>
+      <span class="soon">скоро</span>
+    </div>
+    <div class="row key-row disabled">
+      <kbd>Tab</kbd><div class="text"><b>Inter Menu</b><span>Клавишу можно будет сменить в разделе Inter Menu</span></div>
+      <span class="soon">скоро</span>
+    </div>
+  </section>
+
+  <section id="inter" role="tabpanel">
     <h2>Inter Menu <span class="soon">скоро</span></h2>
     <label class="row disabled">
       <div class="text"><b>Открывать Inter Menu по клавише</b><span>Отдельная вкладка на весь экран</span></div>
@@ -59,30 +131,8 @@
       <div class="key"><kbd>Tab</kbd><button disabled>Изменить</button></div>
     </div>
   </section>
-
-  <section id="sidebar">
-    <h2>Боковая панель</h2>
-    <h3>Рабочие пространства</h3>
-    <div id="spaces" class="list"></div>
-
-    <h3>Закрепы <span class="hint">— это папка закладок «Luminoctis»</span></h3>
-    <div id="pins" class="list"></div>
-    <div class="actions">
-      <button id="pin-current" class="dashed">+ Текущий сайт</button>
-      <input id="pin-search" type="search" placeholder="+ Из закладок: начните вводить название или адрес">
-    </div>
-    <div id="pin-results" class="list"></div>
-
-    <h3>Вид</h3>
-    <label class="row">
-      <div class="text"><b>Плееры внизу рейки</b><span>Плитки играющих вкладок</span></div>
-      <input type="checkbox" data-pref="luminoctis.rail.hide-players" data-inverted>
-    </label>
-    <label class="row">
-      <div class="text"><b>Подпись «PIN»</b><span>Над закрепами</span></div>
-      <input type="checkbox" data-pref="luminoctis.rail.hide-pin-label" data-inverted>
-    </label>
-  </section>
 </main>
+
+<footer><button id="done" class="primary">Готово</button></footer>
 </body>
 </html>

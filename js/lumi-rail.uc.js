@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: боковая рейка
-// @description    Рейка 56px слева: иконка Luminoctis, рабочие пространства Zen, закрепы (папка закладок «Luminoctis»), плееры.
+// @description    Рейка 56px слева: иконка Luminoctis, рабочие пространства Zen, закрепы (папка закладок «Luminoctis»), плееры; меню по правой кнопке и панель настроек мода.
 // ==/UserScript==
 
 (() => {
@@ -14,16 +14,30 @@
     return el;
   };
 
-  // Страница настроек Luminoctis (Luminoctis\settings → профиль chrome\resources\luminoctis, адрес даёт fx-autoconfig).
-  // Её открывают меню рейки и шестерёнка; уже открытая вкладка настроек переиспользуется.
+  // Настройки Luminoctis — панель справа от рейки (концепт, вид «edit»). Внутри — страница настроек
+  // (Luminoctis\settings → профиль chrome\resources\luminoctis, адрес даёт fx-autoconfig), раздел — в её адресе (#sidebar).
+  // Панель грузится при первом открытии, потом только прячется: раздел и прокрутка остаются как были.
   const SETTINGS_URL = "chrome://userchrome/content/luminoctis/settings.html";
+  let settings;
   window.luminoctis = {
     pinFolderGuid: () => pinFolderGuid(),
-    openSettings(section = "") {
-      switchToTabHavingURI(SETTINGS_URL + (section && "#" + section), true, {
-        ignoreFragment: "whenComparingAndReplace",
-        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
-      });
+    openSettings(tab) {
+      if (!settings) {
+        settings = h("div", "", { id: "lumi-settings" });
+        settings.setAttribute("role", "dialog");
+        settings.setAttribute("aria-label", "Настройки Luminoctis");
+        tab ||= Services.prefs.getStringPref("luminoctis.settings.tab", "sidebar"); // последний открытый раздел (пишет страница)
+        settings.append(h("iframe", "", { src: SETTINGS_URL + "#" + tab }));
+        document.getElementById("lumi-rail").before(settings); // до рейки: раскрытые плееры рисуются поверх панели
+      } else {
+        // полный адрес: короткий «#раздел» браузер достроил бы от адреса окна (browser.xhtml), а не страницы
+        if (tab) settings.firstChild.contentWindow.location.replace(SETTINGS_URL + "#" + tab);
+        settings.hidden = false;
+      }
+      settings.firstChild.focus(); // чтобы Esc сразу закрывал
+    },
+    closeSettings() {
+      if (settings) settings.hidden = true;
     },
   };
 

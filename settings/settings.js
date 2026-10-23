@@ -1,7 +1,8 @@
-// Страница настроек Luminoctis (chrome://userchrome/content/luminoctis/settings.html). Страница привилегированная:
-// читает и пишет настройки Firefox напрямую, закрепы — это папка закладок «Luminoctis», пространства — через gZenWorkspaces окна.
+// Панель настроек Luminoctis (chrome://userchrome/content/luminoctis/settings.html, встроена в окно справа от рейки —
+// js/lumi-rail.uc.js). Страница привилегированная: читает и пишет настройки Firefox напрямую,
+// закрепы — это папка закладок «Luminoctis», пространства — через gZenWorkspaces окна.
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
-const win = window.browsingContext.topChromeWindow; // окно браузера, в котором открыта вкладка
+const win = window.browsingContext.topChromeWindow; // окно браузера с этой панелью
 const { ContextualIdentityService } = win;
 const $ = sel => document.querySelector(sel);
 const el = (tag, props = {}, ...kids) => {
@@ -12,6 +13,27 @@ const el = (tag, props = {}, ...kids) => {
 // цвета контейнеров — как точки на рейке
 const DOT = { blue: "#7aa2f7", turquoise: "#73daca", green: "#9ece6a", yellow: "#e0af68", orange: "#ff9e64",
   red: "#f7768e", pink: "#ff007c", purple: "#bb9af7", toolbar: "#c0caf5" };
+
+// ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
+const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
+const showTab = () => {
+  const wanted = location.hash.slice(1);
+  const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "sidebar";
+  for (const b of tabButtons) b.setAttribute("aria-selected", b.dataset.tab == name);
+  for (const s of document.querySelectorAll("main > section")) s.classList.toggle("shown", s.id == name);
+  document.querySelector("main").scrollTop = 0;
+  Services.prefs.setStringPref("luminoctis.settings.tab", name); // панель откроется на нём и после перезапуска
+};
+for (const b of tabButtons) b.addEventListener("click", () => location.replace("#" + b.dataset.tab)); // без записи в историю
+window.addEventListener("hashchange", showTab);
+showTab();
+
+// «Готово» и Esc закрывают панель; клик мимо — нет, рейкой можно пользоваться и при открытых настройках
+const close = () => win.luminoctis.closeSettings();
+$("#done").addEventListener("click", close);
+window.addEventListener("keydown", event => {
+  if (event.key == "Escape" && !event.defaultPrevented) close();
+});
 
 // ---------- флажки, привязанные к настройкам (data-pref, data-inverted — флажок означает «не») ----------
 for (const box of document.querySelectorAll("input[data-pref]")) {
@@ -130,15 +152,16 @@ async function pinList() {
   const tree = await PlacesUtils.promiseBookmarksTree(folder);
   return (tree.children ?? []).filter(c => c.uri);
 }
+// название над адресом — в узкой панели так помещается больше
+const site = (title, url) => el("span", { className: "site", title: url },
+  el("span", { className: "title", textContent: title || url }), el("span", { className: "url", textContent: url }));
 async function renderPins() {
   const pins = await pinList();
   $("#pins").replaceChildren(...(pins.length ? pins.map(pin => {
     const remove = el("button", { className: "small remove", textContent: "×", title: "Убрать закреп" });
     remove.addEventListener("click", () => bookmarks.remove(pin.guid));
     return el("div", { className: "item" }, grip(),
-      el("span", { className: "icon" }, el("img", { src: `page-icon:${pin.uri}` })),
-      el("span", { className: "title", textContent: pin.title || pin.uri }),
-      el("span", { className: "url", textContent: pin.uri }), remove);
+      el("span", { className: "icon" }, el("img", { src: `page-icon:${pin.uri}` })), site(pin.title, pin.uri), remove);
   }) : [el("div", { className: "empty", textContent: "Закрепов нет — добавьте сайт кнопкой ниже" })]));
 }
 // перестановка закрепа = перенос закладки внутри папки «Luminoctis» (index — итоговое место в папке)
@@ -151,7 +174,7 @@ PlacesUtils.observers.addListener(events, renderPins);
 window.addEventListener("unload", () => PlacesUtils.observers.removeListener(events, renderPins));
 renderPins();
 
-// «Текущий сайт» — последняя открытая до настроек вкладка с обычной страницей
+// «Текущий сайт» — выбранная вкладка (или последняя открытая) с обычной страницей
 const lastSite = () => win.gBrowser.visibleTabs
   .filter(t => /^https?:/.test(t.linkedBrowser.currentURI.spec))
   .sort((a, b) => b.lastAccessed - a.lastAccessed)[0];
@@ -178,10 +201,6 @@ $("#pin-search").addEventListener("input", async event => {
     const add = el("button", { textContent: "Добавить" });
     add.addEventListener("click", () => addPin(b.url.href, b.title));
     return el("div", { className: "item" },
-      el("span", { className: "icon" }, el("img", { src: `page-icon:${b.url.href}` })),
-      el("span", { className: "title", textContent: b.title || b.url.href }),
-      el("span", { className: "url", textContent: b.url.href }), add);
+      el("span", { className: "icon" }, el("img", { src: `page-icon:${b.url.href}` })), site(b.title, b.url.href), add);
   }));
 });
-
-if (location.hash == "#sidebar") $("#sidebar").scrollIntoView();

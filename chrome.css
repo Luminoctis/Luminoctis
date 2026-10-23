@@ -301,9 +301,9 @@
 /* Родная стопка карточек Zen не показывается — её роль играет рейка */
 #zen-media-controls-toolbar { display: none !important; }
 
-/* ---------- 8. Панель адреса: шестерёнка, без родной боковой панели Firefox ---------- */
-#lumi-gear-button { list-style-image: url("chrome://global/skin/icons/settings.svg"); }
-#PanelUI-button,                      /* меню ☰ заменит выпадающее меню шестерёнки */
+/* ---------- 8. Панель адреса: без меню ☰ и родной боковой панели Firefox ----------
+ * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. */
+#PanelUI-button,                      /* меню ☰: настройки — шестерёнкой, настройки мода — правой кнопкой по рейке */
 #zen-sidebar-top-buttons,             /* кнопка compact mode — мод держит его включённым */
 #sidebar-button, #sidebar-box, #sidebar-splitter, #sidebar-container, #sidebar-launcher-splitter {
   display: none !important;
@@ -450,3 +450,23 @@ zen-library {
 }
 @media -moz-pref("luminoctis.rail.hide-players") { #lumi-players { display: none !important; } }
 @media -moz-pref("luminoctis.rail.hide-pin-label") { #lumi-rail .lumi-caption { display: none !important; } }
+
+/* ---------- 10. Панель настроек Luminoctis — как вид «edit» концепта ----------
+ * Строит js/lumi-rail.uc.js, содержимое — страница settings/settings.html. Справа от рейки, поверх сайта;
+ * клик мимо её не закрывает (рейкой можно пользоваться), закрывают «Готово» и Esc. */
+#lumi-settings {
+  position: fixed; z-index: 4; /* как у рейки, но раньше неё в разметке: раскрытые плееры — поверх панели */
+  inset: 8px auto 8px 64px;    /* рейка 8 + 48 и зазор 8 */
+  width: 456px; max-width: calc(100vw - 80px); /* в концепте 360px — шире, чтобы ряд из пяти разделов помещался в одну строку */
+  box-sizing: border-box; overflow: hidden;
+  border-radius: var(--lumi-radius);
+  border: 1px solid color-mix(in srgb, var(--lumi-blue) 55%, transparent);
+  background: var(--lumi-surface);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);
+  -moz-window-dragging: no-drag; /* панель лежит и над полосой вкладок, за которую двигается окно */
+  transition: opacity 160ms ease-out, translate 200ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  @starting-style { opacity: 0; translate: -12px 0; }
+  & > iframe { display: block; width: 100%; height: 100%; border: none; }
+  :root[inDOMFullscreen="true"] & { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { #lumi-settings { transition: none; } }

@@ -1,37 +1,37 @@
 // ==UserScript==
 // @name           Luminoctis: панель адреса
-// @description    Кнопка-шестерёнка, порядок кнопок как в концепте (назад · обновить · вперёд → адрес → расширения → загрузки → шестерёнка; «+» — в полосе вкладок) и настройка мода «новая вкладка вместо переключения».
+// @description    Порядок кнопок как в концепте (назад · обновить · вперёд → адрес → расширения → загрузки → шестерёнка; «+» — в полосе вкладок) и настройка мода «новая вкладка вместо переключения».
 // ==/UserScript==
 
 import { CustomizableUI } from "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs";
 
-// Выпадающее меню шестерёнки — на следующем этапе, пока открывает страницу настроек Luminoctis (js/lumi-rail.uc.js).
-CustomizableUI.createWidget({
-  id: "lumi-gear-button",
-  label: "Настройки",
-  tooltiptext: "Настройки Luminoctis",
-  onCommand: event => {
-    const win = event.view ?? event.target.ownerGlobal; // CustomizableUI передаёт событие, у цели которого нет ownerGlobal
-    win.luminoctis ? win.luminoctis.openSettings() : win.openPreferences();
-  },
-});
-
+// Шестерёнка — родная кнопка Firefox «Настройки» (preferences-button): открывает настройки Zen, значок-шестерёнку даёт Zen.
+// Настройки мода — правой кнопкой по рейке (js/lumi-rail.uc.js).
 // Раскладку ставим один раз (номер версии в настройке), дальше пользователь вправе её менять.
 // Ждём первое окно: до него CustomizableUI ещё не загрузил сохранённую раскладку и перезапишет нашу.
-const LAYOUT_VERSION = 2; // 2: «+» переехал в полосу вкладок
+const LAYOUT_VERSION = 3; // 2: «+» переехал в полосу вкладок; 3: своя шестерёнка заменена родной
 function applyLayout() {
   Services.obs.removeObserver(applyLayout, "browser-delayed-startup-finished");
-  if (Services.prefs.getIntPref("luminoctis.toolbar.layout", 0) >= LAYOUT_VERSION) return;
-  const order = [
-    "back-button", "stop-reload-button", "forward-button",
-    "urlbar-container", "unified-extensions-button", "downloads-button", "lumi-gear-button",
-  ];
-  order.forEach((id, i) => CustomizableUI.addWidgetToArea(id, CustomizableUI.AREA_NAVBAR, i));
-  for (const id of CustomizableUI.getWidgetIdsInArea(CustomizableUI.AREA_NAVBAR)) {
-    if (CustomizableUI.isSpecialWidget(id)) CustomizableUI.removeWidgetFromArea(id); // пружины
+  const version = Services.prefs.getIntPref("luminoctis.toolbar.layout", 0);
+  if (version >= LAYOUT_VERSION) return;
+  if (version == 2) {
+    // раскладка уже стоит (возможно, с правками пользователя) — меняем только кнопку, на том же месте
+    const gear = CustomizableUI.getPlacementOfWidget("lumi-gear-button", false);
+    if (gear) CustomizableUI.addWidgetToArea("preferences-button", gear.area, gear.position);
+    CustomizableUI.removeWidgetFromArea("lumi-gear-button");
+  } else {
+    const order = [
+      "back-button", "stop-reload-button", "forward-button",
+      "urlbar-container", "unified-extensions-button", "downloads-button", "preferences-button",
+    ];
+    order.forEach((id, i) => CustomizableUI.addWidgetToArea(id, CustomizableUI.AREA_NAVBAR, i));
+    for (const id of CustomizableUI.getWidgetIdsInArea(CustomizableUI.AREA_NAVBAR)) {
+      if (CustomizableUI.isSpecialWidget(id)) CustomizableUI.removeWidgetFromArea(id); // пружины
+    }
+    CustomizableUI.removeWidgetFromArea("sidebar-button"); // родная боковая панель не нужна
+    CustomizableUI.removeWidgetFromArea("new-tab-button"); // «+» теперь в полосе вкладок
+    CustomizableUI.removeWidgetFromArea("lumi-gear-button"); // своя шестерёнка до версии 3
   }
-  CustomizableUI.removeWidgetFromArea("sidebar-button"); // родная боковая панель не нужна
-  CustomizableUI.removeWidgetFromArea("new-tab-button"); // «+» теперь в полосе вкладок
   Services.prefs.setIntPref("luminoctis.toolbar.layout", LAYOUT_VERSION);
 }
 Services.obs.addObserver(applyLayout, "browser-delayed-startup-finished");

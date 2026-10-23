@@ -1,20 +1,27 @@
 /* Luminoctis — мод для Zen Browser 1.23.4b. Этап 1: Tokyo Night, compact mode, окно сайта вплотную к краям, серые выгруженные вкладки. Этап 2: рейка (см. js/). Этап 3: вкладки полосой сверху. */
 
-/* ---------- 1. Палитра Tokyo Night ---------- */
+/* ---------- 1. Палитра (17 токенов) ----------
+ * Значения ниже — Tokyo Night, запасные: js/lumi-palette.sys.mjs ставит цвета выбранной палитры
+ * (и правки пользователя) инлайн-стилем на :root, они перекрывают эти. Все цвета мода — только через токены. */
 :root {
-  /* слои: окно #16161e → рейка и вкладки #1a1b26 → поверхности #1f2335 → выбранное и поднятое #24283b */
-  --lumi-bg0: #16161e; /* фон окна, полоса вкладок, панель адреса */
-  --lumi-bg1: #1a1b26; /* рейка, вкладки */
-  --lumi-bg2: #24283b; /* выбранная вкладка, активное пространство, поле адреса в фокусе */
+  /* слои: окно → рейка и вкладки → поверхности → выбранное */
+  --lumi-bg0: #16161e;     /* фон окна, полоса вкладок, панель адреса; текст на акценте */
+  --lumi-bg1: #1a1b26;     /* рейка, вкладки, меню */
+  --lumi-surface: #1f2335; /* закрепы, поле адреса, наведение, карточки, панель настроек */
+  --lumi-raised: #24283b;  /* выбранная вкладка, активное пространство, поле адреса в фокусе */
   --lumi-fg: #c0caf5;
+  --lumi-muted: #a9b1d6;
   --lumi-dim: #565f89;
-  --lumi-blue: #7aa2f7;
-  --lumi-purple: #bb9af7;
-  --lumi-cyan: #7dcfff;
+  --lumi-accent: #7aa2f7;  /* выбор, фокус, кнопки, черта перетаскивания */
+  /* именованные цвета: точки контейнеров, ссылки, «закрыть» */
+  --lumi-blue: #7aa2f7; --lumi-cyan: #7dcfff; --lumi-teal: #73daca; --lumi-green: #9ece6a; --lumi-yellow: #e0af68;
+  --lumi-orange: #ff9e64; --lumi-red: #f7768e; --lumi-pink: #ff007c; --lumi-purple: #bb9af7;
+  --lumi-line: var(--lumi-raised); /* производные — не правятся отдельно */
+  --lumi-mono: "JetBrains Mono", Consolas, monospace;
   --lumi-radius: 16px;
 
   /* Zen ставит цвета рабочего пространства инлайн-стилем на :root — поэтому !important */
-  --zen-primary-color: var(--lumi-blue) !important;
+  --zen-primary-color: var(--lumi-accent) !important;
   --zen-main-browser-background: var(--lumi-bg0) !important;
   --zen-main-browser-background-toolbar: var(--lumi-bg0) !important;
   --zen-main-browser-background-old: var(--lumi-bg0) !important;
@@ -28,30 +35,30 @@
   --toolbar-color: var(--lumi-fg) !important;
   --toolbar-color-scheme: dark !important;
   --toolbarbutton-icon-fill: var(--lumi-fg) !important;
-  --toolbarbutton-background-color-hover: color-mix(in srgb, var(--lumi-bg2) 80%, transparent) !important;
-  --toolbarbutton-background-color-active: var(--lumi-bg2) !important;
-  --tab-background-color-hover: color-mix(in srgb, var(--lumi-bg2) 70%, transparent) !important;
+  --toolbarbutton-background-color-hover: color-mix(in srgb, var(--lumi-raised) 80%, transparent) !important;
+  --toolbarbutton-background-color-active: var(--lumi-raised) !important;
+  --tab-background-color-hover: color-mix(in srgb, var(--lumi-raised) 70%, transparent) !important;
 
-  --toolbar-field-background-color: #1f2335 !important;
-  --toolbar-field-focus-background-color: var(--lumi-bg2) !important;
+  --toolbar-field-background-color: var(--lumi-surface) !important;
+  --toolbar-field-focus-background-color: var(--lumi-raised) !important;
   --toolbar-field-color: var(--lumi-fg) !important;
   --toolbar-field-focus-color: var(--lumi-fg) !important;
-  --toolbar-field-focus-border-color: var(--lumi-blue) !important;
-  --urlbar-box-hover-bgcolor: var(--lumi-bg2) !important;
-  --urlbar-box-active-bgcolor: var(--lumi-bg2) !important;
+  --toolbar-field-focus-border-color: var(--lumi-accent) !important;
+  --urlbar-box-hover-bgcolor: var(--lumi-raised) !important;
+  --urlbar-box-active-bgcolor: var(--lumi-raised) !important;
 
   --arrowpanel-background: var(--lumi-bg1) !important;
   --arrowpanel-color: var(--lumi-fg) !important;
-  --arrowpanel-border-color: var(--lumi-bg2) !important;
-  --panel-separator-color: var(--lumi-bg2) !important;
+  --arrowpanel-border-color: var(--lumi-raised) !important;
+  --panel-separator-color: var(--lumi-raised) !important;
   --menu-background-color: var(--lumi-bg1) !important;
   --menu-color: var(--lumi-fg) !important;
-  --menuitem-hover-background-color: var(--lumi-bg2) !important;
-  --focus-outline-color: var(--lumi-blue) !important;
-  --color-accent-primary: var(--lumi-blue) !important;
+  --menuitem-hover-background-color: var(--lumi-raised) !important;
+  --focus-outline-color: var(--lumi-accent) !important;
+  --color-accent-primary: var(--lumi-accent) !important;
 }
 
-::selection { background: color-mix(in srgb, var(--lumi-blue) 35%, transparent); }
+::selection { background: color-mix(in srgb, var(--lumi-accent) 35%, transparent); }
 
 /* Вкладки: высота ~28px, выбранная — тёмно-синяя с акцентом */
 #tabbrowser-tabs {
@@ -60,8 +67,8 @@
 .tabbrowser-tab {
   color: var(--lumi-fg);
   &[visuallyselected] > .tab-stack > .tab-background {
-    background: var(--lumi-bg2) !important;
-    box-shadow: inset 2px 0 0 var(--lumi-blue) !important;
+    background: var(--lumi-raised) !important;
+    box-shadow: inset 2px 0 0 var(--lumi-accent) !important;
   }
   &[visuallyselected] .tab-label { color: var(--lumi-fg); }
   &:not([visuallyselected]) .tab-label { color: color-mix(in srgb, var(--lumi-fg) 80%, var(--lumi-dim)); }
@@ -69,13 +76,13 @@
 
 /* Адресная строка */
 #urlbar-background {
-  background: #1f2335 !important;
+  background: var(--lumi-surface) !important;
   border-color: transparent !important;
 }
 #urlbar[focused] > #urlbar-background,
 #urlbar[breakout-extend] > #urlbar-background {
-  background: var(--lumi-bg2) !important;
-  outline: 1px solid var(--lumi-blue) !important;
+  background: var(--lumi-raised) !important;
+  outline: 1px solid var(--lumi-accent) !important;
 }
 #urlbar-input, #urlbar .urlbar-input { color: var(--lumi-fg) !important; }
 /* выбор поисковика — первым слева, за ним кнопка «скопировать ссылку» Zen (у неё order: -1) */
@@ -84,7 +91,7 @@
   /* с browser.urlbar.unifiedSearchButton.always Firefox на открытом сайте рисует лупу — оставляем значок поисковика */
   --button-icon-content: initial !important;
 }
-.urlbarView-row[selected] { background: var(--lumi-bg2) !important; }
+.urlbarView-row[selected] { background: var(--lumi-raised) !important; }
 .urlbarView-url, .urlbarView-action { color: var(--lumi-cyan) !important; }
 
 /* ---------- 3. Окно сайта вплотную к правому и нижнему краю ---------- */
@@ -124,19 +131,6 @@
 
 /* ==================== Этап 2: боковая рейка, закрепы, плееры, панель адреса ====================
  * Разметку рейки строит js/lumi-rail.uc.js (нужен fx-autoconfig), порядок кнопок — js/lumi-toolbar.sys.mjs. */
-:root {
-  --lumi-surface: #1f2335; /* закрепы, поле адреса, наведение, карточки, меню */
-  --lumi-raised: #24283b;
-  --lumi-line: #24283b;
-  --lumi-muted: #a9b1d6;
-  --lumi-dim2: #565f89;
-  --lumi-green: #9ece6a;
-  --lumi-orange: #ff9e64;
-  --lumi-red: #f7768e;
-  --lumi-yellow: #e0af68;
-  --lumi-teal: #73daca;
-  --lumi-mono: "JetBrains Mono", Consolas, monospace;
-}
 
 /* ---------- 5. Рейка 48px (плитки 34px) ---------- */
 #lumi-rail {
@@ -163,15 +157,15 @@
 }
 .lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }
 .lumi-spacer { flex-grow: 1; }
-.lumi-caption { font-family: var(--lumi-mono); font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: var(--lumi-dim2); }
+.lumi-caption { font-family: var(--lumi-mono); font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: var(--lumi-dim); }
 
 #lumi-logo {
   width: 34px; height: 34px; flex-shrink: 0;
   border: none; border-radius: 10px; padding: 0;
-  background: var(--lumi-bg2); color: var(--lumi-blue);
+  background: var(--lumi-raised); color: var(--lumi-accent);
   font-family: var(--lumi-mono) !important; font-size: 16px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
   transition: box-shadow 0.2s;
-  &:hover { box-shadow: 0 0 0 1px var(--lumi-blue), 0 0 16px color-mix(in srgb, var(--lumi-blue) 55%, transparent); }
+  &:hover { box-shadow: 0 0 0 1px var(--lumi-accent), 0 0 16px color-mix(in srgb, var(--lumi-accent) 55%, transparent); }
 }
 
 /* Рабочие пространства — родные кнопки Zen столбиком 40×40, с точкой контейнера */
@@ -189,7 +183,7 @@
     fill: currentColor !important; fill-opacity: 1 !important;
     filter: none !important; opacity: 1 !important;
     & .zen-workspace-icon { opacity: 1 !important; transform: none !important; font-size: 15px; fill: currentColor !important; &:is(img) { width: 17px; } }
-    &[active="true"] { border: 1px solid var(--lumi-blue); background: var(--lumi-bg2) !important; color: var(--lumi-blue); }
+    &[active="true"] { border: 1px solid var(--lumi-accent); background: var(--lumi-raised) !important; color: var(--lumi-accent); }
     &:hover:not([active="true"]) { background: var(--lumi-surface) !important; }
     /* точка контейнера в правом нижнем углу. Zen рисует свой ::after (точку по центру) при нехватке места
      * и при наведении; userChrome — пользовательский уровень, он уступает стилям Zen, поэтому всё с !important */
@@ -207,7 +201,7 @@
     &[lumi-container="yellow"] { --lumi-dot: var(--lumi-yellow); }
     &[lumi-container="orange"] { --lumi-dot: var(--lumi-orange); }
     &[lumi-container="red"] { --lumi-dot: var(--lumi-red); }
-    &[lumi-container="pink"] { --lumi-dot: #ff007c; }
+    &[lumi-container="pink"] { --lumi-dot: var(--lumi-pink); }
     &[lumi-container="purple"] { --lumi-dot: var(--lumi-purple); }
     &[lumi-container="toolbar"] { --lumi-dot: var(--lumi-fg); }
   }
@@ -224,14 +218,14 @@
   -moz-window-dragging: no-drag;
   transition: translate 300ms ease-in, opacity 300ms ease-in;
   & img { width: 18px; height: 18px; pointer-events: none; }
-  &:is(:hover, :focus-visible) { outline: 2px solid var(--lumi-blue); }
-  &[selected] { border-color: var(--lumi-blue); background: var(--lumi-bg2); } /* открыт — окошком или во вкладке */
+  &:is(:hover, :focus-visible) { outline: 2px solid var(--lumi-accent); }
+  &[selected] { border-color: var(--lumi-accent); background: var(--lumi-raised); } /* открыт — окошком или во вкладке */
   &[pending] img { filter: grayscale(1) brightness(0.6); } /* выгружен — серый, как выгруженные вкладки */
   &[unpinning] { translate: -64px 0; opacity: 0; } /* «Открепить»: улетает влево и гаснет */
 }
 #lumi-pin-dropline {
   position: absolute; left: 6px; width: 34px; height: 2px; margin-top: -1px;
-  border-radius: 1px; background: var(--lumi-blue); pointer-events: none;
+  border-radius: 1px; background: var(--lumi-accent); pointer-events: none;
 }
 
 /* Мини-окно закрепа (концепт, экран 3): рамка с заголовком и панель вкладки закрепа поверх неё — на треть экрана у рейки;
@@ -249,7 +243,7 @@
   position: absolute; z-index: 11;
   inset: var(--lumi-pin-y) auto var(--lumi-pin-y) var(--lumi-pin-x); width: var(--lumi-pin-w);
   box-sizing: border-box; border-radius: var(--lumi-radius);
-  border: 1px solid color-mix(in srgb, var(--lumi-blue) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumi-accent) 55%, transparent);
   background: var(--lumi-surface);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
   -moz-window-dragging: no-drag;
@@ -263,7 +257,9 @@
   & .lumi-pin-title { flex: 1; min-width: 0; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   & .lumi-pin-full {
     appearance: none; width: 32px; height: 32px; padding: 0; border: none; border-radius: 8px;
-    background: center / 16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b1d6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/%3E%3C/svg%3E");
+    /* значки — масками, цвет — токеном палитры */
+    &::before { content: ""; display: block; width: 16px; height: 16px; margin: auto; background: var(--lumi-muted);
+      mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h6v6M20 4l-9 9M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5'/%3E%3C/svg%3E"); }
     &:hover { background-color: var(--lumi-raised); }
   }
 }
@@ -323,7 +319,7 @@
 #lumi-players[open] .lumi-player {
   width: 280px; height: 42px;
   margin: -4px; padding: 3px 8px 3px 3px;
-  border-width: 1px; border-color: var(--lumi-blue); border-radius: 12px;
+  border-width: 1px; border-color: var(--lumi-accent); border-radius: 12px;
   background-color: var(--lumi-surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   transition-duration: 200ms;
@@ -338,14 +334,18 @@
   .lumi-player, .lumi-player * { transition: none !important; }
 }
 .lumi-player-title { font-size: 12.5px; font-weight: 500; color: var(--lumi-fg); }
-.lumi-player-artist { font-size: 11px; color: var(--lumi-dim2); &:empty { display: none; } }
-.lumi-player-prev { width: 26px; height: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b1d6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 9 12l9 6zM6 6v12'/%3E%3C/svg%3E"); }
-.lumi-player-next { width: 26px; height: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b1d6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 6 9 6-9 6zM18 6v12'/%3E%3C/svg%3E"); }
-.lumi-player :is(.lumi-player-prev, .lumi-player-next):disabled { opacity: 0.35; }
+.lumi-player-artist { font-size: 11px; color: var(--lumi-dim); &:empty { display: none; } }
+.lumi-player :is(.lumi-player-prev, .lumi-player-next) {
+  width: 26px; height: 26px; background-color: var(--lumi-muted) !important;
+  mask: center / 16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 9 12l9 6zM6 6v12'/%3E%3C/svg%3E");
+  &:disabled { opacity: 0.35; }
+}
+.lumi-player .lumi-player-next { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 6 9 6-9 6zM18 6v12'/%3E%3C/svg%3E"); }
 .lumi-player-play {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: var(--lumi-blue) center / 13px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2316161e'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") !important;
-  .playing > & { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2316161e'%3E%3Cpath d='M7 5h4v14H7zM13 5h4v14h-4z'/%3E%3C/svg%3E") !important; }
+  width: 28px; height: 28px; border-radius: 50%; background: var(--lumi-accent) !important;
+  &::before { content: ""; display: block; width: 13px; height: 13px; margin: auto; background: var(--lumi-bg0);
+    mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E"); }
+  .playing > &::before { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h4v14H7zM13 5h4v14h-4z'/%3E%3C/svg%3E"); }
 }
 /* Родная стопка карточек Zen не показывается — её роль играет рейка */
 #zen-media-controls-toolbar { display: none !important; }
@@ -381,6 +381,7 @@ zen-library {
   /* Закон Фиттса: полоса прижата к верхнему краю окна, вкладки, «+» и кнопки окна кликаются от самого края (y=0),
    * видимая «таблетка» вкладки — с отступом 4px сверху (рисуется ::before) */
   --lumi-strip-h: 36px; --lumi-pill-top: 4px; --lumi-pill-h: 28px;
+  --lumi-tab-radius: 10px; /* форма вкладок — настройка luminoctis.tabs.shape, см. ниже */
   position: relative;
   height: var(--lumi-strip-h); margin-top: 0; flex-shrink: 0;
   display: flex; align-items: stretch;
@@ -402,17 +403,18 @@ zen-library {
   color: var(--lumi-muted);
   -moz-window-dragging: no-drag;
   /* таблетка: фон, рамка, наведение, выбор */
+  --pill-bg: var(--lumi-bg1); --pill-line: transparent;
   &::before {
-    content: ""; position: absolute; z-index: -1;
+    content: ""; position: absolute; z-index: -1; pointer-events: none;
     inset: var(--lumi-pill-top) 0 auto 0; height: var(--lumi-pill-h);
-    border-radius: 10px; border: 1px solid transparent; box-sizing: border-box;
-    background: var(--lumi-bg1);
+    border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
+    background: var(--pill-bg);
   }
   & > * { pointer-events: none; flex-shrink: 0; }
   & .lumi-tab-icon { width: 16px; height: 16px; margin-left: 9px; }
   & .lumi-tab-label { flex: 1; min-width: 0; flex-shrink: 1; white-space: nowrap; overflow: hidden; mask-image: linear-gradient(to left, transparent, black 16px); }
   & :is(.lumi-tab-close, .lumi-tab-audio) {
-    pointer-events: auto; width: 20px; height: 20px; border-radius: 6px;
+    pointer-events: auto; width: 20px; height: 20px; border-radius: min(6px, var(--lumi-tab-radius));
     background: center / 12px no-repeat; -moz-context-properties: fill; fill: currentColor;
     &:hover { background-color: color-mix(in srgb, var(--lumi-fg) 15%, transparent); }
   }
@@ -421,9 +423,8 @@ zen-library {
   &[soundplaying] .lumi-tab-audio, &[muted] .lumi-tab-audio { display: block; }
   &[muted] .lumi-tab-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
 
-  &:hover:not([selected])::before { background: var(--lumi-surface); }
-  &[selected] { color: var(--lumi-fg); }
-  &[selected]::before { background: var(--lumi-bg2); border-color: var(--lumi-blue); }
+  &:hover:not([selected]) { --pill-bg: var(--lumi-surface); }
+  &[selected] { color: var(--lumi-fg); --pill-bg: var(--lumi-raised); --pill-line: var(--lumi-accent); }
   &[pending] > * { filter: grayscale(1) brightness(0.6); } /* выгруженные — серые, как в этапе 1 */
   &[busy] .lumi-tab-icon { opacity: 0.5; }
 
@@ -439,9 +440,27 @@ zen-library {
   & :is(.lumi-tab-label, .lumi-tab-close, .lumi-tab-audio) { display: none !important; }
   & .lumi-tab-icon { margin: 0 auto; }
 }
+/* Форма вкладок: Скруглённые (по умолчанию) / Квадратные / Скошенные — применяется сразу во всех окнах */
+@media -moz-pref("luminoctis.tabs.shape", "square") { #lumi-tabstrip { --lumi-tab-radius: 0px; } }
+@media -moz-pref("luminoctis.tabs.shape", "slanted") {
+  #lumi-tabstrip { --lumi-tab-radius: 4px; --lumi-slant: 10deg; }
+  .lumi-tab {
+    &:first-child { margin-left: 3px; } /* нижние углы выступают на 2,5px — край прокрутки их срезал бы */
+    &:last-child { margin-right: 3px; }
+    &[selected] { z-index: 1; }
+    /* трапеция — две половины, скошенные в разные стороны: рамка идёт по косым краям; половины заходят друг на друга на 3px, без шва.
+     * clip-path не годится: срезает рамку на косых краях и сужает область клика (Фиттс от y=0) */
+    &::before { right: calc(50% - 3px); border-right-width: 0;
+      border-radius: var(--lumi-tab-radius) 0 0 var(--lumi-tab-radius); transform: skewX(calc(-1 * var(--lumi-slant))); }
+    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; box-sizing: border-box;
+      top: var(--lumi-pill-top); height: var(--lumi-pill-h); left: calc(50% - 3px); right: 0;
+      background: var(--pill-bg); border: 1px solid var(--pill-line); border-left-width: 0;
+      border-radius: 0 var(--lumi-tab-radius) var(--lumi-tab-radius) 0; transform: skewX(var(--lumi-slant)); }
+  }
+}
 #lumi-tab-dropline {
   position: absolute; top: var(--lumi-pill-top); width: 2px; height: var(--lumi-pill-h); margin-left: -1px;
-  border-radius: 1px; background: var(--lumi-blue); pointer-events: none;
+  border-radius: 1px; background: var(--lumi-accent); pointer-events: none;
 }
 
 /* «+» и тонкая черта перед кнопками окна; «+» тоже кликается от верхнего края */
@@ -450,11 +469,11 @@ zen-library {
   padding: var(--lumi-pill-top) 0 calc(var(--lumi-strip-h) - var(--lumi-pill-top) - var(--lumi-pill-h)) 0 !important;
   height: var(--lumi-strip-h); align-items: flex-start !important;
   list-style-image: url("chrome://global/skin/icons/plus.svg");
-  & > .toolbarbutton-icon { width: 32px !important; height: var(--lumi-pill-h) !important; padding: 7px 9px !important; border-radius: 8px; }
+  & > .toolbarbutton-icon { width: 32px !important; height: var(--lumi-pill-h) !important; padding: 7px 9px !important; border-radius: min(8px, var(--lumi-tab-radius)); }
   &:hover > .toolbarbutton-icon { background-color: var(--lumi-surface) !important; }
   & > .toolbarbutton-text { display: none !important; }
 }
-#lumi-strip-separator { width: 1px; height: 18px; margin: auto 0 auto 6px; flex-shrink: 0; background: var(--lumi-bg2); }
+#lumi-strip-separator { width: 1px; height: 18px; margin: auto 0 auto 6px; flex-shrink: 0; background: var(--lumi-raised); }
 
 /* кнопки окна — родные, перенесённые скриптом в конец полосы; на всю высоту полосы, «закрыть» — до угла окна */
 #lumi-tabstrip > .titlebar-buttonbox-container {
@@ -480,7 +499,7 @@ zen-library {
   --panel-background: var(--lumi-surface) !important;
   --panel-background-color: var(--lumi-surface) !important; /* ею рисуется фон меню (popup.css); иначе — полупрозрачная подложка Windows */
   --panel-color: var(--lumi-fg) !important;
-  --panel-border-color: var(--lumi-blue) !important;
+  --panel-border-color: var(--lumi-accent) !important;
   --panel-border-radius: 12px !important;
   --panel-padding: 6px !important;
   --panel-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
@@ -488,7 +507,7 @@ zen-library {
     min-height: 34px; padding-inline: 10px !important; border-radius: 8px !important;
     color: var(--lumi-fg) !important; font: 13px Inter, system-ui, sans-serif;
     &[_moz-menuactive]:not([disabled]) { background-color: var(--lumi-raised) !important; }
-    &[disabled] { color: var(--lumi-dim2) !important; }
+    &[disabled] { color: var(--lumi-dim) !important; }
   }
   & menuseparator::before { border-color: var(--lumi-line) !important; }
 }
@@ -509,7 +528,7 @@ zen-library {
   width: 456px; max-width: calc(100vw - 80px); /* в концепте 360px — шире, чтобы ряд из пяти разделов помещался в одну строку */
   box-sizing: border-box; overflow: hidden;
   border-radius: var(--lumi-radius);
-  border: 1px solid color-mix(in srgb, var(--lumi-blue) 55%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumi-accent) 55%, transparent);
   background: var(--lumi-surface);
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 4px 14px rgba(0, 0, 0, 0.35);
   -moz-window-dragging: no-drag; /* панель лежит и над полосой вкладок, за которую двигается окно */

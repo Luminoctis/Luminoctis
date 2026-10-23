@@ -10,9 +10,12 @@ const el = (tag, props = {}, ...kids) => {
   e.append(...kids);
   return e;
 };
-// цвета контейнеров — как точки на рейке
-const DOT = { blue: "#7aa2f7", turquoise: "#73daca", green: "#9ece6a", yellow: "#e0af68", orange: "#ff9e64",
-  red: "#f7768e", pink: "#ff007c", purple: "#bb9af7", toolbar: "#c0caf5" };
+// цвета контейнеров — токены палитры, как точки на рейке
+const DOT = { blue: "blue", turquoise: "teal", green: "green", yellow: "yellow", orange: "orange",
+  red: "red", pink: "pink", purple: "purple", toolbar: "fg" };
+// палитра: цвета ставятся и на эту страницу (она отдельный документ и не наследует переменные окна)
+const palette = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
+palette.watch(document);
 
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
@@ -40,6 +43,22 @@ for (const box of document.querySelectorAll("input[data-pref]")) {
   const pref = box.dataset.pref, inverted = "inverted" in box.dataset;
   const read = () => (box.checked = Services.prefs.getBoolPref(pref, false) != inverted);
   box.addEventListener("change", () => Services.prefs.setBoolPref(pref, box.checked != inverted));
+  Services.prefs.addObserver(pref, read);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
+  read();
+}
+
+// ---------- выбор из нескольких значений (data-pref, data-default; кнопки data-value) ----------
+for (const seg of document.querySelectorAll("div[data-pref]")) {
+  const pref = seg.dataset.pref;
+  const read = () => {
+    const v = Services.prefs.getStringPref(pref, seg.dataset.default);
+    for (const b of seg.querySelectorAll("[data-value]")) b.classList.toggle("on", b.dataset.value == v);
+  };
+  seg.addEventListener("click", event => {
+    const b = event.target.closest("[data-value]");
+    if (b) Services.prefs.setStringPref(pref, b.dataset.value);
+  });
   Services.prefs.addObserver(pref, read);
   window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
   read();
@@ -118,7 +137,7 @@ function renderSpaces() {
     });
     const color = identities.find(i => i.userContextId == ws.containerTabId)?.color;
     const dot = el("span", { className: "dot" });
-    dot.style.background = DOT[color] ?? "transparent";
+    dot.style.background = DOT[color] ? `var(--lumi-${DOT[color]})` : "transparent";
     const container = el("select", { title: "Контейнер: новые вкладки пространства открываются в нём" },
       el("option", { value: 0, textContent: "Без контейнера" }),
       ...identities.map(i => el("option", { value: i.userContextId, textContent: ContextualIdentityService.getUserContextLabel(i.userContextId) })));
@@ -206,3 +225,166 @@ const findBookmarks = async () => {
   }));
 };
 search.addEventListener("input", findBookmarks);
+
+// ---------- палитра: готовые палитры и правка каждого цвета (js/lumi-palette.sys.mjs) ----------
+const SAMPLE = ["bg0", "bg1", "surface", "raised", "fg", "accent", "red", "green"];
+const chips = c => el("span", { className: "swatches" }, ...SAMPLE.map(t => {
+  const i = el("i");
+  i.style.background = c[t];
+  return i;
+}));
+function renderPresets() {
+  const id = palette.presetId();
+  $("#presets").replaceChildren(...Object.entries(palette.PRESETS).map(([key, { name }]) => {
+    const row = el("button", { className: "preset" + (key == id ? " on" : "") }, el("span", { className: "name", textContent: name }));
+    if (palette.edited(key).length) row.append(el("span", { className: "badge", textContent: "изменена" }));
+    row.append(chips(palette.colors(key)));
+    row.dataset.preset = key;
+    row.setAttribute("aria-pressed", key == id);
+    row.addEventListener("click", () => palette.choose(key));
+    return row;
+  }));
+}
+
+// пересчёт цветов: HSV (квадрат и полоса оттенка) ↔ RGB ↔ hex
+const hsv2rgb = (h, s, v) => [5, 3, 1].map(n => { const k = (n + h / 60) % 6; return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1)))); });
+const rgb2hsv = (r, g, b) => {
+  const max = Math.max(r, g, b), d = max - Math.min(r, g, b);
+  const h = d && (max == r ? (g - b) / d % 6 : max == g ? (b - r) / d + 2 : (r - g) / d + 4) * 60;
+  return [(h + 360) % 360, max && d / max, max / 255];
+};
+const toHex = rgb => "#" + rgb.map(x => x.toString(16).padStart(2, "0")).join("");
+const fromHex = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16));
+const parseHex = text => {
+  let t = text.trim().toLowerCase().replace(/^#?/, "#");
+  if (/^#[0-9a-f]{3}$/.test(t)) t = "#" + [...t.slice(1)].map(c => c + c).join("");
+  return /^#[0-9a-f]{6}$/.test(t) ? t : null;
+};
+// у серого и чёрного нет оттенка — оставляем прежний, иначе полоса оттенка прыгала бы в красный
+const hsvOf = (hex, keepHue) => { const hsv = rgb2hsv(...fromHex(hex)); return hsv[1] && hsv[2] ? hsv : [keepHue, hsv[1], hsv[2]]; };
+window.lumiColorMath = { hsv2rgb, rgb2hsv, toHex, fromHex, parseHex }; // для dev\check-look.js
+
+let editor = null; // открытый редактор цвета (один на всю палитру)
+function openEditor(token) {
+  const same = editor?.token == token;
+  editor?.node.remove();
+  editor = same ? null : makeEditor(token); // повторный клик по строке — закрыть
+  for (const row of document.querySelectorAll(".color")) {
+    const open = row.dataset.token == editor?.token;
+    row.classList.toggle("open", open);
+    row.setAttribute("aria-expanded", open);
+    if (open) row.after(editor.node);
+  }
+}
+function makeEditor(token) {
+  const sv = el("div", { className: "sv", tabIndex: 0 }, el("div", { className: "mark" }));
+  sv.setAttribute("aria-label", "Насыщенность и яркость");
+  const hue = el("input", { className: "hue", type: "range", min: 0, max: 360, step: 1, title: "Оттенок" });
+  hue.setAttribute("aria-label", "Оттенок");
+  const hexIn = el("input", { className: "hexin", type: "text", spellcheck: false, title: "Цвет: #rrggbb или #rgb" });
+  const rgbIn = [0, 1, 2].map(() => el("input", { type: "number", min: 0, max: 255 }));
+  const reset = el("button", { textContent: "Сбросить", title: "Вернуть цвет палитры" });
+  const node = el("div", { className: "editor" }, sv, hue,
+    el("div", { className: "fields" }, hexIn, ...rgbIn.map((input, i) => el("label", {}, "RGB"[i], input)), reset));
+  const ed = { token, node, hex: "", hsv: [0, 0, 0], frame: 0 };
+  // показать состояние; поле, которое сейчас правят, не трогаем
+  const show = except => {
+    const [h, s, v] = ed.hsv;
+    sv.style.setProperty("--hue", h);
+    sv.firstChild.style.left = s * 100 + "%";
+    sv.firstChild.style.top = (1 - v) * 100 + "%";
+    if (except != hue) hue.value = h;
+    if (except != hexIn) { hexIn.value = ed.hex; hexIn.classList.remove("bad"); }
+    fromHex(ed.hex).forEach((x, i) => { if (except != rgbIn[i]) rgbIn[i].value = x; });
+  };
+  // значение из настройки: открытие, смена палитры, сброс, правка из другого окна
+  ed.sync = () => {
+    ed.hex = palette.colors()[token];
+    ed.hsv = hsvOf(ed.hex, ed.hsv[0]);
+    show();
+  };
+  // своя правка: сразу в редакторе, в настройку — не чаще раза за кадр (её наблюдатель перекрашивает все окна)
+  const set = (hex, hsv, except) => {
+    ed.hex = hex;
+    ed.hsv = hsv;
+    show(except);
+    ed.frame ||= requestAnimationFrame(() => { ed.frame = 0; palette.setColor(token, ed.hex); });
+  };
+  const fromHsv = (hsv, except) => set(toHex(hsv2rgb(...hsv)), hsv, except);
+  const clamp = x => Math.min(1, Math.max(0, x));
+  const pick = event => {
+    const b = sv.getBoundingClientRect();
+    fromHsv([ed.hsv[0], clamp((event.clientX - b.left) / b.width), 1 - clamp((event.clientY - b.top) / b.height)]);
+  };
+  sv.addEventListener("pointerdown", event => { sv.setPointerCapture(event.pointerId); pick(event); });
+  sv.addEventListener("pointermove", event => { if (sv.hasPointerCapture(event.pointerId)) pick(event); });
+  sv.addEventListener("keydown", event => {
+    const step = event.shiftKey ? 0.1 : 0.01, [h, s, v] = ed.hsv;
+    const move = { ArrowLeft: [-step, 0], ArrowRight: [step, 0], ArrowUp: [0, step], ArrowDown: [0, -step] }[event.key];
+    if (!move) return;
+    event.preventDefault();
+    fromHsv([h, clamp(s + move[0]), clamp(v + move[1])]);
+  });
+  hue.addEventListener("input", () => fromHsv([Number(hue.value), ed.hsv[1], ed.hsv[2]], hue));
+  hexIn.addEventListener("input", () => {
+    const hex = parseHex(hexIn.value);
+    hexIn.classList.toggle("bad", !hex); // неверное значение не сохраняется
+    if (hex) set(hex, hsvOf(hex, ed.hsv[0]), hexIn);
+  });
+  hexIn.addEventListener("change", () => show()); // после ввода — привести к #rrggbb
+  rgbIn.forEach(input => input.addEventListener("input", () => {
+    const hex = toHex(rgbIn.map(i => Math.min(255, Math.max(0, Math.round(Number(i.value) || 0)))));
+    set(hex, hsvOf(hex, ed.hsv[0]), input);
+  }));
+  reset.addEventListener("click", () => palette.resetColor(token));
+  ed.sync();
+  return ed;
+}
+
+// строки цветов строятся один раз; при смене цветов только обновляются — редактор под строкой не пересоздаётся
+// (иначе посреди перетаскивания по квадрату терялся бы захват мыши)
+const colorRows = [];
+for (const [group, labels] of palette.GROUPS) {
+  colorRows.push(el("div", { className: "group", textContent: group }));
+  for (const [token, label] of Object.entries(labels)) {
+    const undo = el("button", { className: "small", textContent: "↺", title: "Вернуть цвет палитры" });
+    undo.addEventListener("click", event => { event.stopPropagation(); palette.resetColor(token); });
+    const row = el("div", { className: "color", tabIndex: 0, title: "Изменить цвет" },
+      el("span", { className: "chip" }), el("span", { className: "label", textContent: label }), el("span", { className: "hex" }), undo);
+    row.dataset.token = token;
+    row.setAttribute("role", "button");
+    row.setAttribute("aria-expanded", false);
+    row.addEventListener("click", () => openEditor(token));
+    row.addEventListener("keydown", event => {
+      if (event.target == row && (event.key == "Enter" || event.key == " ")) { event.preventDefault(); openEditor(token); }
+    });
+    colorRows.push(row);
+  }
+}
+$("#colors").append(...colorRows);
+function renderColors() {
+  const c = palette.colors(), changed = palette.edited();
+  for (const row of document.querySelectorAll(".color")) {
+    const t = row.dataset.token;
+    row.querySelector(".chip").style.background = c[t];
+    row.querySelector(".hex").textContent = c[t];
+    row.querySelector(".small").hidden = !changed.includes(t);
+  }
+  $("#palette-reset").disabled = !changed.length;
+}
+$("#palette-reset").addEventListener("click", () => palette.resetPalette());
+const renderPalette = () => {
+  // настройку поменяли не из редактора — показать новый цвет; во время своей правки (ждёт кадра) — не мешать
+  if (editor && !editor.frame && palette.colors()[editor.token] != editor.hex) editor.sync();
+  renderPresets();
+  renderColors();
+};
+let paletteQueued = false; // «Сбросить палитру» меняет много настроек — перерисовка одна
+const onPalette = () => {
+  if (paletteQueued) return;
+  paletteQueued = true;
+  Promise.resolve().then(() => { paletteQueued = false; renderPalette(); });
+};
+Services.prefs.addObserver("luminoctis.palette", onPalette);
+window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.palette", onPalette));
+renderPalette();

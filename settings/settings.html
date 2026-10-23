@@ -54,20 +54,17 @@
       <div class="text"><b>Сайты</b><span>LumiNet: Zen — прозрачность с блюром, Tokyo Night — тёмная палитра</span></div>
       <div class="seg"><button class="on" disabled>Выкл</button><button disabled>Zen</button><button disabled>Tokyo Night</button></div>
     </div>
-    <!-- место для выбора и правки палитры (каждый цвет — своим квадратом RGB) -->
-    <h2>Цветовая палитра <span class="soon">скоро</span></h2>
-    <div id="palette" class="row stack disabled">
-      <div class="text"><b>Tokyo Night</b><span>Можно будет выбрать другую палитру и настроить каждый цвет</span></div>
-      <div class="swatches">
-        <i style="background:#16161e"></i><i style="background:#1a1b26"></i><i style="background:#24283b"></i>
-        <i style="background:#c0caf5"></i><i style="background:#7aa2f7"></i><i style="background:#bb9af7"></i>
-        <i style="background:#7dcfff"></i><i style="background:#9ece6a"></i><i style="background:#f7768e"></i>
-      </div>
-    </div>
-    <!-- место для формы вкладок -->
-    <h2>Форма вкладок <span class="soon">скоро</span></h2>
-    <div id="tab-shape" class="row stack disabled">
-      <div class="seg"><button class="on" disabled>Закруглённые</button><button disabled>Квадратные</button><button disabled>Скошенные</button></div>
+    <h2>Цветовая палитра</h2>
+    <div id="presets" class="list"></div>
+    <div class="palette-head"><h2>Цвета</h2><span class="hint">клик — изменить; правки — свои у каждой палитры</span></div>
+    <div id="colors" class="list"></div>
+    <button id="palette-reset" class="dashed">Сбросить палитру</button>
+
+    <h2>Форма вкладок</h2>
+    <div class="shapes" data-pref="luminoctis.tabs.shape" data-default="rounded">
+      <button data-value="rounded"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="4"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="4"/></svg>Скруглённые</button>
+      <button data-value="square"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="0"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="0"/></svg>Квадратные</button>
+      <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Скошенные</button>
     </div>
   </section>
 

@@ -1,0 +1,74 @@
+/* Страница настроек Luminoctis — как вид «settings» и «edit» в концепте (Main.dc.html), Tokyo Night */
+:root {
+  --bg: #1a1b26; --surface: #1f2335; --raised: #24283b; --line: #24283b;
+  --text: #c0caf5; --muted: #a9b1d6; --dim: #565f89; --accent: #7aa2f7; --on-accent: #16161e; --red: #f7768e;
+  color-scheme: dark;
+}
+body {
+  margin: 0; background: var(--bg); color: var(--text);
+  font: 14px Inter, system-ui, sans-serif;
+}
+main { max-width: 820px; padding: 40px 56px 80px; box-sizing: border-box; display: flex; flex-direction: column; gap: 28px; }
+h1 { margin: 0; font-size: 26px; font-weight: 600; }
+section { display: flex; flex-direction: column; gap: 10px; scroll-margin-top: 24px; }
+h2 { margin: 0; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--dim); }
+h3 { margin: 10px 0 0; font-size: 13px; font-weight: 600; color: var(--muted); }
+.hint { font-weight: 400; color: var(--dim); }
+.soon {
+  margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--raised);
+  font-size: 10px; letter-spacing: 0.04em; text-transform: none; color: var(--muted);
+}
+
+.row {
+  display: flex; align-items: center; justify-content: space-between; gap: 24px;
+  padding: 14px 16px; border-radius: 12px; background: var(--surface); border: 1px solid var(--line);
+}
+.row.disabled { opacity: 0.55; }
+.text { display: flex; flex-direction: column; gap: 4px; }
+.text b { font-size: 14px; font-weight: 500; }
+.text span { font-size: 12px; color: var(--muted); }
+
+.seg { display: flex; gap: 4px; padding: 4px; border-radius: 10px; background: var(--raised); flex-shrink: 0; }
+button {
+  height: 32px; padding: 0 14px; border-radius: 8px; border: 1px solid var(--line);
+  background: transparent; color: var(--text); font: 500 13px Inter, sans-serif; cursor: pointer;
+  &:hover:not(:disabled) { background: var(--raised); }
+  &:disabled { cursor: default; }
+}
+.seg button { border: none; color: var(--muted); &.on { background: var(--accent); color: var(--on-accent); } }
+select, input[type="search"], input[type="text"] {
+  height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line);
+  background: var(--raised); color: var(--text); font: 500 13px Inter, sans-serif;
+  &:focus { outline: 1px solid var(--accent); }
+}
+input[type="checkbox"] { accent-color: var(--accent); width: 18px; height: 18px; flex-shrink: 0; }
+.key { display: flex; align-items: center; gap: 8px; }
+kbd { font: 500 13px "JetBrains Mono", Consolas, monospace; padding: 6px 12px; border-radius: 8px; border: 1px solid var(--accent); background: var(--raised); }
+
+/* списки пространств и закрепов — как в виде «edit» концепта */
+.list { display: flex; flex-direction: column; gap: 8px; }
+.item {
+  display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 10px; background: var(--surface);
+  & .icon {
+    width: 34px; height: 34px; flex-shrink: 0; padding: 0; border-radius: 9px; border: 1px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 17px;
+    & img { width: 18px; height: 18px; -moz-context-properties: fill; fill: var(--text); }
+  }
+  & .name { flex: 1; min-width: 0; height: 32px; border: none; background: transparent; padding: 0 6px; }
+  & .url { flex: 1; min-width: 0; font: 12px "JetBrains Mono", Consolas, monospace; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  & .title { width: 30%; font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  & .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; background: transparent; }
+  & select { height: 30px; font-size: 12px; background: var(--bg); }
+  & .small { width: 28px; height: 28px; padding: 0; border: none; color: var(--muted); }
+  & .remove { color: var(--red); }
+}
+.actions { display: flex; gap: 8px; }
+.actions input { flex: 1; }
+.dashed { height: 36px; border-style: dashed; color: var(--muted); }
+.empty { padding: 10px 16px; color: var(--dim); font-size: 13px; }
+
+/* перетаскивание строк */
+.grip { width: 18px; flex-shrink: 0; text-align: center; color: var(--dim); cursor: grab; user-select: none; font-size: 16px; }
+.item.dragging { opacity: 0.5; }
+.item.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.item.drop-after { box-shadow: 0 2px 0 var(--accent); }

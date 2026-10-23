@@ -1,0 +1,452 @@
+/* Luminoctis — мод для Zen Browser 1.23.4b. Этап 1: Tokyo Night, compact mode, окно сайта вплотную к краям, серые выгруженные вкладки. Этап 2: рейка (см. js/). Этап 3: вкладки полосой сверху. */
+
+/* ---------- 1. Палитра Tokyo Night ---------- */
+:root {
+  /* слои: окно #16161e → рейка и вкладки #1a1b26 → поверхности #1f2335 → выбранное и поднятое #24283b */
+  --lumi-bg0: #16161e; /* фон окна, полоса вкладок, панель адреса */
+  --lumi-bg1: #1a1b26; /* рейка, вкладки */
+  --lumi-bg2: #24283b; /* выбранная вкладка, активное пространство, поле адреса в фокусе */
+  --lumi-fg: #c0caf5;
+  --lumi-dim: #565f89;
+  --lumi-blue: #7aa2f7;
+  --lumi-purple: #bb9af7;
+  --lumi-cyan: #7dcfff;
+  --lumi-radius: 16px;
+
+  /* Zen ставит цвета рабочего пространства инлайн-стилем на :root — поэтому !important */
+  --zen-primary-color: var(--lumi-blue) !important;
+  --zen-main-browser-background: var(--lumi-bg0) !important;
+  --zen-main-browser-background-toolbar: var(--lumi-bg0) !important;
+  --zen-main-browser-background-old: var(--lumi-bg0) !important;
+  --zen-main-browser-background-toolbar-old: var(--lumi-bg0) !important;
+  --zen-themed-toolbar-bg-transparent: var(--lumi-bg0) !important;
+  --zen-colors-border: color-mix(in srgb, var(--lumi-dim) 40%, transparent) !important;
+  --zen-dialog-background: var(--lumi-bg1) !important;
+  --zen-urlbar-background: var(--lumi-bg1) !important;
+
+  --toolbox-textcolor: var(--lumi-fg) !important;
+  --toolbar-color: var(--lumi-fg) !important;
+  --toolbar-color-scheme: dark !important;
+  --toolbarbutton-icon-fill: var(--lumi-fg) !important;
+  --toolbarbutton-background-color-hover: color-mix(in srgb, var(--lumi-bg2) 80%, transparent) !important;
+  --toolbarbutton-background-color-active: var(--lumi-bg2) !important;
+  --tab-background-color-hover: color-mix(in srgb, var(--lumi-bg2) 70%, transparent) !important;
+
+  --toolbar-field-background-color: #1f2335 !important;
+  --toolbar-field-focus-background-color: var(--lumi-bg2) !important;
+  --toolbar-field-color: var(--lumi-fg) !important;
+  --toolbar-field-focus-color: var(--lumi-fg) !important;
+  --toolbar-field-focus-border-color: var(--lumi-blue) !important;
+  --urlbar-box-hover-bgcolor: var(--lumi-bg2) !important;
+  --urlbar-box-active-bgcolor: var(--lumi-bg2) !important;
+
+  --arrowpanel-background: var(--lumi-bg1) !important;
+  --arrowpanel-color: var(--lumi-fg) !important;
+  --arrowpanel-border-color: var(--lumi-bg2) !important;
+  --panel-separator-color: var(--lumi-bg2) !important;
+  --menu-background-color: var(--lumi-bg1) !important;
+  --menu-color: var(--lumi-fg) !important;
+  --menuitem-hover-background-color: var(--lumi-bg2) !important;
+  --focus-outline-color: var(--lumi-blue) !important;
+  --color-accent-primary: var(--lumi-blue) !important;
+}
+
+::selection { background: color-mix(in srgb, var(--lumi-blue) 35%, transparent); }
+
+/* Вкладки: высота ~28px, выбранная — тёмно-синяя с акцентом */
+#tabbrowser-tabs {
+  --tab-min-height: 28px !important;
+}
+.tabbrowser-tab {
+  color: var(--lumi-fg);
+  &[visuallyselected] > .tab-stack > .tab-background {
+    background: var(--lumi-bg2) !important;
+    box-shadow: inset 2px 0 0 var(--lumi-blue) !important;
+  }
+  &[visuallyselected] .tab-label { color: var(--lumi-fg); }
+  &:not([visuallyselected]) .tab-label { color: color-mix(in srgb, var(--lumi-fg) 80%, var(--lumi-dim)); }
+}
+
+/* Адресная строка */
+#urlbar-background {
+  background: #1f2335 !important;
+  border-color: transparent !important;
+}
+#urlbar[focused] > #urlbar-background,
+#urlbar[breakout-extend] > #urlbar-background {
+  background: var(--lumi-bg2) !important;
+  outline: 1px solid var(--lumi-blue) !important;
+}
+#urlbar-input, #urlbar .urlbar-input { color: var(--lumi-fg) !important; }
+/* выбор поисковика — первым слева, за ним кнопка «скопировать ссылку» Zen (у неё order: -1) */
+#urlbar .searchmode-switcher {
+  order: -2 !important;
+  /* с browser.urlbar.unifiedSearchButton.always Firefox на открытом сайте рисует лупу — оставляем значок поисковика */
+  --button-icon-content: initial !important;
+}
+.urlbarView-row[selected] { background: var(--lumi-bg2) !important; }
+.urlbarView-url, .urlbarView-action { color: var(--lumi-cyan) !important; }
+
+/* ---------- 3. Окно сайта вплотную к правому и нижнему краю ---------- */
+:root:not([inDOMFullscreen="true"]):not([popup-window]) {
+  & #zen-tabbox-wrapper {
+    margin-right: 0 !important;
+    margin-bottom: 0 !important;
+  }
+  & #tabbrowser-tabbox #tabbrowser-tabpanels .browserSidebarContainer:not(.zen-glance-overlay):not([is-zen-split="true"]) {
+    border-radius: var(--lumi-radius) 0 0 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+/* ---------- 2. Верхняя полоса выезжает и при наведении на полосу вкладок (#lumi-tabstrip, раздел 9) ----------
+ * Родной compact mode (zen.view.compact.hide-toolbar) сам открывает её у верхнего края.
+ * Здесь то же раскрытие, пока мышь над панелью вкладок или над самой полосой. */
+@media -moz-pref('zen.view.compact.hide-toolbar') {
+  :root[zen-compact-mode='true']:not([zen-single-toolbar='true']):not([customizing]):not([inDOMFullscreen='true']):has(#lumi-tabstrip:hover, #zen-appcontent-navbar-wrapper:hover) {
+    & #zen-appcontent-navbar-wrapper {
+      height: var(--zen-toolbar-height-with-bookmarks) !important;
+      overflow: inherit !important;
+      & #urlbar { opacity: 1 !important; pointer-events: auto !important; }
+      & #zen-appcontent-navbar-container { opacity: 1 !important; }
+    }
+    /* сайт не сдвигается вниз: полоса ложится поверх, как в родном режиме */
+    & .browserSidebarContainer:is(.deck-selected, [zen-split="true"]) .browserContainer {
+      margin-top: calc(-1 * var(--zen-toolbar-height-with-bookmarks) + var(--zen-element-separation)) !important;
+    }
+  }
+}
+
+/* ---------- 4. Выгруженные вкладки — серые ---------- */
+.tabbrowser-tab:is([pending], [discarded]) .tab-content {
+  filter: grayscale(1) brightness(0.6);
+}
+
+/* ==================== Этап 2: боковая рейка, закрепы, плееры, панель адреса ====================
+ * Разметку рейки строит js/lumi-rail.uc.js (нужен fx-autoconfig), порядок кнопок — js/lumi-toolbar.sys.mjs. */
+:root {
+  --lumi-surface: #1f2335; /* закрепы, поле адреса, наведение, карточки, меню */
+  --lumi-raised: #24283b;
+  --lumi-line: #24283b;
+  --lumi-muted: #a9b1d6;
+  --lumi-dim2: #565f89;
+  --lumi-green: #9ece6a;
+  --lumi-orange: #ff9e64;
+  --lumi-red: #f7768e;
+  --lumi-yellow: #e0af68;
+  --lumi-teal: #73daca;
+  --lumi-mono: "JetBrains Mono", Consolas, monospace;
+}
+
+/* ---------- 5. Рейка 48px (плитки 34px) ---------- */
+#lumi-rail {
+  width: 48px;
+  flex-shrink: 0;
+  margin: 8px 0 8px 8px;
+  padding: 9px 0;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 7px;
+  border-radius: 12px;
+  background: var(--lumi-bg1);
+  border: 1px solid var(--lumi-surface);
+  position: relative;
+  z-index: 4; /* раскрытые плееры поверх вкладок и сайта (у Zen #zen-appcontent-wrapper — 3) */
+  -moz-window-dragging: drag;
+  font-family: Inter, system-ui, sans-serif;
+  color: var(--lumi-fg);
+
+  & button { -moz-window-dragging: no-drag; appearance: none; cursor: default; }
+  :root[inDOMFullscreen="true"] & { display: none; }
+}
+.lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }
+.lumi-spacer { flex-grow: 1; }
+.lumi-caption { font-family: var(--lumi-mono); font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: var(--lumi-dim2); }
+
+#lumi-logo {
+  width: 34px; height: 34px; flex-shrink: 0;
+  border: none; border-radius: 10px; padding: 0;
+  background: var(--lumi-bg2); color: var(--lumi-blue);
+  font-family: var(--lumi-mono) !important; font-size: 16px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
+  transition: box-shadow 0.2s;
+  &:hover { box-shadow: 0 0 0 1px var(--lumi-blue), 0 0 16px color-mix(in srgb, var(--lumi-blue) 55%, transparent); }
+}
+
+/* Рабочие пространства — родные кнопки Zen столбиком 40×40, с точкой контейнера */
+#lumi-rail #zen-workspaces-button {
+  flex-direction: column;
+  gap: 7px;
+  width: auto;
+  & toolbarbutton {
+    width: 34px !important; height: 34px !important; max-width: none !important; min-width: 0 !important;
+    margin: 0 !important;
+    border-radius: 10px !important;
+    border: 1px solid transparent;
+    background: transparent !important;
+    color: var(--lumi-muted);
+    fill: currentColor !important; fill-opacity: 1 !important;
+    filter: none !important; opacity: 1 !important;
+    & .zen-workspace-icon { opacity: 1 !important; transform: none !important; font-size: 15px; fill: currentColor !important; &:is(img) { width: 17px; } }
+    &[active="true"] { border: 1px solid var(--lumi-blue); background: var(--lumi-bg2) !important; color: var(--lumi-blue); }
+    &:hover:not([active="true"]) { background: var(--lumi-surface) !important; }
+    /* точка контейнера в правом нижнем углу. Zen рисует свой ::after (точку по центру) при нехватке места
+     * и при наведении; userChrome — пользовательский уровень, он уступает стилям Zen, поэтому всё с !important */
+    &::after { display: none !important; }
+    &[lumi-container]::after {
+      content: "" !important; display: block !important; opacity: 1 !important; filter: none !important;
+      position: absolute !important; inset: auto 2px 2px auto !important;
+      transform: none !important; translate: none !important; scale: none !important; transition: none !important;
+      width: 6px !important; height: 6px !important; border-radius: 50% !important;
+      background: var(--lumi-dot) !important;
+    }
+    &[lumi-container="blue"] { --lumi-dot: var(--lumi-blue); }
+    &[lumi-container="turquoise"] { --lumi-dot: var(--lumi-teal); }
+    &[lumi-container="green"] { --lumi-dot: var(--lumi-green); }
+    &[lumi-container="yellow"] { --lumi-dot: var(--lumi-yellow); }
+    &[lumi-container="orange"] { --lumi-dot: var(--lumi-orange); }
+    &[lumi-container="red"] { --lumi-dot: var(--lumi-red); }
+    &[lumi-container="pink"] { --lumi-dot: #ff007c; }
+    &[lumi-container="purple"] { --lumi-dot: var(--lumi-purple); }
+    &[lumi-container="toolbar"] { --lumi-dot: var(--lumi-fg); }
+  }
+}
+/* Остаток нижней полосы Zen (библиотека, «+») рейке не нужен */
+#zen-sidebar-foot-buttons { display: none !important; }
+
+/* ---------- 6. Закрепы ---------- */
+#lumi-pins { display: flex; flex-direction: column; gap: 7px; }
+.lumi-pin {
+  width: 34px; height: 34px; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: none; border-radius: 10px; background: var(--lumi-surface);
+  & img { width: 18px; height: 18px; }
+  &:hover { outline: 2px solid var(--lumi-blue); }
+}
+
+/* Мини-окно закрепа — родной «отдельный» Glance Zen на треть экрана рядом с рейкой.
+ * Zen ставит окно на 80% ширины своего контейнера, поэтому контейнер = треть экрана / 0,8. */
+#zen-main-app-wrapper > #zen-glance-detached {
+  inset: 56px auto 16px calc(68px - 100vw / 24) !important;
+  width: calc(100vw / 2.4);
+  & .zen-glance-detached-backdrop { background: rgba(0, 0, 0, 0.35); }
+  & .browserStack { outline: 1px solid var(--lumi-blue); }
+}
+
+/* ---------- 7. Плееры: плитки 40×40, при наведении — карточки 320×48 ----------
+ * Открывает/закрывает js/lumi-rail.uc.js атрибутом [open] (с задержкой закрытия 250 мс).
+ * Открытие: карточки вырастают из плитки (с лесенкой по --i), потом проявляется содержимое; закрытие — наоборот. */
+#lumi-players {
+  display: flex; flex-direction: column; gap: 8px;
+  width: 34px;
+  /* рейка — область перетаскивания окна; над ней Windows не шлёт браузеру мышь, и наведение терялось */
+  &, & * { -moz-window-dragging: no-drag; }
+  &:empty { display: none; }
+}
+.lumi-player {
+  --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
+  width: 34px; height: 34px; box-sizing: border-box; flex-shrink: 0;
+  display: flex; align-items: center; gap: 8px;
+  margin: 0; padding: 0; overflow: hidden;
+  border: 0 solid transparent; border-radius: 10px;
+  background-color: transparent; box-shadow: none;
+  /* закрытие: сначала гаснет содержимое, потом карточка сжимается (нижние раньше верхних) */
+  transition-property: width, height, margin, padding, border-width, border-color, border-radius, background-color, box-shadow;
+  transition-duration: 180ms;
+  transition-timing-function: ease-in;
+  transition-delay: calc(80ms + var(--ri, 0) * 30ms);
+  & button { border: none; padding: 0; flex-shrink: 0; background-color: transparent; background-position: center; background-size: 16px; background-repeat: no-repeat; }
+  & .lumi-player-cover {
+    width: 34px; height: 34px; border-radius: 10px;
+    background-color: var(--lumi-surface); background-size: 18px;
+    transition: filter 180ms;
+  }
+  &:not(.playing) .lumi-player-cover { filter: grayscale(1) brightness(0.8); }
+  & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next) {
+    opacity: 0; transition: opacity 80ms ease-in;
+  }
+  & .lumi-player-text {
+    display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;
+    & span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  }
+}
+#lumi-players[open] .lumi-player {
+  width: 280px; height: 42px;
+  margin: -4px; padding: 3px 8px 3px 3px;
+  border-width: 1px; border-color: var(--lumi-blue); border-radius: 12px;
+  background-color: var(--lumi-surface);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  transition-duration: 200ms;
+  transition-timing-function: var(--ease-out);
+  transition-delay: calc(var(--i, 0) * 35ms);
+  & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next) {
+    opacity: 1; transition: opacity 150ms ease-out calc(140ms + var(--i, 0) * 35ms);
+  }
+  & .lumi-player-cover { filter: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .lumi-player, .lumi-player * { transition: none !important; }
+}
+.lumi-player-title { font-size: 12.5px; font-weight: 500; color: var(--lumi-fg); }
+.lumi-player-artist { font-size: 11px; color: var(--lumi-dim2); &:empty { display: none; } }
+.lumi-player-prev { width: 26px; height: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b1d6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 9 12l9 6zM6 6v12'/%3E%3C/svg%3E"); }
+.lumi-player-next { width: 26px; height: 26px; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a9b1d6' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 6 9 6-9 6zM18 6v12'/%3E%3C/svg%3E"); }
+.lumi-player :is(.lumi-player-prev, .lumi-player-next):disabled { opacity: 0.35; }
+.lumi-player-play {
+  width: 28px; height: 28px; border-radius: 50%;
+  background: var(--lumi-blue) center / 13px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2316161e'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E") !important;
+  .playing > & { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%2316161e'%3E%3Cpath d='M7 5h4v14H7zM13 5h4v14h-4z'/%3E%3C/svg%3E") !important; }
+}
+/* Родная стопка карточек Zen не показывается — её роль играет рейка */
+#zen-media-controls-toolbar { display: none !important; }
+
+/* ---------- 8. Панель адреса: шестерёнка, без родной боковой панели Firefox ---------- */
+#lumi-gear-button { list-style-image: url("chrome://global/skin/icons/settings.svg"); }
+#PanelUI-button,                      /* меню ☰ заменит выпадающее меню шестерёнки */
+#zen-sidebar-top-buttons,             /* кнопка compact mode — мод держит его включённым */
+#sidebar-button, #sidebar-box, #sidebar-splitter, #sidebar-container, #sidebar-launcher-splitter {
+  display: none !important;
+}
+
+/* ==================== 9. Этап 3: своя полоса вкладок сверху ====================
+ * #lumi-tabstrip строит js/lumi-tabstrip.uc.js — зеркало gBrowser. Родной вертикальный список Zen
+ * работает как прежде (пространства, контейнеры, Essentials, выгрузка), но спрятан за край окна. */
+:root:not([inDOMFullscreen="true"]):not([customizing]) #navigator-toolbox {
+  position: fixed !important; top: 0 !important; left: -10000px !important;
+  opacity: 0 !important; pointer-events: none !important;
+  /* Zen считает место под свою панель по ширине #navigator-toolbox (например, сдвиг сайта при открытой
+   * библиотеке «Управление пространствами»). Панели на экране нет — ширина 0, а содержимое внутри своей ширины */
+  width: 0 !important; min-width: 0 !important; max-width: 0 !important; padding: 0 !important; overflow: visible !important;
+  & > #titlebar { min-width: var(--zen-sidebar-width, 182px); }
+}
+/* Библиотека Zen (Управление пространствами, загрузки, история) — справа от рейки, а не поверх неё */
+zen-library {
+  left: 56px !important;
+  max-width: calc(100vw - 64px);
+}
+#zen-appcontent-wrapper { margin-left: 8px !important; }
+:root[inDOMFullscreen="true"] #lumi-tabstrip { display: none; }
+
+#lumi-tabstrip {
+  /* Закон Фиттса: полоса прижата к верхнему краю окна, вкладки, «+» и кнопки окна кликаются от самого края (y=0),
+   * видимая «таблетка» вкладки — с отступом 4px сверху (рисуется ::before) */
+  --lumi-strip-h: 36px; --lumi-pill-top: 4px; --lumi-pill-h: 28px;
+  position: relative;
+  height: var(--lumi-strip-h); margin-top: 0; flex-shrink: 0;
+  display: flex; align-items: stretch;
+  -moz-window-dragging: drag; /* пустое место полосы двигает окно, двойной щелчок — развернуть */
+  font-family: Inter, system-ui, sans-serif; font-size: 13px;
+}
+#lumi-tabs {
+  flex: 1; min-width: 0; height: var(--lumi-strip-h);
+  /* прокрутка, скрытая полоса прокрутки и колесо — родные у arrowscrollbox; ::part из userChrome не действует */
+}
+.lumi-tab {
+  /* все вкладки помещаются: сжимаются поровну от 210px до квадрата 28×28, только потом — прокрутка */
+  flex: 1 1 210px; max-width: 210px; min-width: 28px; height: var(--lumi-strip-h);
+  & + .lumi-tab { margin-left: 6px; }
+  position: relative; isolation: isolate;
+  box-sizing: border-box; container-type: inline-size;
+  display: flex; align-items: center; gap: 8px;
+  padding: var(--lumi-pill-top) 4px calc(var(--lumi-strip-h) - var(--lumi-pill-top) - var(--lumi-pill-h)) 0;
+  color: var(--lumi-muted);
+  -moz-window-dragging: no-drag;
+  /* таблетка: фон, рамка, наведение, выбор */
+  &::before {
+    content: ""; position: absolute; z-index: -1;
+    inset: var(--lumi-pill-top) 0 auto 0; height: var(--lumi-pill-h);
+    border-radius: 10px; border: 1px solid transparent; box-sizing: border-box;
+    background: var(--lumi-bg1);
+  }
+  & > * { pointer-events: none; flex-shrink: 0; }
+  & .lumi-tab-icon { width: 16px; height: 16px; margin-left: 9px; }
+  & .lumi-tab-label { flex: 1; min-width: 0; flex-shrink: 1; white-space: nowrap; overflow: hidden; mask-image: linear-gradient(to left, transparent, black 16px); }
+  & :is(.lumi-tab-close, .lumi-tab-audio) {
+    pointer-events: auto; width: 20px; height: 20px; border-radius: 6px;
+    background: center / 12px no-repeat; -moz-context-properties: fill; fill: currentColor;
+    &:hover { background-color: color-mix(in srgb, var(--lumi-fg) 15%, transparent); }
+  }
+  & .lumi-tab-close { background-image: url("chrome://global/skin/icons/close.svg"); opacity: 0.8; }
+  & .lumi-tab-audio { display: none; background-image: url("chrome://global/skin/media/audio.svg"); }
+  &[soundplaying] .lumi-tab-audio, &[muted] .lumi-tab-audio { display: block; }
+  &[muted] .lumi-tab-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
+
+  &:hover:not([selected])::before { background: var(--lumi-surface); }
+  &[selected] { color: var(--lumi-fg); }
+  &[selected]::before { background: var(--lumi-bg2); border-color: var(--lumi-blue); }
+  &[pending] > * { filter: grayscale(1) brightness(0.6); } /* выгруженные — серые, как в этапе 1 */
+  &[busy] .lumi-tab-icon { opacity: 0.5; }
+
+  /* квадратик: Essentials и закреплённые всегда, остальные — когда сжались до квадрата */
+  &[square] { flex: none; width: 28px; min-width: 28px; }
+}
+@container (max-width: 44px) {
+  .lumi-tab-label, .lumi-tab-close, .lumi-tab-audio { display: none !important; }
+  .lumi-tab-icon { margin: 0 auto !important; }
+}
+.lumi-tab[square] {
+  padding-inline: 0;
+  & :is(.lumi-tab-label, .lumi-tab-close, .lumi-tab-audio) { display: none !important; }
+  & .lumi-tab-icon { margin: 0 auto; }
+}
+#lumi-tab-dropline {
+  position: absolute; top: var(--lumi-pill-top); width: 2px; height: var(--lumi-pill-h); margin-left: -1px;
+  border-radius: 1px; background: var(--lumi-blue); pointer-events: none;
+}
+
+/* «+» и тонкая черта перед кнопками окна; «+» тоже кликается от верхнего края */
+#lumi-newtab-button {
+  -moz-window-dragging: no-drag; margin: 0 0 0 8px !important;
+  padding: var(--lumi-pill-top) 0 calc(var(--lumi-strip-h) - var(--lumi-pill-top) - var(--lumi-pill-h)) 0 !important;
+  height: var(--lumi-strip-h); align-items: flex-start !important;
+  list-style-image: url("chrome://global/skin/icons/plus.svg");
+  & > .toolbarbutton-icon { width: 32px !important; height: var(--lumi-pill-h) !important; padding: 7px 9px !important; border-radius: 8px; }
+  &:hover > .toolbarbutton-icon { background-color: var(--lumi-surface) !important; }
+  & > .toolbarbutton-text { display: none !important; }
+}
+#lumi-strip-separator { width: 1px; height: 18px; margin: auto 0 auto 6px; flex-shrink: 0; background: var(--lumi-bg2); }
+
+/* кнопки окна — родные, перенесённые скриптом в конец полосы; на всю высоту полосы, «закрыть» — до угла окна */
+#lumi-tabstrip > .titlebar-buttonbox-container {
+  display: flex !important; visibility: visible !important; opacity: 1 !important;
+  height: var(--lumi-strip-h); margin: 0 0 0 6px !important; flex-shrink: 0;
+  -moz-window-dragging: no-drag;
+  & .titlebar-buttonbox { height: var(--lumi-strip-h); }
+  & .titlebar-button {
+    width: 42px !important; height: var(--lumi-strip-h) !important; padding: 0 !important;
+    justify-content: center; align-items: center;
+    border-radius: 0; color: var(--lumi-muted);
+    /* значок — глиф шрифта в ::before; пустая подпись рядом сдвигала его влево */
+    & > .toolbarbutton-text { display: none !important; }
+    &:hover { background-color: var(--lumi-surface) !important; color: var(--lumi-fg); }
+    &.titlebar-close:hover { background-color: var(--lumi-red) !important; color: var(--lumi-bg0); }
+  }
+}
+#nav-bar { padding-inline-end: 8px !important; } /* кнопки окна ушли в полосу — шестерёнке нужен отступ от края */
+
+/* Меню по правой кнопке на рейке (js/lumi-rail.uc.js) — Tokyo Night, как меню в концепте, без прозрачной подложки Windows */
+#lumi-rail-menu {
+  appearance: none !important;
+  --panel-background: var(--lumi-surface) !important;
+  --panel-background-color: var(--lumi-surface) !important; /* ею рисуется фон меню (popup.css); иначе — полупрозрачная подложка Windows */
+  --panel-color: var(--lumi-fg) !important;
+  --panel-border-color: var(--lumi-blue) !important;
+  --panel-border-radius: 12px !important;
+  --panel-padding: 6px !important;
+  --panel-shadow: 0 16px 40px rgba(0, 0, 0, 0.5) !important;
+  & menuitem {
+    min-height: 34px; padding-inline: 10px !important; border-radius: 8px !important;
+    color: var(--lumi-fg) !important; font: 13px Inter, system-ui, sans-serif;
+    &[_moz-menuactive]:not([disabled]) { background-color: var(--lumi-raised) !important; }
+    &[disabled] { color: var(--lumi-dim2) !important; }
+  }
+  & menuseparator::before { border-color: var(--lumi-line) !important; }
+}
+
+/* Переключатели со страницы настроек Luminoctis (settings/settings.html) — применяются сразу, без перезапуска */
+@media -moz-pref("luminoctis.tabs.no-grey-unloaded") {
+  .lumi-tab[pending] > *, .tabbrowser-tab:is([pending], [discarded]) .tab-content { filter: none !important; }
+}
+@media -moz-pref("luminoctis.rail.hide-players") { #lumi-players { display: none !important; } }
+@media -moz-pref("luminoctis.rail.hide-pin-label") { #lumi-rail .lumi-caption { display: none !important; } }

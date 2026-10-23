@@ -1,0 +1,8 @@
+[
+  {
+    "property": "luminoctis.urlbar.always-new-tab",
+    "label": "Открывать новую вкладку, даже если сайт уже открыт (не переключаться на открытую вкладку)",
+    "type": "checkbox",
+    "defaultValue": false
+  }
+]

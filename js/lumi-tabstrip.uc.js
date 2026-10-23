@@ -50,16 +50,18 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     item.querySelector(".lumi-tab-label").textContent = tab.label;
     item.title = tab.label;
     item.toggleAttribute("selected", tab.selected);
-    item.toggleAttribute("square", tab.pinned); // Essentials и закреплённые — квадратики
+    item.toggleAttribute("square", tab.pinned); // закреплённые вкладки пространства — квадратики
     for (const attr of ["pending", "soundplaying", "muted", "busy"]) {
       item.toggleAttribute(attr, tab.hasAttribute(attr));
     }
   };
 
+  // Essentials — это закрепы в рейке (js/lumi-rail.uc.js), в полосе их нет
+  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential"));
   let queued = false;
   const render = () => {
     queued = false;
-    const tabs = gBrowser.visibleTabs;
+    const tabs = stripTabs();
     tabs.forEach(tab => update(itemFor(tab), tab));
     const wanted = tabs.map(itemFor);
     const now = [...row.children];
@@ -119,6 +121,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (!dragged) return;
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", dragged.linkedBrowser.currentURI.spec);
+    event.dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", dragged, 0); // родной тип вкладки: по нему рейка делает её закрепом
   });
   row.addEventListener("dragover", event => {
     if (!dragged) return;
@@ -137,7 +140,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   row.addEventListener("drop", event => {
     if (!dragged) return;
     event.preventDefault();
-    const visible = gBrowser.visibleTabs;
+    const visible = stripTabs();
     const i = dropIndex(event.clientX);
     // индекс в полосе -> индекс в gBrowser.tabs; moveTabTo сам не даёт смешать закреплённые и обычные
     const target = visible[i] ?? visible.at(-1);

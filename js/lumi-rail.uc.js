@@ -1,11 +1,9 @@
 // ==UserScript==
 // @name           Luminoctis: боковая рейка
-// @description    Рейка 56px слева: иконка Luminoctis, рабочие пространства Zen, закрепы (папка закладок «Luminoctis»), плееры; меню по правой кнопке и панель настроек мода.
+// @description    Рейка 56px слева: иконка Luminoctis, рабочие пространства Zen, закрепы (родные Essentials Zen) с мини-окном, плееры; меню по правой кнопке, панель настроек мода и таймер выгрузки вкладок.
 // ==/UserScript==
 
 (() => {
-  const PIN_FOLDER = "Luminoctis";
-
   const h = (tag, className, props = {}) =>
     Object.assign(document.createElement(tag), { className }, props);
   const labeled = (el, text) => {
@@ -20,7 +18,6 @@
   const SETTINGS_URL = "chrome://userchrome/content/luminoctis/settings.html";
   let settings;
   window.luminoctis = {
-    pinFolderGuid: () => pinFolderGuid(),
     openSettings(tab) {
       if (!settings) {
         settings = h("div", "", { id: "lumi-settings" });
@@ -39,6 +36,8 @@
     closeSettings() {
       if (settings) settings.hidden = true;
     },
+    // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
+    pins: pinTabs, addPin, pinTab, movePin, unpin, unloadPin, showPin, hidePin, migratePins, unloadIdleTabs,
   };
 
   UC_API.Windows.waitWindowLoading(window).then(() => {
@@ -62,14 +61,19 @@
     document.getElementById("navigator-toolbox").before(rail);
 
     initWorkspaces(rail);
-    initPins(pins);
+    initPins(rail, pins);
     initPlayers(players);
     initRailMenu(rail);
+    setInterval(unloadIdleTabs, 60000);
+    gZenWorkspaces.promiseInitialized
+      .then(() => SessionStore.promiseAllWindowsRestored)
+      .then(migratePins)
+      .catch(console.error);
   });
 
   // ---------- Меню по правой кнопке на рейке ----------
   // Рейка — область перетаскивания окна; без своего меню Windows показывает системное меню окна.
-  // У кнопок пространств своё родное меню Zen, у закрепов меню нет — их не трогаем.
+  // У кнопок пространств своё родное меню Zen, у закрепов — своё (initPins).
   function initRailMenu(rail) {
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-rail-menu">
@@ -113,60 +117,297 @@
     paintDots();
   }
 
-  // ---------- Закрепы: закладки из папки «Luminoctis», общие для всех пространств ----------
-  async function pinFolderGuid() {
-    const { bookmarks } = PlacesUtils;
-    const roots = [bookmarks.toolbarGuid, bookmarks.menuGuid];
-    const found = (await bookmarks.search({ title: PIN_FOLDER })).find(
-      b => b.type == bookmarks.TYPE_FOLDER && roots.includes(b.parentGuid)
-    );
-    if (found) return found.guid;
-    // папка закрепов до переименования мода (2026-10-23) — просто переименовываем
-    const old = (await bookmarks.search({ title: "Laith" })).find(
-      b => b.type == bookmarks.TYPE_FOLDER && roots.includes(b.parentGuid)
-    );
-    if (old) return (await bookmarks.update({ guid: old.guid, title: PIN_FOLDER })).guid;
-    const folder = await bookmarks.insert({
-      parentGuid: bookmarks.menuGuid,
-      type: bookmarks.TYPE_FOLDER,
-      title: PIN_FOLDER,
+  // ---------- Закрепы: родные Essentials Zen — постоянные вкладки, общие для всех пространств ----------
+  // Zen сам хранит их между перезапусками и повторяет во всех окнах (ZenWindowSync), порядок — порядок Essentials.
+  // Общие для всех пространств они при zen.workspaces.separate-essentials = false (иначе у каждого контейнера свои).
+  const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab"; // родной тип перетаскивания вкладки, его ставит и полоса вкладок
+  const isPin = tab => !!tab?.hasAttribute("zen-essential");
+  const pinURL = tab => tab.linkedBrowser.currentURI.spec;
+  const pinIcon = tab => gBrowser.getIcon(tab) || `page-icon:${pinURL(tab)}`;
+  function pinTabs() {
+    return gBrowser.tabs.filter(isPin);
+  }
+  // Сделать вкладку закрепом; false — Zen не взял (предел zen.tabs.essentials.max, по умолчанию 12)
+  function pinTab(tab) {
+    return gZenPinnedTabManager.addToEssentials(tab);
+  }
+  // Новый закреп по адресу — ленивая вкладка: не грузится, пока её не откроют
+  function addPin(url, title) {
+    const tab = gBrowser.addTrustedTab(url, {
+      createLazyBrowser: true, lazyTabTitle: title, inBackground: true, skipAnimation: true,
+      skipRoute: true, userContextId: 0, // без контейнера пространства: закреп общий
     });
-    return folder.guid;
+    // у ленивой вкладки Zen пускает подпись только с этим флагом (как при восстановлении сессии)
+    if (title) gBrowser._setTabLabel(tab, title, { isContentTitle: true, _zenChangeLabelFlag: true });
+    if (pinTab(tab)) return tab;
+    gBrowser.removeTab(tab);
+    return null;
+  }
+  // index — итоговое место среди закрепов (moveTabTo держит Essentials в их части списка вкладок)
+  function movePin(tab, index) {
+    const target = pinTabs()[index];
+    if (target && target !== tab) gBrowser.moveTabTo(tab, { tabIndex: gBrowser.tabs.indexOf(target) });
+  }
+  function unloadPin(tab) {
+    if (tab.selected) hidePin();
+    gBrowser.explicitUnloadTabs([tab]);
+  }
+  // «Открепить» — закреп улетает влево и гаснет, вкладка закрывается совсем
+  async function unpin(tab) {
+    if (tab.selected) hidePin();
+    const btn = pinButtons.get(tab);
+    if (btn?.isConnected && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      btn.setAttribute("unpinning", "");
+      await new Promise(r => setTimeout(r, 300));
+    }
+    gBrowser.removeTab(tab);
+    if (!tab.closing) btn?.removeAttribute("unpinning"); // страница спросила «покинуть?» — закреп возвращается на место
   }
 
-  function initPins(box) {
-    let timer;
-    const render = async () => {
-      const tree = await PlacesUtils.promiseBookmarksTree(await pinFolderGuid());
-      const items = (tree.children ?? []).filter(c => c.uri); // без подпапок и разделителей
-      box.replaceChildren(...items.map(pinButton));
+  // Разовый перенос закрепов прежней версии (закладки папки «Luminoctis») в ленивые закрепы, по порядку. Папку не трогаем.
+  async function migratePins() {
+    if (Services.prefs.getBoolPref("luminoctis.pins.migrated", false)) return;
+    Services.prefs.setBoolPref("luminoctis.pins.migrated", true); // сразу: другие окна не повторят
+    const { bookmarks } = PlacesUtils;
+    const folder = (await bookmarks.search({ title: "Luminoctis" })).find(
+      b => b.type == bookmarks.TYPE_FOLDER && [bookmarks.toolbarGuid, bookmarks.menuGuid].includes(b.parentGuid)
+    );
+    if (!folder) return;
+    const pinned = new Set(pinTabs().map(pinURL));
+    for (const { uri, title } of (await PlacesUtils.promiseBookmarksTree(folder.guid)).children ?? []) {
+      if (uri && !pinned.has(uri)) addPin(uri, title);
+    }
+  }
+
+  // ---------- Мини-окно закрепа (концепт, экран 3) ----------
+  // Закреп выбирается обычной вкладкой (фокус, клавиатура, загрузка — родные), но его панель — окошко на треть экрана
+  // у рейки, а прежняя вкладка остаётся видна под ним, как фон у Glance Zen (deck-selected + zenModeActive).
+  // Клик мимо — снова выбрана прежняя вкладка, закреп остаётся загруженным. «Открыть во вкладке» — закреп во весь экран.
+  let shown = null; // { pin, prev, mini }: выбранный нами закреп, вкладка под ним, окошком ли он
+  let frame, backdrop, keepBehind;
+  const pinButtons = new WeakMap(); // вкладка закрепа -> плитка в рейке
+  const panelOf = tab => tab?.linkedBrowser?.closest(".browserSidebarContainer");
+
+  function showPin(pin) {
+    if (shown?.mini && shown.pin === pin) return;
+    const old = shown?.mini ? shown.pin : null; // окошко другого закрепа: прежняя вкладка под ним остаётся та же
+    const prev = old ? shown.prev : gBrowser.selectedTab === pin ? gBrowser._findTabToBlurTo(pin) : gBrowser.selectedTab;
+    if (!old) release();
+    shown = { pin, prev, mini: true };
+    gBrowser.selectedTab = pin;
+    const oldPanel = panelOf(old);
+    oldPanel?.classList.remove("lumi-pin-window", "deck-selected");
+    const behind = panelOf(prev);
+    if (!old && behind) {
+      prev.linkedBrowser.zenModeActive = true; // переключатель вкладок не гасит её, пока она под окошком
+      prev.linkedBrowser.docShellIsActive = true;
+      // deck-selected — видимая панель; tabpanels снимает его со старой вкладки, когда закреп готов
+      const keep = () => behind.classList.contains("deck-selected") || behind.classList.add("deck-selected");
+      keep();
+      keepBehind = new MutationObserver(keep);
+      keepBehind.observe(behind, { attributeFilter: ["class"] });
+    }
+    panelOf(pin)?.classList.add("lumi-pin-window");
+    frame.hidden = backdrop.hidden = false;
+    updateFrame();
+    gBrowser.selectedBrowser.focus(); // клавиатура — сразу сайту закрепа, а не плитке рейки
+  }
+  // Спрятать закреп (окошком или во весь экран): снова выбрана вкладка, что была до него
+  function hidePin() {
+    const pin = shown?.pin ?? gBrowser.selectedTab, prev = shown?.prev;
+    const to = prev?.isConnected && !prev.closing && prev !== pin ? prev : gBrowser._findTabToBlurTo(pin);
+    if (to) gBrowser.selectedTab = to;
+    release();
+    gBrowser.selectedBrowser.focus();
+  }
+  function expandPin() {
+    const { pin, prev } = shown;
+    release();
+    shown = { pin, prev, mini: false };
+  }
+  // окошко → обычный вид: панели закрепа и прежней вкладки — как у всех вкладок
+  function release() {
+    if (!shown) return;
+    const { pin, prev } = shown;
+    shown = null;
+    keepBehind?.disconnect();
+    keepBehind = null;
+    frame.hidden = backdrop.hidden = true;
+    const win = panelOf(pin);
+    win?.classList.remove("lumi-pin-window");
+    if (!pin.selected) win?.classList.remove("deck-selected");
+    if (prev?.linkedBrowser && prev !== pin) {
+      prev.linkedBrowser.zenModeActive = false;
+      if (!prev.selected) {
+        prev.linkedBrowser.docShellIsActive = false;
+        panelOf(prev)?.classList.remove("deck-selected");
+      }
+    }
+  }
+  function updateFrame() {
+    if (!shown?.mini) return;
+    frame.querySelector("img").src = pinIcon(shown.pin);
+    frame.querySelector(".lumi-pin-title").textContent = shown.pin.label;
+    frame.setAttribute("aria-label", shown.pin.label);
+  }
+
+  function initPinWindow() {
+    // в #tabbrowser-tabbox: панели вкладок — его слои, иначе окошко не встало бы над затемнением
+    backdrop = h("div", "", { id: "lumi-pin-backdrop", hidden: true });
+    backdrop.addEventListener("click", hidePin);
+    frame = h("div", "", { id: "lumi-pin-frame", hidden: true });
+    frame.setAttribute("role", "dialog");
+    const full = labeled(h("button", "lumi-pin-full"), "Открыть во вкладке");
+    full.addEventListener("click", expandPin);
+    const head = h("div", "lumi-pin-head");
+    head.append(h("img", "", { alt: "" }), h("span", "lumi-pin-title"), full);
+    frame.append(head);
+    document.getElementById("tabbrowser-tabbox").append(backdrop, frame);
+
+    // выбрали другую вкладку (полоса, Ctrl+Tab, смена пространства…) — окошка больше нет
+    window.addEventListener("TabSelect", () => {
+      if (shown && gBrowser.selectedTab !== shown.pin) release();
+    });
+    // Ctrl+W и «Закрыть вкладку» не закрывают закреп, а прячут (Zen иначе сбросил бы его адрес и выгрузил)
+    document.getElementById("mainCommandSet").addEventListener("command", event => {
+      if (event.target.id != "cmd_close" || !isPin(gBrowser.selectedTab)) return;
+      event.stopPropagation();
+      hidePin();
+    }, true);
+  }
+
+  function initPins(rail, box) {
+    initPinWindow();
+    let queued = false;
+    const render = () => {
+      queued = false;
+      const wanted = pinTabs().map(pinButton);
+      const now = [...box.children];
+      // переставляем, только если порядок изменился: иначе сбилось бы перетаскивание
+      if (wanted.length != now.length || wanted.some((el, i) => el !== now[i])) box.replaceChildren(...wanted);
+      updateFrame();
     };
     const schedule = () => {
-      clearTimeout(timer);
-      timer = setTimeout(() => render().catch(console.error), 100);
+      if (!queued) {
+        queued = true;
+        requestAnimationFrame(render);
+      }
     };
+    for (const type of ["TabOpen", "TabClose", "TabSelect", "TabMove", "TabAttrModified", "TabPinned", "TabUnpinned",
+      "TabAddedToEssentials", "TabRemovedFromEssentials", "TabBrowserDiscarded"]) {
+      window.addEventListener(type, schedule);
+    }
+    window.addEventListener("TabClose", () => setTimeout(schedule)); // закрытая ещё в списке во время своего TabClose
+    render();
 
-    const events = ["bookmark-added", "bookmark-removed", "bookmark-moved",
-      "bookmark-title-changed", "bookmark-url-changed"];
-    PlacesUtils.observers.addListener(events, schedule);
-    window.addEventListener("unload", () => PlacesUtils.observers.removeListener(events, schedule));
-    schedule();
+    // ПКМ — меню закрепа, Shift+ПКМ — сразу выгрузить
+    const menu = window.MozXULElement.parseXULToFragment(`
+      <menupopup id="lumi-pin-menu">
+        <menuitem id="lumi-pin-menu-unload" label="Выгрузить"/>
+        <menuitem id="lumi-pin-menu-unpin" label="Открепить"/>
+      </menupopup>`).firstElementChild;
+    document.getElementById("mainPopupSet").append(menu);
+    let menuTab;
+    menu.querySelector("#lumi-pin-menu-unload").addEventListener("command", () => unloadPin(menuTab));
+    menu.querySelector("#lumi-pin-menu-unpin").addEventListener("command", () => unpin(menuTab));
+    box.addEventListener("contextmenu", event => {
+      const tab = event.target.closest(".lumi-pin")?.tab;
+      if (!tab) return;
+      event.preventDefault();
+      if (event.shiftKey) return unloadPin(tab);
+      menuTab = tab;
+      menu.querySelector("#lumi-pin-menu-unload").disabled = tab.hasAttribute("pending");
+      menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
+    });
+
+    // Перетаскивание в любой момент: закреп — на новое место; вкладку из полосы — в закрепы, на место под курсором.
+    // Синяя черта показывает место. Ловим над закрепами, подписью «PIN» и пустым местом под ними.
+    const line = h("div", "", { id: "lumi-pin-dropline", hidden: true });
+    rail.append(line);
+    let dragged = null;
+    const zone = event => event.target.closest?.("#lumi-pins, .lumi-caption, .lumi-spacer");
+    const droppable = dt => {
+      const tab = dragged ?? dt.mozGetDataAt(TAB_DROP_TYPE, 0);
+      return gBrowser.tabs.includes(tab) && (tab === dragged || !isPin(tab)) ? tab : null; // только вкладки этого окна
+    };
+    const slot = y => {
+      const list = [...box.children];
+      const i = list.findIndex(el => {
+        const r = el.getBoundingClientRect();
+        return y < r.top + r.height / 2;
+      });
+      return i < 0 ? list.length : i;
+    };
+    box.addEventListener("dragstart", event => {
+      dragged = event.target.closest?.(".lumi-pin")?.tab ?? null;
+      if (!dragged) return;
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", pinURL(dragged));
+    });
+    rail.addEventListener("dragover", event => {
+      if (!zone(event) || !droppable(event.dataTransfer)) return (line.hidden = true);
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      const list = [...box.children], i = slot(event.clientY);
+      const r = (list[i] ?? list.at(-1))?.getBoundingClientRect();
+      const y = !r ? box.getBoundingClientRect().top : list[i] ? r.top - 4 : r.bottom + 3; // середина зазора 7px
+      line.style.top = `${y - rail.getBoundingClientRect().top}px`;
+      line.hidden = false;
+    });
+    rail.addEventListener("dragleave", event => {
+      if (!rail.contains(event.relatedTarget)) line.hidden = true;
+    });
+    rail.addEventListener("drop", event => {
+      const tab = !line.hidden && droppable(event.dataTransfer);
+      line.hidden = true;
+      if (!tab) return;
+      event.preventDefault();
+      const to = slot(event.clientY), from = pinTabs().indexOf(tab);
+      if (from < 0 && !pinTab(tab)) return;
+      movePin(tab, from >= 0 && from < to ? to - 1 : to);
+    });
+    box.addEventListener("dragend", () => {
+      dragged = null;
+      line.hidden = true;
+    });
   }
 
-  function pinButton({ uri, title }) {
-    const btn = labeled(h("button", "lumi-pin"), title || uri);
-    btn.append(h("img", "", { src: `page-icon:${uri}`, alt: "" }));
-    btn.addEventListener("click", () => {
-      const r = btn.getBoundingClientRect();
-      // Родной Glance Zen в отдельном окошке: не создаёт вкладку, закрывается кликом мимо.
-      gZenGlanceManager.openDetachedGlance({
-        url: uri,
-        clientX: r.left + r.width / 2,
-        clientY: r.top + r.height / 2,
-        triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal(),
+  // Плитка закрепа: серая — выгружен, с рамкой — открыт (окошком или во вкладке). Клик — открыть окошком / спрятать.
+  function pinButton(tab) {
+    let btn = pinButtons.get(tab);
+    if (!btn) {
+      // div, а не button: кнопки Firefox не перетаскиваются
+      btn = h("div", "lumi-pin", { tabIndex: 0, draggable: true, tab });
+      btn.setAttribute("role", "button");
+      btn.append(h("img", "", { alt: "" }));
+      btn.addEventListener("click", () => (shown?.pin === tab ? hidePin() : showPin(tab)));
+      btn.addEventListener("keydown", event => {
+        if (event.key != "Enter" && event.key != " ") return;
+        event.preventDefault();
+        btn.click();
       });
-    });
+      pinButtons.set(tab, btn);
+    }
+    labeled(btn, tab.label);
+    const img = btn.firstChild, icon = pinIcon(tab);
+    if (img.getAttribute("src") != icon) img.src = icon;
+    btn.toggleAttribute("pending", tab.hasAttribute("pending"));
+    btn.toggleAttribute("selected", tab.selected);
     return btn;
+  }
+
+  // ---------- Таймер выгрузки: настройка Unload Countdown Time (luminoctis.tabs.unload-minutes, 0 — никогда) ----------
+  // Своего таймера у Zen 1.23 нет. Раз в минуту родной выгрузкой Firefox выгружаем вкладки и закрепы, которые не выбраны,
+  // не на виду (под мини-окном закрепа и в Split view у них zenModeActive), ничего не играют и неактивны дольше N минут.
+  // Вкладку с открытым диалогом или вопросом «покинуть страницу?» discardBrowser сам не трогает.
+  function unloadIdleTabs() {
+    const minutes = Services.prefs.getIntPref("luminoctis.tabs.unload-minutes", 0);
+    if (!minutes) return;
+    for (const tab of gBrowser.tabs) {
+      if (tab.selected || tab.hasAttribute("pending") || tab.soundPlaying || tab.pictureinpicture || tab._sharingState?.webRTC ||
+        tab.linkedBrowser?.zenModeActive || tab.matches("[zen-empty-tab], [zen-glance-tab], [glance-id]")) continue;
+      if (Date.now() - tab.lastAccessed > minutes * 60000) gBrowser.discardBrowser(tab);
+    }
   }
 
   // ---------- Плееры: зеркало карточек родных медиа-контролов Zen ----------

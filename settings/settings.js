@@ -1,6 +1,6 @@
 // Панель настроек Luminoctis (chrome://userchrome/content/luminoctis/settings.html, встроена в окно справа от рейки —
 // js/lumi-rail.uc.js). Страница привилегированная: читает и пишет настройки Firefox напрямую,
-// закрепы — это папка закладок «Luminoctis», пространства — через gZenWorkspaces окна.
+// закрепы (родные Essentials Zen) — через win.luminoctis, пространства — через gZenWorkspaces окна.
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow; // окно браузера с этой панелью
 const { ContextualIdentityService } = win;
@@ -45,17 +45,10 @@ for (const box of document.querySelectorAll("input[data-pref]")) {
   read();
 }
 
-// ---------- выгрузка вкладок: родные настройки Firefox ----------
-const unload = $("#unload");
-const UNLOAD_MS = "browser.tabs.min_inactive_duration_before_unload", UNLOAD_ON = "browser.tabs.unloadOnLowMemory";
-unload.value = Services.prefs.getBoolPref(UNLOAD_ON, true)
-  ? String(Math.round(Services.prefs.getIntPref(UNLOAD_MS, 600000) / 60000)) : "never";
-if (!unload.value) unload.value = "10";
-unload.addEventListener("change", () => {
-  if (unload.value == "never") return Services.prefs.setBoolPref(UNLOAD_ON, false);
-  Services.prefs.setBoolPref(UNLOAD_ON, true); // в Zen по умолчанию выключено
-  Services.prefs.setIntPref(UNLOAD_MS, unload.value * 60000);
-});
+// ---------- выгрузка по таймеру: минуты, 0 — никогда (таймер — js/lumi-rail.uc.js) ----------
+const unload = $("#unload"), UNLOAD = "luminoctis.tabs.unload-minutes";
+unload.value = String(Services.prefs.getIntPref(UNLOAD, 0));
+unload.addEventListener("change", () => Services.prefs.setIntPref(UNLOAD, Number(unload.value)));
 
 // ---------- перетаскивание строк списка (пространства, закрепы) ----------
 // Тянуть за ручку ⠿; черта показывает место. onMove(откуда, куда) — индексы итогового места в списке.
@@ -145,40 +138,40 @@ for (const type of ["ZenWorkspacesUIUpdate", "ZenWorkspaceDataChanged"]) {
 }
 renderSpaces();
 
-// ---------- закрепы = папка закладок «Luminoctis» ----------
-const folder = await win.luminoctis.pinFolderGuid();
-const { bookmarks } = PlacesUtils;
-async function pinList() {
-  const tree = await PlacesUtils.promiseBookmarksTree(folder);
-  return (tree.children ?? []).filter(c => c.uri);
-}
+// ---------- закрепы = родные Essentials Zen (js/lumi-rail.uc.js) ----------
+const lumi = win.luminoctis;
+const urlOf = tab => tab.linkedBrowser.currentURI.spec;
+const readable = url => { try { return decodeURI(url); } catch { return url; } }; // %D0%9A… → кириллица
 // название над адресом — в узкой панели так помещается больше
 const site = (title, url) => el("span", { className: "site", title: url },
-  el("span", { className: "title", textContent: title || url }), el("span", { className: "url", textContent: url }));
-async function renderPins() {
-  const pins = await pinList();
-  $("#pins").replaceChildren(...(pins.length ? pins.map(pin => {
-    const remove = el("button", { className: "small remove", textContent: "×", title: "Убрать закреп" });
-    remove.addEventListener("click", () => bookmarks.remove(pin.guid));
+  el("span", { className: "title", textContent: title || url }), el("span", { className: "url", textContent: readable(url) }));
+function renderPins() {
+  const pins = lumi.pins();
+  $("#pins").replaceChildren(...(pins.length ? pins.map(tab => {
+    const remove = el("button", { className: "small remove", textContent: "×", title: "Открепить" });
+    remove.addEventListener("click", () => lumi.unpin(tab)); // как «Открепить» в меню закрепа: вкладка закрывается
     return el("div", { className: "item" }, grip(),
-      el("span", { className: "icon" }, el("img", { src: `page-icon:${pin.uri}` })), site(pin.title, pin.uri), remove);
+      el("span", { className: "icon" }, el("img", { src: win.gBrowser.getIcon(tab) || `page-icon:${urlOf(tab)}` })),
+      site(tab.label, urlOf(tab)), remove);
   }) : [el("div", { className: "empty", textContent: "Закрепов нет — добавьте сайт кнопкой ниже" })]));
 }
-// перестановка закрепа = перенос закладки внутри папки «Luminoctis» (index — итоговое место в папке)
-sortable($("#pins"), async (from, to) => {
-  const pins = await pinList();
-  bookmarks.update({ guid: pins[from].guid, parentGuid: folder, index: pins[to].index });
-});
-const events = ["bookmark-added", "bookmark-removed", "bookmark-moved", "bookmark-title-changed", "bookmark-url-changed"];
-PlacesUtils.observers.addListener(events, renderPins);
-window.addEventListener("unload", () => PlacesUtils.observers.removeListener(events, renderPins));
+sortable($("#pins"), (from, to) => lumi.movePin(lumi.pins()[from], to));
+// перерисовка — только когда меняются сами закрепы (TabAttrModified у загружающихся вкладок идёт постоянно)
+let pinTimer;
+const onPinEvent = event => {
+  if (event.type != "TabRemovedFromEssentials" && !event.target.hasAttribute?.("zen-essential")) return;
+  clearTimeout(pinTimer);
+  pinTimer = setTimeout(renderPins, 100);
+};
+const pinEvents = ["TabAddedToEssentials", "TabRemovedFromEssentials", "TabClose", "TabMove", "TabAttrModified"];
+for (const type of pinEvents) win.addEventListener(type, onPinEvent);
+window.addEventListener("unload", () => pinEvents.forEach(type => win.removeEventListener(type, onPinEvent)));
 renderPins();
 
-// «Текущий сайт» — выбранная вкладка (или последняя открытая) с обычной страницей
+// «Текущий сайт» — выбранная вкладка (или последняя открытая) с обычной страницей; она сама становится закрепом
 const lastSite = () => win.gBrowser.visibleTabs
-  .filter(t => /^https?:/.test(t.linkedBrowser.currentURI.spec))
+  .filter(t => !t.hasAttribute("zen-essential") && /^https?:/.test(urlOf(t)))
   .sort((a, b) => b.lastAccessed - a.lastAccessed)[0];
-const addPin = (url, title) => bookmarks.insert({ parentGuid: folder, url, title });
 const current = $("#pin-current");
 const showCurrent = () => {
   const tab = lastSite();
@@ -187,20 +180,29 @@ const showCurrent = () => {
 };
 current.addEventListener("click", () => {
   const tab = lastSite();
-  if (tab) addPin(tab.linkedBrowser.currentURI.spec, tab.label);
+  if (tab) lumi.pinTab(tab);
+  showCurrent();
 });
-win.addEventListener("TabSelect", showCurrent);
-window.addEventListener("unload", () => win.removeEventListener("TabSelect", showCurrent));
+for (const type of ["TabSelect", "TabAddedToEssentials"]) {
+  win.addEventListener(type, showCurrent);
+  window.addEventListener("unload", () => win.removeEventListener(type, showCurrent));
+}
 showCurrent();
 
-// «Из закладок» — поиск по закладкам, добавляется копия в папку «Luminoctis» (сама закладка остаётся на месте)
-$("#pin-search").addEventListener("input", async event => {
-  const query = event.target.value.trim();
-  const found = query.length < 2 ? [] : (await bookmarks.search(query)).filter(b => b.url && b.parentGuid != folder).slice(0, 8);
+// «Из закладок» — поиск по закладкам; закреп — новая ленивая вкладка с адресом закладки (сама закладка остаётся на месте)
+const search = $("#pin-search");
+const findBookmarks = async () => {
+  const query = search.value.trim();
+  const pinned = new Set(lumi.pins().map(urlOf));
+  const found = query.length < 2 ? [] : (await PlacesUtils.bookmarks.search(query)).filter(b => b.url && !pinned.has(b.url.href)).slice(0, 8);
   $("#pin-results").replaceChildren(...found.map(b => {
     const add = el("button", { textContent: "Добавить" });
-    add.addEventListener("click", () => addPin(b.url.href, b.title));
+    add.addEventListener("click", () => {
+      lumi.addPin(b.url.href, b.title);
+      findBookmarks(); // добавленная пропадает из результатов
+    });
     return el("div", { className: "item" },
       el("span", { className: "icon" }, el("img", { src: `page-icon:${b.url.href}` })), site(b.title, b.url.href), add);
   }));
-});
+};
+search.addEventListener("input", findBookmarks);

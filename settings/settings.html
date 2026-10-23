@@ -25,7 +25,7 @@
     <h2>Рабочие пространства</h2>
     <div id="spaces" class="list"></div>
 
-    <h2>Закрепы <span class="hint">· папка закладок «Luminoctis»</span></h2>
+    <h2>Закрепы <span class="hint">· общие для всех пространств</span></h2>
     <div id="pins" class="list"></div>
     <div class="actions">
       <button id="pin-current" class="dashed">+ Текущий сайт</button>
@@ -75,11 +75,11 @@
     <h2>Вкладки</h2>
     <label class="row">
       <div class="text"><b>Unload Countdown Time</b>
-        <span>Вкладка не в фокусе и ничего не играет — после этого времени Firefox выгружает её, когда памяти не хватает.
-        Своего таймера выгрузки в Zen 1.23 нет; новое время действует после перезапуска.</span></div>
+        <span>Вкладка или закреп не выбраны, не на виду и ничего не играют — через это время Luminoctis выгружает их из памяти
+        (родной выгрузкой Firefox; потом они серые и грузятся заново по клику). Действует сразу.</span></div>
       <select id="unload">
         <option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option>
-        <option value="30">30 минут</option><option value="60">1 час</option><option value="never">Никогда</option>
+        <option value="30">30 минут</option><option value="60">1 час</option><option value="0">Никогда</option>
       </select>
     </label>
     <label class="row">
@@ -106,9 +106,9 @@
       <kbd>Shift + ЛКМ</kbd><div class="text"><b>По вкладке</b><span>Выгрузить вкладку из памяти</span></div>
       <span class="soon">скоро</span>
     </div>
-    <div class="row key-row disabled">
+    <div class="row key-row">
       <kbd>Shift + ПКМ</kbd><div class="text"><b>По закрепу</b><span>Выгрузить закреп из памяти</span></div>
-      <span class="soon">скоро</span>
+      <span class="ok">работает</span>
     </div>
     <div class="row key-row disabled">
       <kbd>Tab</kbd><div class="text"><b>Inter Menu</b><span>Клавишу можно будет сменить в разделе Inter Menu</span></div>

@@ -136,11 +136,11 @@
     // Элемент Zen подключается один раз (#hasConnected), перенос его не ломает.
     rail.querySelector(".lumi-sep").after(icons);
 
-    // Кнопка под кнопками пространств: родная Библиотека Zen (zen-library) на разделе «Пространства».
+    // Кнопка под «L»: родная Библиотека Zen (zen-library) на разделе «Пространства».
     // cmd_zenManageWorkspaces = ZenLibrary.toggle("spaces"): открыта — закроет.
-    const manage = labeled(h("button", "", { id: "lumi-spaces-button" }), "Управление пространствами");
+    const manage = labeled(h("button", "", { id: "lumi-spaces-button" }), "Библиотека Zen: пространства");
     manage.addEventListener("click", () => document.getElementById("cmd_zenManageWorkspaces").doCommand());
-    icons.after(manage);
+    rail.querySelector("#lumi-logo").after(manage);
 
     // Цветная точка контейнера Firefox: цвет берём из контейнера пространства.
     const paintDots = () => {

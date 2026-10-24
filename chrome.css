@@ -161,7 +161,7 @@
   width: 48px;
   flex-shrink: 0;
   margin: 8px 0 8px 8px;
-  padding: 9px 0 24px; /* снизу место под кнопку пространств */
+  padding: 9px 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -179,16 +179,16 @@
   & button { -moz-window-dragging: no-drag; appearance: none; cursor: default; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
-/* Кнопка управления пространствами: маленькая плашка под кнопками пространств, в потоке рейки.
- * Клик — родная Библиотека Zen на «Пространствах» (js/lumi-rail.uc.js) */
+/* Кнопка Библиотеки Zen под «L», размером с кнопку пространства. Круглая, с пунктирной рамкой —
+ * чтобы не путать с квадратными кнопками пространств. Клик — Библиотека на «Пространствах» (js/lumi-rail.uc.js) */
 #lumi-spaces-button {
-  width: 34px; height: 16px; padding: 0; box-sizing: border-box; flex-shrink: 0; margin-top: -2px;
-  border: 1px solid transparent; border-radius: 8px;
-  background: var(--lumi-raised); color: var(--lumi-muted);
+  width: 34px; height: 34px; padding: 0; box-sizing: border-box; flex-shrink: 0;
+  border: 1.5px dashed color-mix(in srgb, var(--lumi-muted) 70%, transparent); border-radius: 50%;
+  background: transparent; color: var(--lumi-muted);
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
-  &::before { content: ""; display: block; width: 10px; height: 10px; margin: 0 auto; background: currentColor;
+  &::before { content: ""; display: block; width: 16px; height: 16px; margin: 0 auto; background: currentColor;
     mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5zM3 13l9 5 9-5'/%3E%3C/svg%3E"); }
-  &:hover { border-color: var(--lumi-accent); color: var(--lumi-accent); }
+  &:hover { border-style: solid; border-color: var(--lumi-accent); color: var(--lumi-accent); background: var(--lumi-surface); }
   &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
 }
 .lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }

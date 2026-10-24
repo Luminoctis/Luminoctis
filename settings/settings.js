@@ -44,7 +44,7 @@ window.addEventListener("keydown", event => {
 // ---------- флажки, привязанные к настройкам (data-pref, data-inverted — флажок означает «не») ----------
 for (const box of document.querySelectorAll("input[data-pref]")) {
   const pref = box.dataset.pref, inverted = "inverted" in box.dataset;
-  const read = () => (box.checked = Services.prefs.getBoolPref(pref, false) != inverted);
+  const read = () => (box.checked = Services.prefs.getBoolPref(pref, box.dataset.default == "true") != inverted);
   box.addEventListener("change", () => Services.prefs.setBoolPref(pref, box.checked != inverted));
   Services.prefs.addObserver(pref, read);
   window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));

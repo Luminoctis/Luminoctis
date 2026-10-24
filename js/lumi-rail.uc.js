@@ -386,6 +386,8 @@
       window.addEventListener(type, schedule);
     }
     window.addEventListener("TabClose", () => setTimeout(schedule)); // закрытая ещё в списке во время своего TabClose
+    Services.prefs.addObserver("luminoctis.tabs.hover-memory", schedule); // подсказка-title зависит от настройки карточки
+    window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.tabs.hover-memory", schedule), { once: true });
     render();
 
     // ПКМ — меню закрепа; шорткат (Shift+ПКМ) — сразу выгрузить
@@ -496,6 +498,7 @@
       pinButtons.set(tab, btn);
     }
     labeled(btn, tab.label);
+    if (Services.prefs.getBoolPref("luminoctis.tabs.hover-memory", true)) btn.removeAttribute("title"); // вместо подсказки — карточка (lumi-hovercard.uc.js)
     const img = btn.firstChild, icon = pinIcon(tab);
     if (img.getAttribute("src") != icon) img.src = icon;
     btn.toggleAttribute("pending", tab.hasAttribute("pending"));

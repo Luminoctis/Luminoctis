@@ -54,7 +54,9 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const img = item.querySelector(".lumi-tab-icon");
     if (img.getAttribute("src") != icon) icon ? img.setAttribute("src", icon) : img.removeAttribute("src");
     item.querySelector(".lumi-tab-label").textContent = tab.label;
-    item.title = tab.label;
+    // родная подсказка-title дублировала бы карточку при наведении (js/lumi-hovercard.uc.js); без карточки — остаётся
+    if (Services.prefs.getBoolPref("luminoctis.tabs.hover-memory", true)) item.removeAttribute("title");
+    else item.title = tab.label;
     item.toggleAttribute("selected", tab.selected);
     item.toggleAttribute("square", tab.pinned); // закреплённые вкладки пространства — квадратики
     for (const attr of ["pending", "soundplaying", "muted", "busy"]) {
@@ -130,6 +132,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // Смена пространства не шлёт ни TabShow/TabHide (Zen меняет активный список, а не скрывает вкладки), ни TabSelect,
   // если в обоих пространствах выбрана общая пустая вкладка Zen (так сразу после запуска). Родной хук смены — этот.
   gZenWorkspaces.addChangeListeners(schedule);
+  Services.prefs.addObserver("luminoctis.tabs.hover-memory", schedule);
+  window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.tabs.hover-memory", schedule), { once: true });
   // закрытая вкладка ещё в gBrowser.visibleTabs во время своего TabClose — перерисовываем после её ухода
   window.addEventListener("TabClose", event => {
     fly(event.target);

@@ -160,16 +160,17 @@
 #lumi-rail {
   width: 48px;
   flex-shrink: 0;
-  margin: 8px 0 8px 8px;
+  margin: 0 0 8px 0; /* вплотную к левому и верхнему краю окна */
   padding: 9px 0;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 7px;
-  border-radius: 12px;
+  border-radius: 0 0 12px 0;
   background: var(--lumi-bg1);
-  border: 1px solid var(--lumi-surface);
+  border: solid var(--lumi-surface);
+  border-width: 0 1px 1px 0;
   position: relative;
   z-index: 4; /* раскрытые плееры поверх вкладок и сайта (у Zen #zen-appcontent-wrapper — 3) */
   -moz-window-dragging: drag;
@@ -199,12 +200,14 @@
 .lumi-spacer { flex-grow: 1; }
 
 #lumi-logo {
-  width: 34px; height: 34px; flex-shrink: 0;
-  border: none; border-radius: 10px; padding: 0;
+  width: 40px; height: 40px; flex-shrink: 0; position: relative;
+  border: none; border-radius: 11px; padding: 0;
   background: var(--lumi-raised); color: var(--lumi-accent);
   font-family: var(--lumi-mono) !important; font-size: 19px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
   transition: box-shadow 0.2s;
   &:hover { box-shadow: var(--lumi-rail-glow); }
+  /* невидимая зона клика до самого угла окна: мышь в левом верхнем углу — «L» под ней */
+  &::after { content: ""; position: absolute; inset: -9px -4px 0 -4px; }
 }
 
 /* Рабочие пространства — родные кнопки Zen столбиком 40×40, с точкой контейнера */
@@ -421,8 +424,8 @@
 }
 /* Библиотека Zen (Управление пространствами, загрузки, история) — справа от рейки, а не поверх неё */
 zen-library {
-  left: 56px !important;
-  max-width: calc(100vw - 64px);
+  left: 48px !important;
+  max-width: calc(100vw - 56px);
 }
 #zen-appcontent-wrapper { margin-left: 8px !important; }
 :root[inDOMFullscreen="true"] #lumi-tabstrip { display: none; }
@@ -647,6 +650,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
     }
     &[lumi-show-sidebar] #lumi-rail { translate: 0 0; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
     & #zen-appcontent-wrapper { margin-left: 0 !important; }
+    /* выехавшая рейка не накрывает вкладки и адресную строку (они тоже выезжают от угла) — те отодвигаются вправо */
+    & :is(#lumi-tabstrip, #zen-appcontent-navbar-wrapper) { transition: margin-left 180ms cubic-bezier(0.2, 0.8, 0.2, 1), translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+    &[lumi-show-sidebar] :is(#lumi-tabstrip, #zen-appcontent-navbar-wrapper) { margin-left: 48px !important; }
   }
 }
 @media -moz-pref("luminoctis.compact.tabstrip") {
@@ -664,3 +670,19 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
     :root[lumi-show-tabstrip]:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper { translate: 0 36px; }
   }
 }
+
+/* ---------- 13. Карточка при наведении на вкладку полосы или закреп рейки ----------
+ * Строит js/lumi-hovercard.uc.js (#lumi-hovercard в корне окна): название и память вкладки; выключается luminoctis.tabs.hover-memory. */
+#lumi-hovercard {
+  position: fixed; z-index: 100; max-width: 280px; padding: 8px 12px; border-radius: 10px;
+  background: var(--lumi-surface); color: var(--lumi-fg); font: 12px/1.35 Inter, system-ui, sans-serif;
+  border: 1px solid color-mix(in srgb, var(--lumi-accent) 55%, transparent); box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+  pointer-events: none; -moz-window-dragging: no-drag;
+  animation: lumi-fade-in 120ms ease-out;
+  &[hidden] { display: none; }
+  & .lumi-hovercard-title { font-weight: 600; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; overflow-wrap: anywhere; }
+  & .lumi-hovercard-info { margin-top: 2px; color: var(--lumi-muted); }
+  & .lumi-hovercard-info > div + div { color: var(--lumi-dim); font-size: 11px; }
+  &[pending] .lumi-hovercard-info { color: var(--lumi-dim); }
+}
+@media (prefers-reduced-motion: reduce) { #lumi-hovercard { animation: none; } }

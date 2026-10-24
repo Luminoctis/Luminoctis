@@ -40,17 +40,34 @@ const docs = new Set();
 // цвет акцента из обоев Home (home/wallpaper.js пишет accentOverride; действует, пока включён luminoctis.home.accentFromWallpaper)
 const FROM_WALL = "luminoctis.home.accentFromWallpaper";
 const override = () => Services.prefs.getBoolPref(FROM_WALL, false) && Services.prefs.getStringPref(`${PREF}.accentOverride`, "").toLowerCase();
+// Режим окна (settings → «Внешний вид»): luminoctis.look.window = "transparent" — фоны интерфейса полупрозрачные,
+// сквозь них видна подложка Windows (Acrylic/Mica, её даёт Zen: widget.windows.mica). Сайты не трогаются.
+const LOOK = "luminoctis.look.";
+export const GLASS = { see: [LOOK + "transparency", 45], blur: [LOOK + "blur", 24] }; // [pref, по умолчанию]
+const int = ([pref, def], max) => Math.min(max, Math.max(0, Services.prefs.getIntPref(pref, def)));
+const isGlass = () => Services.prefs.getStringPref(LOOK + "window", "") == "transparent";
+// чем выше слой, тем плотнее: текст на поверхностях и выбранном остаётся читаемым
+const LIFT = { bg0: 0, bg1: 0, surface: 15, raised: 25 };
+const glassDocs = new WeakSet(); // окна и панель настроек; Home и заглушка фокуса — страницы во вкладке, остаются непрозрачными
 const paint = doc => {
-  const c = colors(), o = override();
+  const c = colors(), o = override(), root = doc.documentElement;
   if (HEX.test(o)) c.accent = o;
-  for (const t of TOKENS) doc.documentElement.style.setProperty(`--lumi-${t}`, c[t]);
+  const glass = glassDocs.has(doc) && isGlass(), solid = 100 - int(GLASS.see, 90);
+  for (const t of TOKENS) root.style.setProperty(`--lumi-${t}`,
+    glass && t in LIFT ? `color-mix(in srgb, ${c[t]} ${Math.min(100, solid + LIFT[t])}%, transparent)` : c[t]);
+  root.style.setProperty("--lumi-solid", c.bg0); // непрозрачный bg0: текст на акценте, подложка сайтов
+  root.style.setProperty("--lumi-glass-blur", int(GLASS.blur, 60) + "px");
+  root.toggleAttribute("lumi-glass", glass);
 };
 let queued = null; // «Сбросить палитру» меняет много настроек — перекрашиваем один раз
 const repaint = () => queued ||= Promise.resolve().then(() => { queued = null; docs.forEach(paint); });
 Services.prefs.addObserver(PREF, repaint);
 Services.prefs.addObserver(FROM_WALL, repaint);
-export function watch(doc) {
+Services.prefs.addObserver(LOOK, repaint);
+// glass: документ — интерфейс браузера (окно, панель настроек) и становится прозрачным в прозрачном режиме
+export function watch(doc, { glass = false } = {}) {
   docs.add(doc);
+  if (glass) glassDocs.add(doc);
   paint(doc);
   doc.defaultView.addEventListener("unload", () => docs.delete(doc), { once: true });
 }

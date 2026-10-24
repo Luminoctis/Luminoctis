@@ -17,6 +17,7 @@
   --lumi-blue: #7aa2f7; --lumi-cyan: #7dcfff; --lumi-teal: #73daca; --lumi-green: #9ece6a; --lumi-yellow: #e0af68;
   --lumi-orange: #ff9e64; --lumi-red: #f7768e; --lumi-pink: #ff007c; --lumi-purple: #bb9af7;
   --lumi-line: var(--lumi-raised); /* производные — не правятся отдельно */
+  --lumi-solid: var(--lumi-bg0); /* bg0 всегда непрозрачный: текст и значки на акценте, подложка сайтов (в прозрачном режиме bg0 полупрозрачный — js/lumi-palette.sys.mjs) */
   --lumi-mono: "JetBrains Mono", Consolas, monospace;
   --lumi-radius: 16px;
 
@@ -393,7 +394,7 @@
 .lumi-player .lumi-player-next { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 6 9 6-9 6zM18 6v12'/%3E%3C/svg%3E"); }
 .lumi-player-play {
   width: 28px; height: 28px; border-radius: 50%; background: var(--lumi-accent) !important;
-  &::before { content: ""; display: block; width: 13px; height: 13px; margin: auto; background: var(--lumi-bg0);
+  &::before { content: ""; display: block; width: 13px; height: 13px; margin: auto; background: var(--lumi-solid);
     mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E"); }
   .playing > &::before { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h4v14H7zM13 5h4v14h-4z'/%3E%3C/svg%3E"); }
 }
@@ -561,14 +562,14 @@ zen-library {
     /* значок — глиф шрифта в ::before; пустая подпись рядом сдвигала его влево */
     & > .toolbarbutton-text { display: none !important; }
     &:hover { background-color: var(--lumi-surface) !important; color: var(--lumi-fg); }
-    &.titlebar-close:hover { background-color: var(--lumi-red) !important; color: var(--lumi-bg0); }
+    &.titlebar-close:hover { background-color: var(--lumi-red) !important; color: var(--lumi-solid); }
   }
 }
 #nav-bar { padding-inline-end: 8px !important; } /* кнопки окна ушли в полосу — шестерёнке нужен отступ от края */
 
 /* ---------- 11. Все меню и всплывающие панели браузера — в стиле мода ----------
  * Меню рейки и закрепа, меню вкладки, страницы, адресной строки, панелей, меню «⋯» и остальные: фон, рамка, скругление,
- * отступы, наведение и черты — из токенов палитры, без прозрачной подложки Windows. Выпадающие списки сайтов (<select>) — в цветах сайта. */
+ * отступы, наведение и черты — из токенов палитры, без прозрачной подложки Windows (в прозрачном режиме — с ней, раздел 14). Выпадающие списки сайтов (<select>) — в цветах сайта. */
 :root {
   --arrowpanel-border-radius: 12px !important;
   --arrowpanel-menuitem-border-radius: 8px !important;
@@ -686,3 +687,49 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   &[pending] .lumi-hovercard-info { color: var(--lumi-dim); }
 }
 @media (prefers-reduced-motion: reduce) { #lumi-hovercard { animation: none; } }
+
+/* ---------- 14. Прозрачный режим окна (настройка luminoctis.look.window = transparent, «Внешний вид» → «Режим окна») ----------
+ * Подложку окна — размытый рабочий стол (Acrylic) или обои (Mica) — рисует Windows: у Zen она включена по умолчанию
+ * (widget.windows.mica, widget.windows.mica.toplevel-backdrop), обычно её закрывают непрозрачные фоны.
+ * js/lumi-palette.sys.mjs ставит корню [lumi-glass] и делает фоны палитры (bg0, bg1, surface, raised) полупрозрачными
+ * по ползунку «Прозрачность» — всё, что красится токенами, становится стеклом само. Здесь — то, что токенами не решается. */
+:root[lumi-glass] {
+  --lumi-line: color-mix(in srgb, var(--lumi-fg) 14%, transparent);
+  --lumi-glass-edge: color-mix(in srgb, var(--lumi-accent) 32%, transparent); /* рамки — тонкие цветные полупрозрачные линии */
+  --lumi-glass-blur-filter: blur(var(--lumi-glass-blur)) saturate(1.4);
+  /* фон окна — один слой bg0 (#zen-main-app-wrapper); свой затемняющий слой Zen под Mica (чёрный 40%) и серый фон неактивного окна убраны */
+  & #zen-browser-background::before, & #zen-browser-background::after { background: transparent !important; }
+  & #zen-main-app-wrapper:-moz-window-inactive { background: var(--zen-themed-toolbar-bg-transparent) !important; } /* zen.view.grey-out-inactive-windows */
+
+  /* сайты не трогаются: под страницей — непрозрачный фон (пока сайт грузится, рабочий стол не просвечивает) */
+  & #tabbrowser-tabpanels > .browserSidebarContainer { background-color: var(--lumi-solid) !important; }
+
+  & #lumi-rail { border-color: var(--lumi-glass-edge); }
+  & .lumi-pin:not([selected]) { border-color: var(--lumi-line); }
+  & .lumi-tab:not([selected]) { --pill-line: var(--lumi-line); }
+  & #urlbar:not([focused], [breakout-extend]) > .urlbar-background { outline: 1px solid var(--lumi-line) !important; outline-offset: -1px !important; }
+
+  /* панели поверх сайта размывают его под собой (подложка Windows сюда не достаёт — она только под окном) */
+  & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame, zen-library),
+  & #lumi-players[open] .lumi-player,
+  & #urlbar[breakout-extend] .urlbar-background { backdrop-filter: var(--lumi-glass-blur-filter) !important; }
+  & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame) { border-color: var(--lumi-glass-edge); }
+  @media -moz-pref("luminoctis.compact.sidebar") { & #lumi-rail { backdrop-filter: var(--lumi-glass-blur-filter); } }
+  @media -moz-pref("luminoctis.compact.tabstrip") { & #lumi-tabstrip { backdrop-filter: var(--lumi-glass-blur-filter); } }
+  @media -moz-pref("zen.view.compact.hide-toolbar") { & #zen-appcontent-navbar-wrapper { backdrop-filter: var(--lumi-glass-blur-filter); } }
+}
+/* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
+ * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
+:root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {
+  @media (-moz-windows-mica-popups) {
+    &:is(menupopup, panel[type="arrow"]) {
+      appearance: auto !important; -moz-default-appearance: menupopup;
+      --panel-border-color: transparent !important; --panel-box-shadow-margin: 0px !important;
+    }
+  }
+  @media not (-moz-windows-mica-popups) { --panel-background-color: var(--lumi-solid) !important; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  /* «Эффекты прозрачности» Windows выключены — палитра всё равно полупрозрачная, но без размытия поверх сайта */
+  :root[lumi-glass] { --lumi-glass-blur-filter: none; }
+}

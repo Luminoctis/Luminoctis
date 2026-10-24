@@ -5,7 +5,7 @@
 
 (() => {
   // палитра — сразу, до отрисовки окна (скрипт идёт на DOMContentLoaded): без вспышки цветов Tokyo Night
-  ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs").watch(document);
+  ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs").watch(document, { glass: true });
   const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
   const h = (tag, className, props = {}) =>
     Object.assign(document.createElement(tag), { className }, props);

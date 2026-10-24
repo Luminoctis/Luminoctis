@@ -15,7 +15,7 @@ const DOT = { blue: "blue", turquoise: "teal", green: "green", yellow: "yellow",
   red: "red", pink: "pink", purple: "purple", toolbar: "fg" };
 // палитра: цвета ставятся и на эту страницу (она отдельный документ и не наследует переменные окна)
 const palette = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
-palette.watch(document);
+palette.watch(document, { glass: true });
 const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
 
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
@@ -42,7 +42,7 @@ window.addEventListener("keydown", event => {
 });
 
 // ---------- флажки, привязанные к настройкам (data-pref, data-inverted — флажок означает «не») ----------
-for (const box of document.querySelectorAll("input[data-pref]")) {
+for (const box of document.querySelectorAll("input[type=checkbox][data-pref]")) {
   const pref = box.dataset.pref, inverted = "inverted" in box.dataset;
   const read = () => (box.checked = Services.prefs.getBoolPref(pref, box.dataset.default == "true") != inverted);
   box.addEventListener("change", () => Services.prefs.setBoolPref(pref, box.checked != inverted));
@@ -51,21 +51,24 @@ for (const box of document.querySelectorAll("input[data-pref]")) {
   read();
 }
 
-// ---------- выбор из нескольких значений (data-pref, data-default; кнопки data-value) ----------
+// ---------- выбор из нескольких значений (data-pref, data-default; кнопки data-value; data-int — числовая настройка) ----------
 for (const seg of document.querySelectorAll("div[data-pref]")) {
-  const pref = seg.dataset.pref;
+  const pref = seg.dataset.pref, int = "int" in seg.dataset;
   const read = () => {
-    const v = Services.prefs.getStringPref(pref, seg.dataset.default);
+    const v = int ? String(Services.prefs.getIntPref(pref, Number(seg.dataset.default))) : Services.prefs.getStringPref(pref, seg.dataset.default);
     for (const b of seg.querySelectorAll("[data-value]")) b.classList.toggle("on", b.dataset.value == v);
   };
   seg.addEventListener("click", event => {
     const b = event.target.closest("[data-value]");
-    if (b) Services.prefs.setStringPref(pref, b.dataset.value);
+    if (b) int ? Services.prefs.setIntPref(pref, Number(b.dataset.value)) : Services.prefs.setStringPref(pref, b.dataset.value);
   });
   Services.prefs.addObserver(pref, read);
   window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
   read();
 }
+
+// прозрачность окна даёт Windows (Zen: widget.windows.mica); если её нет — предупреждаем
+$("#glass-off").hidden = win.matchMedia("(-moz-windows-mica)").matches;
 
 // ---------- выгрузка по таймеру: минуты, 0 — никогда (таймер — js/lumi-rail.uc.js) ----------
 const unload = $("#unload"), UNLOAD = "luminoctis.tabs.unload-minutes";

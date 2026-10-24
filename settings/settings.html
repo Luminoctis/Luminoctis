@@ -44,14 +44,25 @@
   </section>
 
   <section id="look" role="tabpanel">
-    <h2>Оформление <span class="soon">скоро</span></h2>
-    <div class="row stack disabled">
-      <div class="text"><b>Браузер</b><span>Вкладки, боковая панель и панель адреса</span></div>
-      <div class="seg"><button class="on" disabled>Tokyo Night</button><button disabled>Zen Mode</button></div>
+    <h2>Режим окна</h2>
+    <div class="row stack">
+      <div class="text"><b>Окно браузера</b><span>Прозрачный — сквозь рейку, вкладки, панель адреса, меню и панели видно рабочий стол с размытием Windows; цвета — из палитры. Сайты не меняются</span></div>
+      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque">Непрозрачный</button><button data-value="transparent">Прозрачный</button></div>
     </div>
-    <div class="row stack disabled">
-      <div class="text"><b>Сайты</b><span>LumiNet: Zen — прозрачность с блюром, Tokyo Night — тёмная палитра</span></div>
-      <div class="seg"><button class="on" disabled>Выкл</button><button disabled>Zen</button><button disabled>Tokyo Night</button></div>
+    <div id="glass-options">
+      <p id="glass-off" class="note" hidden>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
+      <div class="row stack">
+        <div class="text"><b>Прозрачность</b><span>Сколько рабочего стола видно сквозь панели, %</span></div>
+        <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.transparency" data-default="45"><output></output></label>
+      </div>
+      <div class="row stack">
+        <div class="text"><b>Подложка окна</b><span>Размытие делает сама Windows, его силу менять нельзя: Acrylic — размытые окна и обои за браузером, Mica — только обои, спокойнее</span></div>
+        <div class="seg" data-pref="widget.windows.mica.toplevel-backdrop" data-default="2" data-int><button data-value="2">Acrylic</button><button data-value="1">Mica</button></div>
+      </div>
+      <div class="row stack">
+        <div class="text"><b>Размытие панелей над сайтом</b><span>Настройки, карточка вкладки, выехавшие рейка и полоса, мини-окно закрепа и выехавшая адресная строка размывают сайт под собой, px</span></div>
+        <label class="slider"><input type="range" min="0" max="60" step="2" data-int-pref="luminoctis.look.blur" data-default="24"><output></output></label>
+      </div>
     </div>
     <h2>Compacting <span class="hint">· прятать у края окна, показывать у края мышью</span></h2>
     <label class="row">

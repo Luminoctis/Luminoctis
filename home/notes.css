@@ -14,10 +14,9 @@
   flex: 1 1 0; min-width: 220px; max-width: 320px;
   max-height: min(62vh, calc(100vh - 170px)); display: flex;
   transform: translateY(calc(100% - var(--peek, 72px)));
-  transition: transform .6s cubic-bezier(.22, 1, .36, 1);
+  transition: transform .26s cubic-bezier(.2, .9, .25, 1), translate .22s cubic-bezier(.2, .9, .25, 1);
   &:hover, #lumi-notes.editing & { transform: none; }
   &.dragging { opacity: .5; }
-  &.drop-before::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--lumi-accent, #7aa2f7); }
 }
 
 .lumi-board-body {

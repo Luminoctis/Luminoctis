@@ -94,7 +94,8 @@
     <div class="shapes" data-pref="luminoctis.tabs.shape" data-default="rounded">
       <button data-value="rounded"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="4"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="4"/></svg>Скруглённые</button>
       <button data-value="square"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="0"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="0"/></svg>Квадратные</button>
-      <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Скошенные</button>
+      <button data-value="parallelogram"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M9 5h25l-6 13H3z" stroke-linejoin="round"/><path class="t sel" d="M45.5 5.5h24l-6 12h-27z" stroke-linejoin="round"/></svg>Скошенные</button>
+      <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Трапеции</button>
     </div>
 
   </section>
@@ -176,6 +177,7 @@
       <button data-value="serif"><span class="clock-prev"></span>С засечками</button>
       <button data-value="terminal"><span class="clock-prev"></span>Терминал</button>
     </div>
+    <div class="row stack"><label class="slider">Размер часов, %<input type="range" min="50" max="150" step="5" data-int-pref="luminoctis.home.clock.size" data-default="100"><output></output></label></div>
     <label class="row"><div class="text"><b>12-часовой формат</b><span>AM / PM вместо 24 часов</span></div><input type="checkbox" data-pref="luminoctis.home.clock.h12"></label>
     <label class="row"><div class="text"><b>Секунды</b></div><input type="checkbox" data-pref="luminoctis.home.clock.seconds"></label>
     <label class="row"><div class="text"><b>Дата</b><span>День недели и число под часами</span></div><input type="checkbox" data-pref="luminoctis.home.clock.date" data-default="true"></label>
@@ -207,6 +209,7 @@
       <div class="key"><input id="we-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.we.folder"><button id="we-pick">Выбрать…</button></div>
       <div id="we-items" class="we-items"></div>
     </div>
+    <label class="row"><div class="text"><b>Как в Wallpaper Engine</b><span id="we-sync-hint">Home показывает те же обои, что Wallpaper Engine на рабочем столе, и меняет их вслед за ним</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.sync"></label>
     <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — их копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
     <div class="row stack">
       <div class="text"><b>Смена обоев</b></div>
@@ -214,11 +217,14 @@
       <label class="slider">По таймеру — каждые
         <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="30"><option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="60">1 час</option><option value="180">3 часа</option></select></label>
     </div>
-    <label class="row"><div class="text"><b>Параллакс</b><span>Обои чуть сдвигаются вслед за мышью (не работает при «уменьшить движение» в системе)</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.parallax" data-default="true"></label>
     <div class="row stack">
-      <label class="slider">Сила параллакса<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.parallaxStrength" data-default="40"><output></output></label>
       <label class="slider">Затемнение<input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
       <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
+    </div>
+    <div class="row stack">
+      <div class="text"><b>Интерфейс над обоями</b><span>На Home обои лежат под всем окном: рейка, вкладки и адресная строка — на размытых обоях, у края страницы размытие нарастает плавно</span></div>
+      <label class="slider">Прозрачность<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.ui.transparency" data-default="70"><output></output></label>
+      <label class="slider">Размытие<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
     </div>
     <label class="row"><div class="text"><b>Цвет мода из обоев</b><span>Акцент палитры берётся из текущих обоев Home; выключите — вернётся цвет палитры</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
     <!-- Эквалайзер (home/equalizer.js, home/eq-actor.sys.mjs) -->

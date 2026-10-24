@@ -4,6 +4,16 @@
 import { E, h, s, clockOf, goalsBlock, openPanel, closePanel, panelName, refreshPanel } from "./time-panels.js";
 
 const root = document.getElementById("lumi-time");
+
+// Спрятать столбец (pref luminoctis.home.time.hidden): body[lumi-time-hidden] уводит его вправо (time.css), движок идёт как шёл.
+// Вернуть — кнопка в углу окна, невидимая, пока на неё не наведёшь мышь (.lt-show).
+const HIDDEN = "luminoctis.home.time.hidden";
+const setHidden = v => Services.prefs.setBoolPref(HIDDEN, v);
+const applyHidden = () => document.body.toggleAttribute("lumi-time-hidden", Services.prefs.getBoolPref(HIDDEN, false));
+Services.prefs.addObserver(HIDDEN, applyHidden);
+applyHidden();
+document.body.append(h("div", { class: "lt-show" },
+  h("button", { text: "⏱", title: "Показать LumiTime", "aria-label": "Показать LumiTime", on: { click: () => setHidden(false) } })));
 await E.init();
 
 let els = {}, buttonsKey = "", rebuildOnBlur = false;
@@ -23,6 +33,7 @@ function build() {
   root.replaceChildren(
     h("header", { class: "lt-head" },
       h("b", { class: "lt-title", text: "LumiTime" }),
+      h("button", { class: "lt-hide", text: "›", title: "Спрятать таймер (вернуть — наведите на правый верхний угол)", "aria-label": "Спрятать таймер", on: { click: () => setHidden(true) } }),
       els.streak = h("span", { class: "lt-chip" }),
       els.month = h("span", { class: "lt-chip" })),
     h("div", { class: "lt-seg lt-mode", title: idle ? "" : "Режим меняется, когда таймер стоит" },
@@ -150,7 +161,7 @@ const run = () => {
   timer = setInterval(update, 1000);
 };
 document.addEventListener("visibilitychange", run);
-window.addEventListener("unload", () => { off(); clearInterval(timer); });
+window.addEventListener("unload", () => { off(); clearInterval(timer); Services.prefs.removeObserver(HIDDEN, applyHidden); });
 build();
 run();
 window.lumiTime = { E, build, update, openPanel, closePanel, panelName }; // для проверок

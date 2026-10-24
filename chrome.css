@@ -501,6 +501,13 @@ zen-library {
 }
 /* Форма вкладок: Скруглённые (по умолчанию) / Квадратные / Скошенные — применяется сразу во всех окнах */
 @media -moz-pref("luminoctis.tabs.shape", "square") { #lumi-tabstrip { --lumi-tab-radius: 0px; } }
+/* Скошенные: параллелограммы, все вкладки скошены в одну сторону и стыкуются по скосу; skew только у ::before, текст и значки прямые */
+@media -moz-pref("luminoctis.tabs.shape", "parallelogram") {
+  #lumi-tabstrip { --lumi-tab-radius: 4px; }
+  .lumi-tab { &:first-child { margin-left: 4px; } &:last-child { margin-right: 4px; } &[selected] { z-index: 1; } }
+  :is(.lumi-tab, #lumi-newtab-button)::before { transform: skewX(-16deg); }
+}
+/* Трапеции (прежние «Скошенные», pref slanted) */
 @media -moz-pref("luminoctis.tabs.shape", "slanted") {
   #lumi-tabstrip { --lumi-tab-radius: 4px; --lumi-slant: 10deg; }
   .lumi-tab {
@@ -545,7 +552,8 @@ zen-library {
    * у прокручиваемого ряда своей ширины по содержимому нет */
   #lumi-tabs { flex: 0 var(--lumi-tabs-shrink, 1) var(--lumi-tabs-w, auto); }
   #lumi-newtab-button { flex: 0 1 210px; width: auto; min-width: 28px; margin-inline: 6px auto !important; --pill-bg: var(--lumi-bg1); } /* таблетка как у вкладок */
-  @media -moz-pref("luminoctis.tabs.shape", "slanted") { #lumi-tabs { flex-basis: calc(var(--lumi-tabs-w) + 6px); } } /* выступы скошенных краёв */
+  @media -moz-pref("luminoctis.tabs.shape", "slanted") { #lumi-tabs { flex-basis: calc(var(--lumi-tabs-w) + 6px); } }
+  @media -moz-pref("luminoctis.tabs.shape", "parallelogram") { #lumi-tabs { flex-basis: calc(var(--lumi-tabs-w) + 6px); } } /* выступы скошенных краёв */
 }
 #lumi-strip-separator { width: 1px; height: 18px; margin: auto 0 auto 6px; flex-shrink: 0; background: var(--lumi-raised); }
 
@@ -732,4 +740,20 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 @media (prefers-reduced-transparency: reduce) {
   /* «Эффекты прозрачности» Windows выключены — палитра всё равно полупрозрачная, но без размытия поверх сайта */
   :root[lumi-glass] { --lumi-glass-blur-filter: none; }
+}
+
+/* ---------- 15. Обои Luminoctis Home под всем окном (js/lumi-home.uc.js, home/wallpaper.js) ----------
+ * Пока выбрана Home, корень — [lumi-home-wall]: #lumi-home-wall (над фоном окна, под рейкой и всем интерфейсом) показывает тот же кадр,
+ * что и страница, cover от всего окна; страница сдвигает свои обои на место вкладки — стык без шва. Размытие и тон — ползунки
+ * «Интерфейс над обоями» (--lumi-home-blur, --lumi-home-tint ставит страница). Фон рейки снимается — интерфейс лежит на размытых обоях.
+ * В прозрачном режиме окна (раздел 14) на Home обои закрывают рабочий стол, остальное стекло не меняется. */
+#lumi-home-wall { display: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }
+#lumi-home-wall > canvas { /* запас 80px со всех сторон (как PAD в wallpaper.js) — размытие не светлеет у краёв окна */
+  position: absolute; inset: -80px; width: calc(100% + 160px); height: calc(100% + 160px);
+  filter: blur(var(--lumi-home-blur, 24px));
+}
+#lumi-home-wall::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--lumi-solid) var(--lumi-home-tint, 30%), transparent); }
+:root[lumi-home-wall]:not([inDOMFullscreen="true"]) {
+  & #lumi-home-wall { display: block; }
+  & #lumi-rail { background: transparent !important; }
 }

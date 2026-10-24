@@ -39,6 +39,23 @@
   & .lt-error { color: var(--lumi-red); margin: 0; font-size: 12px; }
   & h4 { margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--lumi-muted); }
 }
+/* спрятать: столбец уезжает вправо, колонка схлопывается (часы и доски занимают всю ширину), --lumi-time-w = 0 заодно у панелей */
+body[lumi-time-hidden] { --lumi-time-w: 0px; }
+#lumi-home { transition: grid-template-columns .35s var(--lt-ease); }
+#lumi-time { transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s; }
+body[lumi-time-hidden] #lumi-time { translate: calc(100% + 24px) 0; opacity: 0; visibility: hidden; transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s .35s; }
+.lt-hide { position: absolute; top: 12px; right: 12px; width: 26px; padding: 0 !important; background: none !important; color: var(--lumi-dim) !important; font-size: 18px; line-height: 1;
+  &:hover { background: var(--lumi-raised) !important; color: var(--lumi-fg) !important; } }
+.lt-show { position: fixed; top: 0; right: 0; z-index: 5; width: 76px; height: 76px; display: none; place-items: center;
+  & button { width: 40px; height: 40px; padding: 0; border-radius: 50%; border: 1px solid var(--lt-line); background: var(--lt-glass); color: var(--lumi-fg);
+    backdrop-filter: blur(18px); font-size: 18px; cursor: pointer; opacity: 0; transition: opacity .2s;
+    &:focus-visible { opacity: 1; outline: 2px solid var(--lumi-accent); outline-offset: 2px; } }
+  &:hover button { opacity: 1; } }
+body[lumi-time-hidden] .lt-show { display: grid; }
+@media (prefers-reduced-motion: reduce) {
+  #lumi-home, #lumi-time, body[lumi-time-hidden] #lumi-time, .lt-show button { transition-duration: .01s; transition-delay: 0s; }
+}
+
 .lt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
   & .lt-title { flex: 1 0 100%; font-size: 15px; letter-spacing: .02em; }
 }

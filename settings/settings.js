@@ -606,7 +606,19 @@ renderPalette();
       Services.prefs.setBoolPref("luminoctis.home.wallpaper.src.we", true);
     });
   });
-  window.lumiWE = { render }; // для проверок
+  // «Как в Wallpaper Engine»: что выбрано в программе сейчас, или подсказка, что её нет
+  const hint = $("#we-sync-hint"), HINT = hint.textContent;
+  async function syncHint() {
+    const cfg = await we.configPath(), it = cfg ? await we.selected(cfg).catch(() => null) : null;
+    hint.textContent = !cfg ? "Wallpaper Engine не найден — нужна программа Wallpaper Engine из Steam (её файл steamapps\\common\\wallpaper_engine\\config.json)"
+      : it ? `${HINT}. Сейчас там: «${it.title}»` : `${HINT}. Сейчас в нём не выбраны обои из мастерской`;
+  }
+  const SYNC = "luminoctis.home.wallpaper.we.sync";
+  for (const p of [we.CONFIG_PREF, SYNC]) Services.prefs.addObserver(p, syncHint);
+  window.addEventListener("unload", () => { for (const p of [we.CONFIG_PREF, SYNC]) Services.prefs.removeObserver(p, syncHint); });
+  document.addEventListener("visibilitychange", () => !document.hidden && syncHint()); // в программе могли сменить обои
+  syncHint();
+  window.lumiWE = { render, syncHint }; // для проверок
 }
 
 // ---------- LumiTime: «Открыть» — Home и панель настроек таймера (home/time.js) ----------

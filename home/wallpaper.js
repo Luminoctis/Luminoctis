@@ -123,12 +123,13 @@ function show(layer) {
   const old = current;
   current = layer;
   if (old) setTimeout(() => drop(old), 900);
+  fade = old ? { old, at: performance.now() } : null; // окно повторяет плавную смену
   state.current = layer.item;
   state.shownAt = Date.now();
   save();
   syncButtons();
   applyAccent();
-  effects(); // параллакс выключается для веб-обоев — мышь им нужна самим
+  kick();
 }
 // показать выбранные обои сейчас (выбор Wallpaper Engine в настройках)
 export async function showItem(item) {
@@ -246,33 +247,127 @@ function applyAccent() {
   } catch (e) { console.warn("Luminoctis обои: цвет не прочитан", e); }
 }
 
-// ---------- эффекты: параллакс, затемнение, размытие ----------
-const still = matchMedia("(prefers-reduced-motion: reduce)");
-let parallax = 0, tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
+// ---------- обои на всё окно: сцена = прямоугольник окна браузера (cover относительно окна), сдвинутый на место вкладки ----------
+// Тот же кадр рисует окно браузера под рейкой, полосой вкладок и адресом (#lumi-home-wall из js/lumi-home.uc.js, chrome.css раздел 15) —
+// размытым и притемнённым по настройкам «Интерфейс над обоями»; у краёв страницы блюр нарастает (.lumi-wp-edge), шва нет.
+// Видео перерисовывается в окне ~15 кадров/с, веб-обои там — превью из project.json (живую страницу дважды не запускаем).
+// .lumi-wp-edge — тот же кадр, что в окне (холст во всё окно, размытый), под маской-градиентом у краёв: backdrop-filter тут не годится —
+// он не видит обои за краем вкладки и у края светлел бы
+const edge = Object.assign(document.createElement("div"), { className: "lumi-wp-edge" }), edgeCanvas = document.createElement("canvas");
+edge.append(edgeCanvas);
+const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
+let geo = { x: 0, y: 0, W: innerWidth, H: innerHeight, k: 1 }, zoom = 1, fade = null; // fade — { old, at } на время смены слоёв
+function place() { // позиция вкладки в окне; true — изменилась
+  const b = window.browsingContext.embedderElement;
+  if (!b?.isConnected) return false;
+  const r = b.getBoundingClientRect(), k = win.devicePixelRatio / devicePixelRatio; // px окна → px страницы (масштаб страницы)
+  const g = { x: r.x, y: r.y, W: win.innerWidth, H: win.innerHeight, k };
+  if (["x", "y", "W", "H", "k"].every(n => Math.abs(g[n] - geo[n]) < 0.01)) return false;
+  geo = g;
+  for (const [n, v] of [["--wp-x", g.x], ["--wp-y", g.y], ["--wp-w", g.W], ["--wp-h", g.H]]) root.style.setProperty(n, v * k + "px");
+  root.style.setProperty("--wp-ramp-l", g.x > 0.5 ? "var(--wp-ramp)" : "0px"); // нарастание блюра — только у краёв, где интерфейс
+  root.style.setProperty("--wp-ramp-t", g.y > 0.5 ? "var(--wp-ramp)" : "0px");
+  return true;
+}
+const wall = () => win.document.getElementById("lumi-home-wall");
+// чем рисовать слой в окне: картинка/видео, превью сцены, превью веб-обоев
+function frameOf(layer) {
+  const el = layer?.el;
+  if (!el) return null;
+  if (el.matches("img, video")) return el;
+  if (el.matches(".lumi-wp-scene")) return el.querySelector("img");
+  if (!layer.poster && layer.item.preview) layer.poster = Object.assign(new Image(), { src: PathUtils.toFileURI(layer.item.preview), onload: paint });
+  return layer.poster?.complete && layer.poster.naturalWidth ? layer.poster : null;
+}
+function drawCover(g, src, W, H, pad) {
+  const sw = src.naturalWidth || src.videoWidth || 0, sh = src.naturalHeight || src.videoHeight || 0;
+  if (!sw || !sh) return;
+  g.drawImage(src, -pad, -pad, W + 2 * pad, H + 2 * pad); // запас под размытие за краями окна (иначе края светлеют/темнеют)
+  const s = Math.max(W / sw, H / sh) * zoom, w = sw * s, h = sh * s;
+  g.drawImage(src, (W - w) / 2, (H - h) / 2, w, h); // = object-fit: cover на странице
+}
+const PAD = 80;
+function paint() {
+  const c = edgeCanvas;
+  if (document.hidden) return;
+  const { W, H } = geo, dpr = win.devicePixelRatio, cw = Math.round((W + 2 * PAD) * dpr), ch = Math.round((H + 2 * PAD) * dpr);
+  if (c.width != cw || c.height != ch) Object.assign(c, { width: cw, height: ch });
+  const g = c.getContext("2d");
+  g.setTransform(dpr, 0, 0, dpr, PAD * dpr, PAD * dpr);
+  g.globalAlpha = 1;
+  g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--lumi-bg0") || "#16161e";
+  g.fillRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
+  const t = fade ? clamp((performance.now() - fade.at) / 800, 0, 1) : 1;
+  if (fade && t < 1) { const o = frameOf(fade.old); if (o) drawCover(g, o, W, H, PAD); }
+  const src = frameOf(current);
+  if (src) { g.globalAlpha = t; drawCover(g, src, W, H, PAD); g.globalAlpha = 1; }
+  g.fillStyle = `rgba(0,0,0,${clamp(int("dim", 25), 0, 90) / 100})`;
+  g.fillRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
+  if (t >= 1) fade = null;
+  const wc = wall()?.querySelector("canvas"); // окну — копия кадра
+  if (wc) {
+    if (wc.width != cw || wc.height != ch) Object.assign(wc, { width: cw, height: ch });
+    wc.getContext("2d").drawImage(c, 0, 0);
+  }
+}
+// цикл: пока Home видна и идёт смена слоёв или играет видео; положение вкладки проверяется каждые 0.5 с
+let raf = 0, lastPaint = 0, lastPlace = 0;
+function loop(now) {
+  raf = 0;
+  if (document.hidden) return;
+  if (now - lastPlace > 500) { lastPlace = now; if (place() || !wall()?.style.getPropertyValue("--lumi-home-blur")) effects(); }
+  const live = fade || current?.el.matches?.("video");
+  if (live && now - lastPaint > 66) { lastPaint = now; paint(); }
+  raf = requestAnimationFrame(loop);
+}
+const kick = () => { effects(); raf ||= requestAnimationFrame(loop); };
+
+// ---------- эффекты: затемнение, размытие обоев, интерфейс над обоями ----------
 function effects() {
-  root.style.setProperty("--wp-dim", Math.min(Math.max(int("dim", 25), 0), 90) / 100);
-  root.style.setProperty("--wp-blur", Math.min(Math.max(int("blur", 0), 0), 40) + "px");
-  parallax = bool("parallax", true) && !still.matches && current?.item.kind != "web" ? Math.min(Math.max(int("parallaxStrength", 40), 0), 100) / 100 : 0;
-  root.classList.toggle("lumi-wp-zoom", !!parallax || int("blur", 0) > 0); // увеличение прячет края при сдвиге и размытии
-  if (!parallax) { tx = ty = cx = cy = 0; stage.style.transform = ""; }
+  place();
+  const dimV = clamp(int("dim", 25), 0, 90) / 100, blur = clamp(int("blur", 0), 0, 40);
+  root.style.setProperty("--wp-dim", dimV);
+  root.style.setProperty("--wp-blur", blur + "px");
+  // размытие у краёв окна светлеет — только при размытии чуть увеличиваем, ровно на запас под него
+  zoom = blur ? 1 + (4 * blur) / Math.max(Math.min(geo.W, geo.H), 1) : 1;
+  root.style.setProperty("--wp-zoom", zoom);
+  const ui = clamp(int("ui.blur", 24), 0, 60), tint = 100 - clamp(int("ui.transparency", 70), 0, 100);
+  root.style.setProperty("--wp-ui-blur", Math.hypot(ui, blur).toFixed(1) + "px");
+  root.style.setProperty("--wp-ui-tint", tint + "%");
+  root.style.setProperty("--wp-ramp", clamp(ui * 3, 32, 120) + "px");
+  const box = wall();
+  if (box) { // окно: размытие интерфейса поверх размытия самих обоев (гауссовы складываются по корню из суммы квадратов)
+    box.style.setProperty("--lumi-home-blur", Math.hypot(ui, blur).toFixed(1) + "px");
+    box.style.setProperty("--lumi-home-tint", tint + "%");
+  }
+  paint();
 }
-function step() {
-  if (!parallax) return (raf = 0);
-  cx += (tx - cx) * 0.08;
-  cy += (ty - cy) * 0.08;
-  stage.style.transform = `translate(${(-cx * parallax * 5).toFixed(3)}%, ${(-cy * parallax * 5).toFixed(3)}%) scale(1.06)`; // ≤2.5% при запасе 3%
-  raf = Math.abs(tx - cx) + Math.abs(ty - cy) > 1e-4 ? requestAnimationFrame(step) : 0;
-}
-window.addEventListener("mousemove", e => {
-  if (!parallax) return;
-  tx = e.clientX / innerWidth - 0.5;
-  ty = e.clientY / innerHeight - 0.5;
-  raf ||= requestAnimationFrame(step);
-});
 document.addEventListener("visibilitychange", () => { // видео не играет, пока Home не видна
   const v = current?.el;
   if (v?.play) document.hidden ? v.pause() : v.play().catch(() => {});
+  if (!document.hidden) { kick(); syncWE(); }
 });
+addEventListener("resize", effects);
+
+// ---------- синхронизация с Wallpaper Engine (we.sync): обои рабочего стола из config.json программы ----------
+let weStamp = null, weBusy = null;
+function syncWE(force) {
+  if (!bool("we.sync")) return Promise.resolve(false);
+  return weBusy ??= (async () => {
+    try {
+      const cfg = await we.configPath();
+      if (!cfg) return false;
+      const { lastModified } = await IOUtils.stat(cfg);
+      if (!force && lastModified == weStamp) return true;
+      weStamp = lastModified;
+      const it = await we.selected(cfg);
+      if (it && key(it) != key(current?.item)) show(await load(it));
+      return !!it;
+    } catch (e) { console.warn("Luminoctis обои: Wallpaper Engine", e); return false; }
+    finally { weBusy = null; }
+  })();
+}
+setInterval(() => !document.hidden && syncWE(), 3000);
 
 // ---------- смена по расписанию ----------
 let timer = 0;
@@ -286,7 +381,7 @@ const due = () => {
 function schedule() {
   clearInterval(timer);
   const mode = str("rotate", "open");
-  if (mode == "interval" || mode == "daily") timer = setInterval(() => due() && next(), 30000);
+  if (mode == "interval" || mode == "daily") timer = setInterval(() => !bool("we.sync") && due() && next(), 30000); // синхронизация с WE главнее
 }
 
 // ---------- старт ----------
@@ -297,7 +392,7 @@ for (const [act, [icon, title, run]] of Object.entries(ACTS)) {
   b.addEventListener("click", () => run());
   bar.append(b);
 }
-root.append(stage, dim, bar);
+root.append(stage, dim, edge, bar);
 syncButtons();
 effects();
 
@@ -309,8 +404,8 @@ async function readData() {
 }
 export const ready = (async () => {
   await readData();
-  let shown = false;
-  if (state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current)))
+  let shown = await syncWE(true); // синхронизация с Wallpaper Engine — вместо смены
+  if (!shown && state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current)))
     shown = await load(state.current).then(l => (show(l), preload(), true), () => false);
   if (!shown) await next();
   schedule();
@@ -319,6 +414,7 @@ export const ready = (async () => {
 let soon = 0;
 const onPref = (_, __, name) => {
   if (name.endsWith(".we.off")) reset(); // галочки в выборе — без смены текущих обоев
+  else if (name.endsWith(".we.sync") || name == we.CONFIG_PREF) syncWE(true);
   else if (/\.(src\.|query|category|sorting|folder|favoritesOnly)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
   else if (name.endsWith(".rotate") || name.endsWith(".interval")) schedule();
   else if (name == ACCENT) applyAccent();
@@ -326,7 +422,6 @@ const onPref = (_, __, name) => {
 };
 prefs.addObserver(P, onPref);
 prefs.addObserver(ACCENT, onPref);
-still.addEventListener("change", effects);
 window.addEventListener("unload", () => {
   prefs.removeObserver(P, onPref);
   prefs.removeObserver(ACCENT, onPref);

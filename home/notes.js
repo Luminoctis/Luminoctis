@@ -2,7 +2,9 @@
 // Покой: из-под нижнего края видна шапка и первая карточка (pref luminoctis.notes.peek: 0/1/2 карточки).
 // Наведение: доска выезжает целиком и «парит» (CSS). Клик по доске — режим редактирования (#lumi-notes.editing):
 // все доски подняты, карточки правятся/перетаскиваются, доски добавляются/переименовываются/удаляются/переставляются.
-// Выход — клик по обоям или Esc. Смена режима — только класс (DOM не пересобирается), чтобы подъём/спуск шёл анимацией.
+// Выход — клик по обоям или Esc. Смена режима — только класс: подъём/спуск доски — CSS-переход (~0.26 с).
+// render() пересобирает DOM — доски "летят" со старого места на новое (FLIP, Web Animations); при перетаскивании доски
+// остальные раздвигаются свойством translate, отпущенная встаёт на готовое место.
 // Сохранение: каждая доска пишется через 400 мс после правки (атомарно, store.js); ошибка — плашкой сверху, правка остаётся в памяти.
 // Файлы, изменённые снаружи, перечитываются при возврате на Home (кроме досок с несохранёнными правками).
 import * as md from "./notes-md.mjs";
@@ -101,6 +103,7 @@ function cardEl(c, j) {
 function boardEl(b, i) {
   const s = el("section", "lumi-board");
   s.dataset.i = i;
+  s._b = b; // для FLIP в render()
   const body = el("div", "lumi-board-body");
   const head = el("header", "lumi-board-head");
   head.draggable = true;
@@ -121,11 +124,20 @@ function boardEl(b, i) {
   s.append(body);
   return s;
 }
+const calm = () => !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 function render() {
   const scroll = [...box.querySelectorAll(".lumi-cards")].map(l => l.scrollTop);
+  const old = new Map([...box.querySelectorAll(".lumi-board")].map(s => [s._b, { x: s.getBoundingClientRect().left, t: getComputedStyle(s).transform }]));
   box.replaceChildren(...boards.map(boardEl), addBoardBtn);
   box.querySelectorAll(".lumi-cards").forEach((l, i) => (l.scrollTop = scroll[i] ?? 0));
   peek();
+  if (!calm()) for (const s of box.querySelectorAll(".lumi-board")) { // FLIP: с прежнего места (по горизонтали и высоте подъёма) на новое
+    const o = old.get(s._b), t = getComputedStyle(s).transform;
+    if (!o) continue;
+    const dx = o.x - s.getBoundingClientRect().left;
+    if (o.t == t && Math.abs(dx) < 1) continue;
+    s.animate({ transform: [`translateX(${dx}px) ${o.t == "none" ? "" : o.t}`.trim(), t] }, { duration: 240, easing: "cubic-bezier(.2, .9, .25, 1)" });
+  }
 }
 // сколько доски видно в покое: шапка + N первых карточек (в покое карточки обрезаны до 3 строк)
 function peek() {
@@ -278,8 +290,18 @@ box.addEventListener("change", e => {
 });
 
 // перетаскивание: карточки — внутри доски и между досками, доски — за шапку
-let drag = null; // { card: true, b, j } | { b }
+let drag = null; // { card: true, b, j } | { b, i, base: [{ left, width }], k }
 const clearMarks = () => box.querySelectorAll(".drop-before, .drop-end, .dragging").forEach(n => n.classList.remove("drop-before", "drop-end", "dragging"));
+const clearShift = () => box.querySelectorAll(".lumi-board").forEach(s => (s.style.translate = ""));
+// доски раздвигаются: перетаскиваемая встаёт на новое место (k — куда вставить), остальные съезжают на её ширину
+function shiftBoards(k) {
+  const secs = [...box.querySelectorAll(".lumi-board")], { i, base } = drag, order = secs.map((_, n) => n);
+  order.splice(i, 1);
+  order.splice(k > i ? k - 1 : k, 0, i);
+  const gap = base.length > 1 ? base[1].left - base[0].left - base[0].width : 14;
+  let x = base[0].left;
+  for (const n of order) { secs[n].style.translate = `${x - base[n].left}px 0`; x += base[n].width + gap; }
+}
 function dropTarget(e) {
   const s = e.target.closest?.(".lumi-board");
   if (drag.card) {
@@ -289,15 +311,15 @@ function dropTarget(e) {
     if (k < 0) k = lis.length;
     return { to: boards[s.dataset.i], k, mark: lis[k] ?? s.querySelector(".lumi-cards"), cls: lis[k] ? "drop-before" : "drop-end" };
   }
-  const secs = [...box.querySelectorAll(".lumi-board")];
-  let k = secs.findIndex(x => e.clientX < x.getBoundingClientRect().left + x.offsetWidth / 2);
-  if (k < 0) k = secs.length;
-  return { k, mark: secs[k] ?? addBoardBtn, cls: "drop-before" };
+  let k = drag.base.findIndex(r => e.clientX < r.left + r.width / 2); // по положению до сдвигов, иначе дрожит
+  if (k < 0) k = drag.base.length;
+  return { k };
 }
 box.addEventListener("dragstart", e => {
   const li = e.target.closest?.(".lumi-card"), b = boardOf(e.target);
   if (!editing() || !b || (!li && !e.target.closest?.(".lumi-board-head"))) return e.preventDefault();
-  drag = li ? { card: true, b, j: Number(li.dataset.j) } : { b };
+  drag = li ? { card: true, b, j: Number(li.dataset.j) }
+    : { b, i: boards.indexOf(b), k: -1, base: [...box.querySelectorAll(".lumi-board")].map(s => { const r = s.getBoundingClientRect(); return { left: r.left, width: r.width }; }) };
   e.dataTransfer.setData("text/plain", li ? b.cards[drag.j].text : b.name);
   e.dataTransfer.effectAllowed = "move";
   (li ?? e.target.closest(".lumi-board")).classList.add("dragging");
@@ -308,6 +330,7 @@ box.addEventListener("dragover", e => {
   if (!t) return;
   e.preventDefault();
   e.dataTransfer.dropEffect = "move";
+  if (!drag.card) { if (t.k != drag.k) shiftBoards((drag.k = t.k)); return; }
   box.querySelectorAll(".drop-before, .drop-end").forEach(n => n.classList.remove("drop-before", "drop-end"));
   t.mark.classList.add(t.cls);
 });
@@ -317,11 +340,11 @@ box.addEventListener("drop", e => {
   e.preventDefault();
   drag = null;
   clearMarks();
-  if (!t) return;
+  if (!t) return clearShift();
   if (d.card) moveCard(d.b, d.j, t.to, t.k);
   else moveBoard(boards.indexOf(d.b), t.k);
 });
-box.addEventListener("dragend", () => { drag = null; clearMarks(); });
+box.addEventListener("dragend", () => { drag = null; clearMarks(); clearShift(); });
 
 // выход из редактирования: клик мимо досок (обои, часы) или Esc
 document.addEventListener("click", e => {

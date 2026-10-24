@@ -1,5 +1,5 @@
 // Часы Luminoctis Home: одна функция «время → DOM» и 10 стилей — CSS-классы lumi-clock-<стиль> (home/clock.css).
-// Настройки: luminoctis.home.clock.style / .h12 / .seconds / .date. Тот же модуль рисует превью стилей в настройках
+// Настройки: luminoctis.home.clock.style / .h12 / .seconds / .date / .size (% от обычного размера, 50–150). Тот же модуль рисует превью стилей в настройках
 // (settings.js: new Clock(el, "flip")). Текст .lumi-clock-time — всегда «чч:мм[:сс]» (цифры сегментов и перелистывания — пустые <i> и attr()).
 const PREF = "luminoctis.home.clock.";
 export const STYLES = {
@@ -13,6 +13,7 @@ export function options() {
     h12: Services.prefs.getBoolPref(PREF + "h12", false),
     seconds: Services.prefs.getBoolPref(PREF + "seconds", false),
     date: Services.prefs.getBoolPref(PREF + "date", true),
+    size: Math.min(150, Math.max(50, Services.prefs.getIntPref(PREF + "size", 100))),
   };
 }
 
@@ -54,6 +55,7 @@ export class Clock {
       if (this.style) this.root.classList.remove("lumi-clock-" + this.style);
       this.root.classList.add("lumi-clock-" + (this.style = style));
     }
+    if (!this.fixed) this.root.style.setProperty("--clock-scale", o.size / 100); // превью стилей в настройках не масштабируются
     const h24 = now.getHours();
     const groups = [pad(o.h12 ? h24 % 12 || 12 : h24), pad(now.getMinutes())];
     if (o.seconds) groups.push(pad(now.getSeconds()));

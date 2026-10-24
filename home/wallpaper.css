@@ -1,8 +1,23 @@
 /* Обои Luminoctis Home (home/wallpaper.js). Под слоями остаётся градиент #lumi-wallpaper из home.css — он же запасной фон без сети.
- * --wp-dim (0..0.9) и --wp-blur (px) ставит wallpaper.js из настроек. */
+ * --wp-dim (0..0.9), --wp-blur (px), --wp-zoom (>1 только при размытии), --wp-ui-* ставит wallpaper.js из настроек.
+ * Сцена — прямоугольник всего окна браузера (--wp-w × --wp-h), сдвинутый на место вкладки (--wp-x, --wp-y): cover считается от окна,
+ * а окно (#lumi-home-wall, chrome.css раздел 15) рисует тот же кадр под интерфейсом — стык без шва. */
 #lumi-wallpaper { overflow: hidden; }
-.lumi-wp-stage { position: absolute; inset: 0; filter: blur(var(--wp-blur, 0px)); will-change: transform; }
-.lumi-wp-zoom .lumi-wp-stage { transform: scale(1.06); }
+.lumi-wp-stage {
+  position: absolute; left: calc(-1 * var(--wp-x, 0px)); top: calc(-1 * var(--wp-y, 0px));
+  width: var(--wp-w, 100%); height: var(--wp-h, 100%);
+  filter: blur(var(--wp-blur, 0px)); transform: scale(var(--wp-zoom, 1));
+}
+/* у краёв, где начинается интерфейс (рейка слева, полосы сверху), обои плавно размываются и тонируются так же, как под интерфейсом */
+.lumi-wp-edge {
+  position: absolute; inset: 0; pointer-events: none; overflow: hidden;
+  mask-image: linear-gradient(to right, #000, transparent var(--wp-ramp-l, 0px)), linear-gradient(to bottom, #000, transparent var(--wp-ramp-t, 0px));
+  &::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--lumi-bg0, #16161e) var(--wp-ui-tint, 30%), transparent); }
+  & > canvas { /* холст окна (запас 80px, как в chrome.css раздел 15), сдвинутый на место вкладки */
+    position: absolute; left: calc(-1 * var(--wp-x, 0px) - 80px); top: calc(-1 * var(--wp-y, 0px) - 80px);
+    width: calc(var(--wp-w, 100%) + 160px); height: calc(var(--wp-h, 100%) + 160px); filter: blur(var(--wp-ui-blur, 24px));
+  }
+}
 .lumi-wp-layer {
   position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease;
   &.on { opacity: 1; }
@@ -31,7 +46,7 @@
 /* Wallpaper Engine (home/we.js): веб-обои — iframe без прав браузера; сцена — превью с подписью */
 .lumi-wp-scene { position: absolute; inset: 0; & > img { width: 100%; height: 100%; object-fit: cover; display: block; } }
 .lumi-wp-hint {
-  position: absolute; left: calc((100% - var(--lumi-time-w, 320px)) / 2); translate: -50% 0; white-space: nowrap; bottom: calc(var(--lumi-notes-h, 180px) + 8px); padding: 3px 9px; border-radius: 8px;
+  position: absolute; left: calc((100% + var(--wp-x, 0px) - var(--lumi-time-w, 320px)) / 2); /* сцена — во всё окно, подпись — по центру вкладки */ translate: -50% 0; white-space: nowrap; bottom: calc(var(--lumi-notes-h, 180px) + 8px); padding: 3px 9px; border-radius: 8px;
   background: color-mix(in srgb, var(--lumi-bg0, #16161e) 75%, transparent); color: var(--lumi-fg, #c0caf5); font-size: 11.5px;
 }
 /* эквалайзер (home/equalizer.js): холст поверх обоев, клики проходят насквозь */

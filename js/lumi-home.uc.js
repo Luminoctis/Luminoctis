@@ -44,7 +44,7 @@
     const ws = gZenWorkspaces.activeWorkspace;
     if (ws && home.getAttribute("zen-workspace-id") != ws) gZenWorkspaces.moveTabToWorkspace(home, ws);
     gBrowser.selectedTab = home;
-    document.getElementById("lumi-logo")?.toggleAttribute("lumi-home-open", true);
+    lit(true);
     return home;
   }
   // назад: прежняя вкладка, если она ещё есть в этом пространстве; иначе — последняя использованная обычная
@@ -54,6 +54,11 @@
       : gBrowser.visibleTabs.filter(t => ok(t) && !t.hasAttribute("zen-essential"))
         .reduce((best, t) => (!best || t.lastAccessed > best.lastAccessed ? t : best), null) ?? gZenWorkspaces._emptyTab;
     if (to) gBrowser.selectedTab = to;
+  }
+  // подсветка «L» и обои под всем окном ([lumi-home-wall] на корне — chrome.css раздел 15); кадр в #lumi-home-wall рисует сама Home (home/wallpaper.js)
+  function lit(on) {
+    document.getElementById("lumi-logo")?.toggleAttribute("lumi-home-open", on);
+    document.documentElement.toggleAttribute("lumi-home-wall", on);
   }
   const toggle = () => (isHome(gBrowser.selectedTab) ? back() : open());
   window.lumiHome = { toggle, open, back, isHome, find, URL };
@@ -72,8 +77,12 @@
     gZenWorkspaces._shouldChangeToTab = function (tab) {
       return shouldChange.call(this, tab) && !isHome(tab);
     };
-    const logo = () => document.getElementById("lumi-logo");
-    const sync = () => logo()?.toggleAttribute("lumi-home-open", isHome(gBrowser.selectedTab));
+    const HTML = "http://www.w3.org/1999/xhtml", wall = document.createElementNS(HTML, "div");
+    wall.id = "lumi-home-wall";
+    wall.append(document.createElementNS(HTML, "canvas"));
+    const bg = document.getElementById("zen-browser-background"); // под рейкой и интерфейсом, над фоном окна
+    if (bg) bg.after(wall); else document.getElementById("browser")?.prepend(wall);
+    const sync = () => lit(isHome(gBrowser.selectedTab));
     window.addEventListener("TabSelect", event => {
       if (isHome(event.target) && !isHome(event.detail?.previousTab)) prev = event.detail?.previousTab ?? null;
       sync();

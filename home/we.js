@@ -7,24 +7,52 @@ const APP = ["steamapps", "workshop", "content", "431960"];
 const norm = p => p.replace(/\//g, "\\"); // SteamPath в реестре — с прямыми слэшами
 
 // Steam: HKCU\Software\Valve\Steam\SteamPath + все библиотеки из steamapps\libraryfolders.vdf
-export async function detectDir() {
+async function libraries() {
   const libs = [];
   try {
     const k = Cc["@mozilla.org/windows-registry-key;1"].createInstance(Ci.nsIWindowsRegKey);
     k.open(k.ROOT_KEY_CURRENT_USER, "Software\\Valve\\Steam", k.ACCESS_READ);
     try { libs.push(norm(k.readStringValue("SteamPath"))); } finally { k.close(); }
-  } catch { return null; } // Steam не установлен
+  } catch { return []; } // Steam не установлен
   try {
     const vdf = await IOUtils.readUTF8(PathUtils.join(libs[0], "steamapps", "libraryfolders.vdf"));
     for (const m of vdf.matchAll(/"path"\s+"([^"]+)"/g)) libs.push(norm(m[1].replace(/\\\\/g, "\\")));
   } catch {}
-  for (const lib of libs) {
-    try { const d = PathUtils.join(lib, ...APP); if (await IOUtils.exists(d)) return d; } catch {}
+  return libs;
+}
+async function firstExisting(...rel) {
+  for (const lib of await libraries()) {
+    try { const d = PathUtils.join(lib, ...rel); if (await IOUtils.exists(d)) return d; } catch {}
   }
   return null;
 }
+export const detectDir = () => firstExisting(...APP);
 let detected = null;
 export const folder = async () => prefs.getStringPref(PREF, "").trim() || (detected ??= detectDir());
+
+// ---------- синхронизация с программой Wallpaper Engine: её config.json хранит обои рабочего стола ----------
+export const CONFIG_PREF = "luminoctis.home.wallpaper.we.config"; // путь к config.json; пусто — steamapps\common\wallpaper_engine в библиотеках Steam
+let detectedConfig = null;
+export async function configPath() {
+  const p = prefs.getStringPref(CONFIG_PREF, "").trim();
+  if (p) return (await IOUtils.exists(p)) ? p : null;
+  return (detectedConfig ??= firstExisting("steamapps", "common", "wallpaper_engine", "config.json"));
+}
+// обои первого монитора: <пользователь>.general.wallpaperconfig.selectedwallpapers.<монитор>.file — ключ ищем на любой глубине
+// (вложенность у версий WE разная); file — project.json или главный файл обоев, папка обоев — ближайшая сверху с project.json
+export async function selected(cfg) {
+  cfg ??= await configPath();
+  if (!cfg) return null;
+  // в настоящем config.json ключ вложен дважды: general.selectedwallpapers.selectedwallpapers.Monitor0 — берём тот, где мониторы с file
+  const monitors = s => s && typeof s == "object" && Object.values(s).some(v => typeof v?.file == "string") ? s : null;
+  const find = o => o && typeof o == "object" ? (monitors(o.selectedwallpapers) ?? Object.values(o).map(find).find(Boolean)) : null;
+  const sel = find(await IOUtils.readJSON(cfg));
+  const file = sel && Object.keys(sel).sort().map(k => sel[k]?.file).find(f => typeof f == "string" && f);
+  if (!file) return null;
+  let dir = PathUtils.parent(norm(file));
+  for (let i = 0; i < 3 && dir && !(await IOUtils.exists(PathUtils.join(dir, "project.json"))); i++) dir = PathUtils.parent(dir);
+  return dir ? item(dir) : null;
+}
 
 // обои папки: { source:"we", id, kind (video|web|scene), type, title, file, page, preview, props }
 // scene/application — показываем превью (file = preview); битые и неполные папки пропускаются
@@ -33,19 +61,21 @@ export async function list(dir) {
   if (!dir) return [];
   let kids;
   try { kids = await IOUtils.getChildren(dir); } catch { return []; }
-  const items = await Promise.all(kids.map(async d => {
-    try {
-      const p = await IOUtils.readJSON(PathUtils.join(d, "project.json"));
-      const type = String(p.type ?? "scene").toLowerCase();
-      const kind = type == "video" || type == "web" ? type : "scene";
-      const preview = p.preview ? PathUtils.joinRelative(d, String(p.preview)) : null;
-      const file = kind == "scene" ? preview : p.file ? PathUtils.joinRelative(d, String(p.file)) : null;
-      if (!file) return null;
-      return { source: "we", id: PathUtils.filename(d), kind, type, title: String(p.title || PathUtils.filename(d)), file, page: d, preview,
-        props: p.general?.properties ?? {} };
-    } catch { return null; }
-  }));
+  const items = await Promise.all(kids.map(item));
   return items.filter(Boolean).sort((a, b) => a.title.localeCompare(b.title));
+}
+// одни обои по их папке; битые и неполные — null
+export async function item(d) {
+  try {
+    const p = await IOUtils.readJSON(PathUtils.join(d, "project.json"));
+    const type = String(p.type ?? "scene").toLowerCase();
+    const kind = type == "video" || type == "web" ? type : "scene";
+    const preview = p.preview ? PathUtils.joinRelative(d, String(p.preview)) : null;
+    const file = kind == "scene" ? preview : p.file ? PathUtils.joinRelative(d, String(p.file)) : null;
+    if (!file) return null;
+    return { source: "we", id: PathUtils.filename(d), kind, type, title: String(p.title || PathUtils.filename(d)), file, page: d, preview,
+      props: p.general?.properties ?? {} };
+  } catch { return null; }
 }
 
 // ---------- вид "web": страница обоев без прав браузера ----------

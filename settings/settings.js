@@ -552,6 +552,60 @@ renderPalette();
   });
 }
 
+// ---------- Wallpaper Engine: папка мастерской и выбор обоев (home/we.js) ----------
+{
+  const we = await import("./home/we.js");
+  const box = $("#we-items"), folderBox = $("#we-folder"), OFF = "luminoctis.home.wallpaper.we.off";
+  const off = () => new Set(Services.prefs.getStringPref(OFF, "").split(",").filter(Boolean));
+  const TYPE = { video: "Видео", web: "Веб", scene: "Сцена", application: "Программа" };
+  let gen = 0;
+  async function render() {
+    const my = ++gen, dir = await we.folder();
+    folderBox.placeholder = Services.prefs.getStringPref(we.PREF, "") ? "" : dir ?? "Steam не найден — укажите папку steamapps/workshop/content/431960";
+    const items = dir ? await we.list(dir) : [];
+    if (my != gen) return;
+    const skip = off();
+    box.replaceChildren(...items.map(it => {
+      const card = Object.assign(document.createElement("div"), { className: "we-item" });
+      const show = Object.assign(document.createElement("button"), { className: "we-show", title: "Поставить на Home сейчас" });
+      if (it.preview) show.append(Object.assign(new Image(), { src: PathUtils.toFileURI(it.preview), loading: "lazy", alt: "" }));
+      show.append(Object.assign(document.createElement("span"), { className: "we-type", textContent: TYPE[it.type] ?? it.type }));
+      show.addEventListener("click", async () => {
+        const tab = win.lumiHome.open();
+        for (let i = 0; i < 50; i++) { // Home могла только что создаться — ждём обои
+          const wp = tab.linkedBrowser.contentWindow?.lumiWallpaper;
+          if (wp) { await wp.ready; return wp.showItem(it); }
+          await new Promise(r => setTimeout(r, 100));
+        }
+      });
+      const label = document.createElement("label");
+      const check = Object.assign(document.createElement("input"), { type: "checkbox", checked: !skip.has(it.id), title: "Брать в смену обоев" });
+      check.addEventListener("change", () => {
+        const s = off();
+        check.checked ? s.delete(it.id) : s.add(it.id);
+        s.size ? Services.prefs.setStringPref(OFF, [...s].join(",")) : Services.prefs.clearUserPref(OFF);
+      });
+      label.append(check, Object.assign(document.createElement("span"), { textContent: it.title, title: it.title }));
+      card.append(show, label);
+      return card;
+    }));
+    if (dir && !items.length) box.replaceChildren(Object.assign(document.createElement("p"), { textContent: "В папке нет обоев Wallpaper Engine" }));
+  }
+  Services.prefs.addObserver(we.PREF, render);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(we.PREF, render));
+  render();
+  $("#we-pick").addEventListener("click", () => {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, "Папка Wallpaper Engine (steamapps/workshop/content/431960)", Ci.nsIFilePicker.modeGetFolder);
+    fp.open(r => {
+      if (r != Ci.nsIFilePicker.returnOK) return;
+      Services.prefs.setStringPref(we.PREF, fp.file.path);
+      Services.prefs.setBoolPref("luminoctis.home.wallpaper.src.we", true);
+    });
+  });
+  window.lumiWE = { render }; // для проверок
+}
+
 // ---------- LumiTime: «Открыть» — Home и панель настроек таймера (home/time.js) ----------
 $("#lumitime-settings")?.addEventListener("click", async () => {
   const tab = win.lumiHome.open();

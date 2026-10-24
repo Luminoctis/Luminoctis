@@ -27,3 +27,12 @@
   }
 }
 @media (prefers-reduced-motion: reduce) { .lumi-wp-layer { transition: none; } }
+
+/* Wallpaper Engine (home/we.js): веб-обои — iframe без прав браузера; сцена — превью с подписью */
+.lumi-wp-scene { position: absolute; inset: 0; & > img { width: 100%; height: 100%; object-fit: cover; display: block; } }
+.lumi-wp-hint {
+  position: absolute; left: calc((100% - var(--lumi-time-w, 320px)) / 2); translate: -50% 0; white-space: nowrap; bottom: calc(var(--lumi-notes-h, 180px) + 8px); padding: 3px 9px; border-radius: 8px;
+  background: color-mix(in srgb, var(--lumi-bg0, #16161e) 75%, transparent); color: var(--lumi-fg, #c0caf5); font-size: 11.5px;
+}
+/* эквалайзер (home/equalizer.js): холст поверх обоев, клики проходят насквозь */
+.lumi-eq { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }

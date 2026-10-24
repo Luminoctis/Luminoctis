@@ -2,8 +2,10 @@
 // Источники: Wallhaven, Konachan (safe), картинка дня Bing, своя папка (картинки/gif/mp4/webm), избранное.
 // Данные (home/store.js): wallpapers/state.json (текущие + очередь), favorites.json + favorites/<файлы>, bans.json.
 // Настройки: luminoctis.home.wallpaper.* (+ luminoctis.home.accentFromWallpaper — цвет акцента мода из обоев).
-// Для будущего агента Wallpaper Engine / эквалайзера: новый вид обоев — registerKind("web", { create, ready }).
+// Wallpaper Engine (home/we.js): источник "we", виды "web" (страница без прав браузера) и "scene" (превью); эквалайзер — home/equalizer.js.
+// Новый вид обоев — registerKind(name, { create(src, item), ready(el) }).
 import * as store from "./store.js";
+import * as we from "./we.js";
 
 const P = "luminoctis.home.wallpaper.", ACCENT = "luminoctis.home.accentFromWallpaper", OVERRIDE = "luminoctis.palette.accentOverride";
 const prefs = Services.prefs;
@@ -19,7 +21,9 @@ export const kinds = {
     create: src => Object.assign(document.createElement("video"), { src, muted: true, loop: true, autoplay: true, playsInline: true, preload: "auto" }),
     ready: el => new Promise((ok, fail) => { el.onloadeddata = ok; el.onerror = () => fail(new Error("видео не открылось")); }),
   },
+  ...we.kinds,
 };
+we.init();
 export const registerKind = (name, impl) => (kinds[name] = impl);
 
 // ---------- источники: каждый возвращает список { source, id, kind, url|file, page, author } ----------
@@ -47,6 +51,10 @@ export const sources = {
     const { images } = await json("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=ru-RU");
     return images.map(i => ({ source: "bing", id: i.startdate, kind: "image", url: `https://www.bing.com${i.urlbase}_UHD.jpg`,
       page: i.copyrightlink, author: i.copyright }));
+  },
+  async we() { // Wallpaper Engine: все обои папки мастерской, кроме снятых галочкой в настройках (we.off — id через запятую)
+    const off = new Set(str("we.off").split(",").filter(Boolean));
+    return (await we.list()).filter(i => !off.has(i.id));
   },
   async local() {
     const dir = str("folder").trim();
@@ -98,7 +106,7 @@ async function load(item) {
     src = URL.createObjectURL(blob);
   }
   const kind = kinds[item.kind] ?? kinds.image;
-  const el = kind.create(src);
+  const el = kind.create(src, item);
   try { await kind.ready(el); } catch (e) { if (blob) URL.revokeObjectURL(src); throw e; }
   return { item, el, blob, src };
 }
@@ -120,6 +128,12 @@ function show(layer) {
   save();
   syncButtons();
   applyAccent();
+  effects(); // параллакс выключается для веб-обоев — мышь им нужна самим
+}
+// показать выбранные обои сейчас (выбор Wallpaper Engine в настройках)
+export async function showItem(item) {
+  show(await load(item));
+  return true;
 }
 
 // следующая картинка; не открылась — пробуем ещё (до 4 раз), нет ничего — остаётся градиент
@@ -189,6 +203,7 @@ function syncButtons() {
   fav.title = isFav() ? "Убрать из избранного" : "В избранное (копия — в папке Luminoctis Home)";
   bar.querySelector("[data-act=open]").title = current?.item.source == "local" ? "Показать файл в папке" : "Открыть страницу обоев";
   for (const b of bar.querySelectorAll("[data-act=fav], [data-act=ban], [data-act=open]")) b.disabled = !current;
+  if (current?.item.source == "we") { fav.disabled = true; fav.title = "Обои Wallpaper Engine и так лежат в папке Steam"; }
 }
 
 // ---------- цвет акцента из обоев ----------
@@ -223,9 +238,10 @@ export function accentOf(el) {
 }
 function applyAccent() {
   if (!prefs.getBoolPref(ACCENT, false)) return prefs.clearUserPref(OVERRIDE);
-  if (!current) return;
+  const el = current?.el.matches("img, video") ? current.el : current?.el.querySelector("img"); // веб-обои — цвет не читаем
+  if (!el) return;
   try {
-    const color = accentOf(current.el);
+    const color = accentOf(el);
     color ? prefs.setStringPref(OVERRIDE, color) : prefs.clearUserPref(OVERRIDE);
   } catch (e) { console.warn("Luminoctis обои: цвет не прочитан", e); }
 }
@@ -236,7 +252,7 @@ let parallax = 0, tx = 0, ty = 0, cx = 0, cy = 0, raf = 0;
 function effects() {
   root.style.setProperty("--wp-dim", Math.min(Math.max(int("dim", 25), 0), 90) / 100);
   root.style.setProperty("--wp-blur", Math.min(Math.max(int("blur", 0), 0), 40) + "px");
-  parallax = bool("parallax", true) && !still.matches ? Math.min(Math.max(int("parallaxStrength", 40), 0), 100) / 100 : 0;
+  parallax = bool("parallax", true) && !still.matches && current?.item.kind != "web" ? Math.min(Math.max(int("parallaxStrength", 40), 0), 100) / 100 : 0;
   root.classList.toggle("lumi-wp-zoom", !!parallax || int("blur", 0) > 0); // увеличение прячет края при сдвиге и размытии
   if (!parallax) { tx = ty = cx = cy = 0; stage.style.transform = ""; }
 }
@@ -302,7 +318,8 @@ export const ready = (async () => {
 
 let soon = 0;
 const onPref = (_, __, name) => {
-  if (/\.(src\.|query|category|sorting|folder|favoritesOnly)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
+  if (name.endsWith(".we.off")) reset(); // галочки в выборе — без смены текущих обоев
+  else if (/\.(src\.|query|category|sorting|folder|favoritesOnly)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
   else if (name.endsWith(".rotate") || name.endsWith(".interval")) schedule();
   else if (name == ACCENT) applyAccent();
   else effects();
@@ -317,5 +334,5 @@ window.addEventListener("unload", () => {
 });
 
 // для проверок (dev/check-home-wallpaper.js) и будущих виджетов
-window.lumiWallpaper = { next, favorite, ban, openSource, sources, kinds, registerKind, accentOf, ready,
+window.lumiWallpaper = { next, showItem, we, favorite, ban, openSource, sources, kinds, registerKind, accentOf, ready,
   get current() { return current; }, get state() { return state; }, get favs() { return favs; }, get bans() { return bans; }, reload: () => (reset(), readData()) };

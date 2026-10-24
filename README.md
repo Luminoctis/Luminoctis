@@ -183,6 +183,7 @@ Zen Browser mod Luminoctis by Laith.
 | `zen.view.compact.hide-toolbar` | `true` | прятать верхнюю полосу |
 | `zen.view.compact.hide-tabbar` | `false` | панель вкладок всегда видна |
 | `zen.view.sidebar-expanded` | `true` | широкая панель вкладок |
+| `zen.view.show-newtab-button-top` | `false` | новые вкладки встают в конец, а не в начало (мод выставляет сам при старте) |
 | `browser.download.autohideButton` | `false` | кнопка загрузок всегда на месте |
 | `zen.workspaces.separate-essentials` | `false` | закрепы (Essentials) общие для всех пространств, а не свои у каждого контейнера; после перезапуска |
 | `browser.urlbar.scotchBonnet.enableOverride` | `true` | выбор поисковика в адресной строке |

@@ -3,6 +3,11 @@
 // @description    Своя полоса вкладок сверху — зеркало gBrowser. Родной вертикальный список Zen остаётся рабочим, но спрятан (chrome.css, раздел 9).
 // ==/UserScript==
 
+// Новые вкладки (Ctrl+T, «+») должны вставать в конец. Zen при zen.view.show-newtab-button-top (по умолчанию true — «+» вверху
+// родного списка) вставляет их в НАЧАЛО обычных вкладок (Tabbrowser::addTab при атрибуте zen-newtab у адресной строки),
+// и в нашей полосе они оказывались слева. Настройка читается при каждом открытии вкладки — достаточно выставить её здесь.
+Services.prefs.setBoolPref("zen.view.show-newtab-button-top", false);
+
 UC_API.Windows.waitWindowLoading(window).then(() => {
   const strip = document.createElement("div");
   strip.id = "lumi-tabstrip";

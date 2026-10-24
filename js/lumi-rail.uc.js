@@ -94,9 +94,7 @@
       h("div", "lumi-sep"),
       pins,
       h("div", "lumi-spacer"),
-      players,
-      // «скобка» на нижнем краю рейки: настройки рабочих пространств
-      labeled(h("button", "", { id: "lumi-spaces-button" }), "Рабочие пространства")
+      players
     );
     document.getElementById("navigator-toolbox").before(rail);
 
@@ -104,7 +102,6 @@
     initPins(rail, pins);
     initPlayers(players);
     initRailMenu(rail);
-    document.getElementById("lumi-spaces-button").addEventListener("click", () => luminoctis.openSettings("sidebar", "spaces"));
     setInterval(unloadIdleTabs, 60000);
     gZenWorkspaces.promiseInitialized
       .then(() => SessionStore.promiseAllWindowsRestored)
@@ -138,6 +135,12 @@
     const icons = document.getElementById("zen-workspaces-button");
     // Элемент Zen подключается один раз (#hasConnected), перенос его не ломает.
     rail.querySelector(".lumi-sep").after(icons);
+
+    // Кнопка под кнопками пространств: родная Библиотека Zen (zen-library) на разделе «Пространства».
+    // cmd_zenManageWorkspaces = ZenLibrary.toggle("spaces"): открыта — закроет.
+    const manage = labeled(h("button", "", { id: "lumi-spaces-button" }), "Управление пространствами");
+    manage.addEventListener("click", () => document.getElementById("cmd_zenManageWorkspaces").doCommand());
+    icons.after(manage);
 
     // Цветная точка контейнера Firefox: цвет берём из контейнера пространства.
     const paintDots = () => {
@@ -323,6 +326,25 @@
     window.addEventListener("TabSelect", () => {
       if (shown && gBrowser.selectedTab !== shown.pin) release();
     });
+
+    // Закреп никогда не бывает выбранной вкладкой «в основной области» сам по себе — только через showPin/expandPin.
+    // Корень: Zen при выборе замены (закрыли последнюю вкладку, выгрузка, смена пространства) годной считает любую вкладку,
+    // кроме выгруженного закрепа (_shouldChangeToTab), так что загруженный закреп подходит и становится на весь экран.
+    // 1) закреп — не замена; на его месте будет соседняя вкладка или пустая вкладка пространства (findTabToBlur).
+    const shouldChange = gZenWorkspaces._shouldChangeToTab;
+    gZenWorkspaces._shouldChangeToTab = function (tab) {
+      return shouldChange.call(this, tab) && !isPin(tab);
+    };
+    // 2) вкладку, ставшую закрепом, пока она выбрана (меню, перетаскивание), родное API не отпускает — уводим выбор сами.
+    // _findTabToBlurTo тут не годится: у закрепа нет id пространства, и Zen исключает все вкладки пространства — берём последнюю использованную обычную.
+    const leavePin = () => {
+      const tab = gBrowser.selectedTab;
+      if (!isPin(tab) || shown?.pin === tab) return;
+      const to = gBrowser.visibleTabs.filter(t => !isPin(t) && !t.hasAttribute("zen-empty-tab") && gZenWorkspaces._shouldChangeToTab(t))
+        .reduce((best, t) => (!best || t.lastAccessed > best.lastAccessed ? t : best), null) ?? gZenWorkspaces._emptyTab;
+      if (to) gBrowser.selectedTab = to;
+    };
+    for (const type of ["TabSelect", "TabAddedToEssentials"]) window.addEventListener(type, () => setTimeout(leavePin));
     // Ctrl+W и «Закрыть вкладку» не закрывают закреп, а прячут (Zen иначе сбросил бы его адрес и выгрузил)
     document.getElementById("mainCommandSet").addEventListener("command", event => {
       if (event.target.id != "cmd_close" || !isPin(gBrowser.selectedTab)) return;

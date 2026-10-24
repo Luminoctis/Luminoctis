@@ -108,9 +108,10 @@
 
 /* ---------- 2. Верхняя полоса выезжает и при наведении на полосу вкладок (#lumi-tabstrip, раздел 9) ----------
  * Родной compact mode (zen.view.compact.hide-toolbar) сам открывает её у верхнего края.
- * Здесь то же раскрытие, пока мышь над панелью вкладок или над самой полосой. */
+ * Здесь то же раскрытие, пока мышь над панелью вкладок или над самой полосой. Если полоса вкладок прячется (compacting) и выехала —
+ * [lumi-show-tabstrip] (js/lumi-compact.uc.js) — адресная строка раскрыта вместе с ней, даже пока мышь ещё в горячей зоне у края. */
 @media -moz-pref('zen.view.compact.hide-toolbar') {
-  :root[zen-compact-mode='true']:not([zen-single-toolbar='true']):not([customizing]):not([inDOMFullscreen='true']):has(#lumi-tabstrip:hover, #zen-appcontent-navbar-wrapper:hover) {
+  :root[zen-compact-mode='true']:not([zen-single-toolbar='true']):not([customizing]):not([inDOMFullscreen='true']):is(:has(#lumi-tabstrip:hover, #zen-appcontent-navbar-wrapper:hover), [lumi-show-tabstrip]) {
     & #zen-appcontent-navbar-wrapper {
       height: var(--zen-toolbar-height-with-bookmarks) !important;
       overflow: inherit !important;
@@ -178,17 +179,16 @@
   & button { -moz-window-dragging: no-drag; appearance: none; cursor: default; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
-/* Кнопка рабочих пространств — «скобка» на боку: маленький выступ от самого нижнего края рейки со скруглёнными верхними углами,
- * снизу открыта (сливается с краем). Клик — настройки, блок «Рабочие пространства» (js/lumi-rail.uc.js) */
+/* Кнопка управления пространствами: маленькая плашка под кнопками пространств, в потоке рейки.
+ * Клик — родная Библиотека Zen на «Пространствах» (js/lumi-rail.uc.js) */
 #lumi-spaces-button {
-  position: absolute; left: 50%; bottom: -1px; translate: -50% 0;
-  width: 32px; height: 16px; padding: 0; box-sizing: border-box;
-  border: 1px solid color-mix(in srgb, var(--lumi-dim) 55%, transparent); border-bottom: none; border-radius: 9px 9px 0 0;
+  width: 34px; height: 16px; padding: 0; box-sizing: border-box; flex-shrink: 0; margin-top: -2px;
+  border: 1px solid transparent; border-radius: 8px;
   background: var(--lumi-raised); color: var(--lumi-muted);
   transition: background-color 0.15s, border-color 0.15s, color 0.15s;
   &::before { content: ""; display: block; width: 10px; height: 10px; margin: 0 auto; background: currentColor;
     mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5zM3 13l9 5 9-5'/%3E%3C/svg%3E"); }
-  &:hover { background: var(--lumi-raised); border-color: var(--lumi-accent); color: var(--lumi-accent); }
+  &:hover { border-color: var(--lumi-accent); color: var(--lumi-accent); }
   &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
 }
 .lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }

@@ -24,7 +24,7 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
 
   for (const zone of [
     { attr: "lumi-show-sidebar", el: rail, hot: "lumi-hot-left" },
-    { attr: "lumi-show-tabstrip", el: strip, hot: "lumi-hot-top" },
+    { attr: "lumi-show-tabstrip", el: strip, hot: "lumi-hot-top", pref: "luminoctis.compact.tabstrip" },
   ]) {
     const hot = Object.assign(document.createElement("div"), { id: zone.hot });
     document.getElementById("browser").append(hot);
@@ -38,6 +38,8 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
       timer = setTimeout(() => (busy() ? zone.later() : root.removeAttribute(zone.attr)), 350);
     };
     const show = () => {
+      // атрибут lumi-show-tabstrip ещё и раскрывает адресную строку (chrome.css, раздел 2) — только если полоса вправду прячется
+      if (zone.pref && !Services.prefs.getBoolPref(zone.pref, false)) return;
       root.setAttribute(zone.attr, "");
       zone.later(); // убирать сразу, как только мышь уйдёт и перетаскивание кончится (busy ниже), а не ждать события «ушла»
     };

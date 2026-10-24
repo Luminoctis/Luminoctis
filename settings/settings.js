@@ -21,13 +21,15 @@ const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
 const showTab = () => {
-  const wanted = location.hash.slice(1);
+  const [wanted, anchor] = location.hash.slice(1).split("/"); // #раздел или #раздел/место
   const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "sidebar";
   for (const b of tabButtons) b.setAttribute("aria-selected", b.dataset.tab == name);
   for (const s of document.querySelectorAll("main > section")) s.classList.toggle("shown", s.id == name);
   document.querySelector("main").scrollTop = 0;
+  if (name == wanted && anchor) document.getElementById(anchor + "-section")?.scrollIntoView({ block: "start" });
   Services.prefs.setStringPref("luminoctis.settings.tab", name); // панель откроется на нём и после перезапуска
 };
+window.lumiShowTab = showTab; // для js/lumi-rail.uc.js: тот же адрес hashchange не шлёт
 for (const b of tabButtons) b.addEventListener("click", () => location.replace("#" + b.dataset.tab)); // без записи в историю
 window.addEventListener("hashchange", showTab);
 showTab();
@@ -253,22 +255,23 @@ const findBookmarks = async () => {
 };
 search.addEventListener("input", findBookmarks);
 
-// ---------- меню «⋯»: какие пункты видны (luminoctis.appmenu.hidden — id скрытых через запятую; прячет js/lumi-appmenu.uc.js) ----------
-const APPMENU = "luminoctis.appmenu.hidden";
-const hiddenItems = () => Services.prefs.getStringPref(APPMENU, "").split(",").filter(Boolean);
-async function renderAppMenu() {
+// ---------- меню «⋯» и меню вкладки: какие пункты видны (в настройке — id скрытых через запятую; прячет js/lumi-appmenu.uc.js) ----------
+// luminoctis.appmenu.hidden — меню «⋯», luminoctis.tabmenu.hidden — меню вкладки (#tabContextMenu)
+async function renderMenuList(list, pref, getItems) {
+  const hiddenItems = () => Services.prefs.getStringPref(pref, "").split(",").filter(Boolean);
   const hidden = hiddenItems();
-  $("#appmenu").replaceChildren(...(await lumi.appMenuItems()).map(({ id, label }) => {
+  list.replaceChildren(...(await getItems()).map(({ id, label }) => {
     const box = el("input", { type: "checkbox", checked: !hidden.includes(id) });
     box.dataset.item = id;
     box.addEventListener("change", () => {
       const rest = hiddenItems().filter(x => x != id);
-      Services.prefs.setStringPref(APPMENU, (box.checked ? rest : [...rest, id]).join(","));
+      Services.prefs.setStringPref(pref, (box.checked ? rest : [...rest, id]).join(","));
     });
     return el("label", { className: "row slim" }, el("span", { textContent: label }), box);
   }));
 }
-renderAppMenu();
+renderMenuList($("#appmenu"), "luminoctis.appmenu.hidden", () => lumi.appMenuItems());
+renderMenuList($("#tabmenu"), "luminoctis.tabmenu.hidden", () => lumi.tabMenuItems());
 
 // ---------- шорткаты: клик по сочетанию — запись нового (js/lumi-keys.sys.mjs), Esc — отмена, ↺ — по умолчанию ----------
 // Мышь: нужен Ctrl, Alt или Shift — иначе обычный клик по вкладке перестал бы работать; нажатие без них отменяет запись.

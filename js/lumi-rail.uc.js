@@ -21,17 +21,23 @@
   const SETTINGS_URL = "chrome://userchrome/content/luminoctis/settings.html";
   let settings;
   window.luminoctis = {
-    openSettings(tab) {
+    // tab — раздел (sidebar, look, tabs…), anchor — место в нём (например "spaces": блок рабочих пространств)
+    openSettings(tab, anchor) {
+      const hash = tab && "#" + tab + (anchor ? "/" + anchor : "");
       if (!settings) {
         settings = h("div", "", { id: "lumi-settings" });
         settings.setAttribute("role", "dialog");
         settings.setAttribute("aria-label", "Настройки Luminoctis");
         tab ||= Services.prefs.getStringPref("luminoctis.settings.tab", "sidebar"); // последний открытый раздел (пишет страница)
-        settings.append(h("iframe", "", { src: SETTINGS_URL + "#" + tab }));
+        settings.append(h("iframe", "", { src: SETTINGS_URL + (hash || "#" + tab) }));
         document.getElementById("lumi-rail").before(settings); // до рейки: раскрытые плееры рисуются поверх панели
       } else {
         // полный адрес: короткий «#раздел» браузер достроил бы от адреса окна (browser.xhtml), а не страницы
-        if (tab) settings.firstChild.contentWindow.location.replace(SETTINGS_URL + "#" + tab);
+        const page = settings.firstChild.contentWindow;
+        if (tab) {
+          page.location.replace(SETTINGS_URL + hash);
+          page.lumiShowTab?.(); // тот же адрес hashchange не шлёт — прокрутку к месту делаем сами
+        }
         settings.hidden = false;
       }
       settings.firstChild.focus(); // чтобы Esc сразу закрывал
@@ -41,8 +47,37 @@
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
     pins: pinTabs, addPin, pinTab, movePin, unpin, unloadPin, showPin, hidePin, migratePins, unloadIdleTabs,
-    unload, unloadShortcut,
+    unload, unloadShortcut, gap, clearGap, shiftOf,
   };
+
+  // ---------- Перетаскивание: остальные расступаются, показывая место, куда встанет вкладка или закреп ----------
+  // items — элементы ряда в порядке списка, axis — "x" (полоса вкладок) или "y" (рейка), size — место под перетаскиваемую (размер + зазор),
+  // from — индекс перетаскиваемой в items (−1: её нет в ряду, например вкладка из полосы над закрепами), to — «вставить перед items[to]».
+  // Сдвиг — свойство translate (плавность даёт CSS), раскладка не меняется: перетаскиваемая остаётся на месте, но невидима.
+  function gap(items, axis, size, from, to) {
+    const final = from >= 0 && to > from ? to - 1 : to; // итоговое место среди остальных
+    items.forEach((el, k) => {
+      const d = from < 0 ? (k >= final ? size : 0)
+        : k == from ? 0
+        : final > from && k > from && k <= final ? -size
+        : final < from && k >= final && k < from ? size : 0;
+      el.style.translate = d ? (axis == "x" ? `${d}px 0` : `0 ${d}px`) : "";
+    });
+  }
+  // убрать сдвиги: плавно (отмена, ушли с ряда) или сразу (бросили — ряд только что пересобран, прыжка быть не должно)
+  function clearGap(items, instant) {
+    for (const el of items) {
+      if (instant) el.style.transition = "none";
+      el.style.translate = "";
+      if (instant) requestAnimationFrame(() => requestAnimationFrame(() => (el.style.transition = "")));
+    }
+  }
+  // сдвиг элемента сейчас (в пикселях по оси) — нужен, чтобы по getBoundingClientRect найти его место без сдвига
+  function shiftOf(el, axis) {
+    const t = getComputedStyle(el).translate;
+    const parts = t == "none" ? [0, 0] : t.split(" ").map(parseFloat);
+    return (axis == "x" ? parts[0] : parts[1]) || 0;
+  }
 
   UC_API.Windows.waitWindowLoading(window).then(() => {
     const rail = h("nav", "", { id: "lumi-rail" });
@@ -57,10 +92,11 @@
       logo,
       h("div", "lumi-sep"),
       h("div", "lumi-sep"),
-      h("span", "lumi-caption", { textContent: "PIN" }),
       pins,
       h("div", "lumi-spacer"),
-      players
+      players,
+      // «скобка» на нижнем краю рейки: настройки рабочих пространств
+      labeled(h("button", "", { id: "lumi-spaces-button" }), "Рабочие пространства")
     );
     document.getElementById("navigator-toolbox").before(rail);
 
@@ -68,6 +104,7 @@
     initPins(rail, pins);
     initPlayers(players);
     initRailMenu(rail);
+    document.getElementById("lumi-spaces-button").addEventListener("click", () => luminoctis.openSettings("sidebar", "spaces"));
     setInterval(unloadIdleTabs, 60000);
     gZenWorkspaces.promiseInitialized
       .then(() => SessionStore.promiseAllWindowsRestored)
@@ -297,12 +334,23 @@
   function initPins(rail, box) {
     initPinWindow();
     let queued = false;
+    let gapPending = false, gapTimer; // gapPending: бросили, ждём пересборки ряда (render)
+    // закрепы расступаются при перетаскивании (gap, js выше); сдвиги убираются плавно или, после броска, сразу
+    const releaseGap = instant => {
+      clearTimeout(gapTimer);
+      gapPending = false;
+      const list = [...box.children];
+      clearGap(list, instant);
+      list.forEach(el => el.removeAttribute("dragging"));
+      gapTimer = setTimeout(() => box.removeAttribute("lumi-gap"), instant ? 0 : 260);
+    };
     const render = () => {
       queued = false;
       const wanted = pinTabs().map(pinButton);
       const now = [...box.children];
       // переставляем, только если порядок изменился: иначе сбилось бы перетаскивание
       if (wanted.length != now.length || wanted.some((el, i) => el !== now[i])) box.replaceChildren(...wanted);
+      if (gapPending) releaseGap(true); // бросили: ряд пересобран — расступившиеся встают на свои места без прыжка
       updateFrame();
     };
     const schedule = () => {
@@ -339,31 +387,39 @@
     });
 
     // Перетаскивание в любой момент: закреп — на новое место; вкладку из полосы — в закрепы, на место под курсором.
-    // Синяя черта показывает место. Ловим над закрепами, подписью «PIN» и пустым местом под ними.
+    // Синяя черта показывает место. Ловим над закрепами и пустым местом под ними.
     const line = h("div", "", { id: "lumi-pin-dropline", hidden: true });
     rail.append(line);
     let dragged = null;
-    const zone = event => event.target.closest?.("#lumi-pins, .lumi-caption, .lumi-spacer");
+    const zone = event => event.target.closest?.("#lumi-pins, .lumi-spacer");
     const droppable = dt => {
       const tab = dragged ?? dt.mozGetDataAt(TAB_DROP_TYPE, 0);
       return gBrowser.tabs.includes(tab) && (tab === dragged || !isPin(tab)) ? tab : null; // только вкладки этого окна
     };
+    // место по серединам плиток там, где они стоят без сдвига (иначе расступившиеся плитки меняли бы результат)
     const slot = y => {
       const list = [...box.children];
       const i = list.findIndex(el => {
         const r = el.getBoundingClientRect();
-        return y < r.top + r.height / 2;
+        return y < r.top - shiftOf(el, "y") + r.height / 2;
       });
       return i < 0 ? list.length : i;
     };
+    const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
     box.addEventListener("dragstart", event => {
       dragged = event.target.closest?.(".lumi-pin")?.tab ?? null;
       if (!dragged) return;
       event.dataTransfer.effectAllowed = "move";
       event.dataTransfer.setData("text/plain", pinURL(dragged));
+      // перетаскиваемая плитка гаснет, когда снимок для курсора уже сделан
+      setTimeout(() => dragged && pinButtons.get(dragged)?.setAttribute("dragging", ""));
     });
     rail.addEventListener("dragover", event => {
-      if (!zone(event) || !droppable(event.dataTransfer)) return (line.hidden = true);
+      if (!zone(event) || !droppable(event.dataTransfer)) {
+        line.hidden = true;
+        if (box.hasAttribute("lumi-gap") && !gapPending) releaseGap(false);
+        return;
+      }
       event.preventDefault();
       event.dataTransfer.dropEffect = "move";
       const list = [...box.children], i = slot(event.clientY);
@@ -371,22 +427,33 @@
       const y = !r ? box.getBoundingClientRect().top : list[i] ? r.top - 4 : r.bottom + 3; // середина зазора 7px
       line.style.top = `${y - rail.getBoundingClientRect().top}px`;
       line.hidden = false;
+      line.toggleAttribute("quiet", !calm()); // с расступанием черта не нужна — она остаётся только при «уменьшить анимацию»
+      if (calm()) return;
+      clearTimeout(gapTimer);
+      box.setAttribute("lumi-gap", "");
+      gap(list, "y", (list[0]?.offsetHeight || 34) + 7, dragged ? list.indexOf(pinButtons.get(dragged)) : -1, i);
     });
     rail.addEventListener("dragleave", event => {
-      if (!rail.contains(event.relatedTarget)) line.hidden = true;
+      if (rail.contains(event.relatedTarget)) return;
+      line.hidden = true;
+      if (!gapPending) releaseGap(false); // ушли с закрепов — щель плавно закрывается
     });
     rail.addEventListener("drop", event => {
       const tab = !line.hidden && droppable(event.dataTransfer);
       line.hidden = true;
-      if (!tab) return;
+      if (!tab) return releaseGap(false);
       event.preventDefault();
       const to = slot(event.clientY), from = pinTabs().indexOf(tab);
-      if (from < 0 && !pinTab(tab)) return;
+      gapPending = box.hasAttribute("lumi-gap"); // щель держится, пока рейка не пересоберётся (render)
+      if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500); // порядок не изменился — пересборки не будет
+      if (from < 0 && !pinTab(tab)) return releaseGap(false);
       movePin(tab, from >= 0 && from < to ? to - 1 : to);
     });
     box.addEventListener("dragend", () => {
       dragged = null;
       line.hidden = true;
+      if (!gapPending) releaseGap(false);
+      else [...box.children].forEach(el => el.removeAttribute("dragging"));
     });
   }
 

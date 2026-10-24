@@ -15,6 +15,7 @@
     <button role="tab" data-tab="sidebar">Боковая панель</button>
     <button role="tab" data-tab="look">Внешний вид</button>
     <button role="tab" data-tab="tabs">Вкладки</button>
+    <button role="tab" data-tab="menu">Меню</button>
     <button role="tab" data-tab="keys">Шорткаты</button>
     <button role="tab" data-tab="inter">Inter Menu</button>
   </nav>
@@ -22,7 +23,7 @@
 
 <main>
   <section id="sidebar" role="tabpanel">
-    <h2>Рабочие пространства</h2>
+    <h2 id="spaces-section">Рабочие пространства</h2>
     <div id="spaces" class="list"></div>
     <button id="space-add" class="dashed">+ Новое пространство</button>
 
@@ -39,10 +40,6 @@
       <div class="text"><b>Плееры внизу рейки</b><span>Плитки играющих вкладок</span></div>
       <input type="checkbox" data-pref="luminoctis.rail.hide-players" data-inverted>
     </label>
-    <label class="row">
-      <div class="text"><b>Подпись «PIN»</b><span>Над закрепами</span></div>
-      <input type="checkbox" data-pref="luminoctis.rail.hide-pin-label" data-inverted>
-    </label>
   </section>
 
   <section id="look" role="tabpanel">
@@ -55,6 +52,26 @@
       <div class="text"><b>Сайты</b><span>LumiNet: Zen — прозрачность с блюром, Tokyo Night — тёмная палитра</span></div>
       <div class="seg"><button class="on" disabled>Выкл</button><button disabled>Zen</button><button disabled>Tokyo Night</button></div>
     </div>
+    <h2>Compacting <span class="hint">· прятать у края окна, показывать у края мышью</span></h2>
+    <label class="row">
+      <div class="text"><b>Sidebar</b><span>Рейка слева: выезжает, когда мышь у левого края</span></div>
+      <input type="checkbox" data-pref="luminoctis.compact.sidebar">
+    </label>
+    <label class="row">
+      <div class="text"><b>Полоса вкладок</b><span>Выезжает у верхнего края окна</span></div>
+      <input type="checkbox" data-pref="luminoctis.compact.tabstrip">
+    </label>
+    <label class="row">
+      <div class="text"><b>Адресная строка</b><span>Выезжает при наведении на верхний край или на полосу вкладок</span></div>
+      <input type="checkbox" data-pref="zen.view.compact.hide-toolbar">
+    </label>
+
+    <h2>Кнопки панели адреса</h2>
+    <label class="row">
+      <div class="text"><b>VPN (Mozilla)</b><span>Встроенный VPN Firefox: кнопка «VPN» слева от загрузок. Нужен аккаунт Mozilla (вход — на панели VPN); работает не во всех странах</span></div>
+      <input type="checkbox" data-pref="browser.ipProtection.enabled">
+    </label>
+
     <h2>Цветовая палитра</h2>
     <div id="presets" class="list"></div>
     <div class="palette-head"><h2>Цвета</h2><span class="hint">клик — изменить; правки — свои у каждой палитры</span></div>
@@ -68,8 +85,6 @@
       <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Скошенные</button>
     </div>
 
-    <div class="palette-head"><h2>Меню «⋯»</h2><span class="hint">кнопка слева от шестерёнки; какие пункты в нём видны</span></div>
-    <div id="appmenu" class="list"></div>
   </section>
 
   <section id="tabs" role="tabpanel">
@@ -90,6 +105,10 @@
       </select>
     </label>
     <label class="row">
+      <div class="text"><b>Настоящая страница новой вкладки</b><span>Ctrl+T и «+» открывают обычную страницу новой вкладки, а не плавающий поиск Zen посреди окна</span></div>
+      <input type="checkbox" data-pref="zen.urlbar.replace-newtab" data-inverted>
+    </label>
+    <label class="row">
       <div class="text"><b>Новая вкладка вместо переключения</b><span>Если сайт уже открыт — открывать его заново в новой вкладке, а не переходить на открытую</span></div>
       <input type="checkbox" data-pref="luminoctis.urlbar.always-new-tab">
     </label>
@@ -97,6 +116,13 @@
       <div class="text"><b>Серые выгруженные вкладки</b><span>Выгруженные из памяти вкладки — чёрно-белые и затемнённые</span></div>
       <input type="checkbox" data-pref="luminoctis.tabs.no-grey-unloaded" data-inverted>
     </label>
+  </section>
+
+  <section id="menu" role="tabpanel">
+    <div class="palette-head"><h2>Меню «⋯»</h2><span class="hint">кнопка слева от шестерёнки; какие пункты в нём видны</span></div>
+    <div id="appmenu" class="list"></div>
+    <div class="palette-head"><h2>Меню вкладки</h2><span class="hint">правая кнопка по вкладке; какие пункты в нём видны</span></div>
+    <div id="tabmenu" class="list"></div>
   </section>
 
   <section id="keys" role="tabpanel">

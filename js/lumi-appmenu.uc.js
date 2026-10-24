@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name           Luminoctis: меню «⋯»
-// @description    Родное меню Zen/Firefox (кнопка ☰, у Zen — три точки) в панели адреса слева от шестерёнки; пункты меню прячутся по настройке luminoctis.appmenu.hidden.
+// @name           Luminoctis: меню «⋯» и меню вкладки
+// @description    Родное меню Zen/Firefox (кнопка ☰, у Zen — три точки) в панели адреса слева от шестерёнки; пункты меню прячутся по настройке luminoctis.appmenu.hidden, пункты меню вкладки — по luminoctis.tabmenu.hidden.
 // ==/UserScript==
 
 UC_API.Windows.waitWindowLoading(window).then(() => {
@@ -68,5 +68,54 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
           .filter(Boolean).join(" · "),
       }))
       .filter(item => item.label);
+  };
+
+  // ---------- меню вкладки (#tabContextMenu): luminoctis.tabmenu.hidden — id скрытых пунктов через запятую ----------
+  // Родное меню строит Firefox/Zen и при каждом открытии сам прячет и показывает часть пунктов (по вкладке) — наш слушатель
+  // стоит после их обработчика (onpopupshowing в разметке), поэтому применяем в нём. Скрытое прячется атрибутом lumi-hidden (chrome.css, раздел 8);
+  // черта, вокруг которой не осталось видимых пунктов, прячется тоже.
+  const TAB_HIDDEN = "luminoctis.tabmenu.hidden";
+  const tabMenu = document.getElementById("tabContextMenu");
+  // варианты пунктов для нескольких выбранных вкладок прячутся вместе с основным (в списке настроек их нет)
+  const TWINS = {
+    context_reloadTab: "context_reloadSelectedTabs", context_playTab: "context_playSelectedTabs",
+    context_toggleMuteTab: "context_toggleMuteSelectedTabs", context_pinTab: "context_pinSelectedTabs",
+    context_unpinTab: "context_unpinSelectedTabs", context_duplicateTab: "context_duplicateTabs",
+    context_bookmarkTab: "context_bookmarkSelectedTabs", context_moveTabToNewGroup: "context_moveSplitViewToNewGroup",
+    context_ungroupTab: "context_ungroupSplitView",
+  };
+  const applyTabMenu = () => {
+    const hidden = new Set(Services.prefs.getStringPref(TAB_HIDDEN, "").split(","));
+    for (const id of [...hidden]) if (TWINS[id]) hidden.add(TWINS[id]);
+    let lastSep = null, seen = false;
+    for (const el of tabMenu.children) {
+      el.removeAttribute("lumi-hidden");
+      if (el.hidden) continue; // родное решение: для этой вкладки пункта нет
+      if (el.localName == "menuseparator") {
+        if (!seen) el.setAttribute("lumi-hidden", ""); // перед чертой видимых пунктов нет
+        else lastSep = el;
+        seen = false;
+      } else if (hidden.has(el.id)) {
+        el.setAttribute("lumi-hidden", "");
+      } else {
+        seen = true;
+      }
+    }
+    if (!seen) lastSep?.setAttribute("lumi-hidden", ""); // последняя черта — без пунктов под ней
+  };
+  tabMenu.addEventListener("popupshowing", event => event.target == tabMenu && applyTabMenu());
+  Services.prefs.addObserver(TAB_HIDDEN, applyTabMenu);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(TAB_HIDDEN, applyTabMenu));
+
+  // Список пунктов для панели настроек. Подписи Firefox подгружает по первому открытию меню — переводим заранее.
+  // Показываем все пункты с подписью (не только видимые сейчас: это зависит от вкладки, на которой меню открывали в последний раз),
+  // кроме двойников для нескольких вкладок и пунктов полноэкранного режима.
+  const twinIds = new Set(Object.values(TWINS));
+  luminoctis.tabMenuItems = async () => {
+    gBrowser.translateTabContextMenu();
+    await document.l10n.translateFragment(tabMenu);
+    return [...tabMenu.children]
+      .filter(el => el.id && el.localName != "menuseparator" && el.getAttribute("label") && !twinIds.has(el.id) && !/fullscreen/i.test(el.id))
+      .map(el => ({ id: el.id, label: el.getAttribute("label") }));
   };
 });

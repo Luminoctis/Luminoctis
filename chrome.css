@@ -124,6 +124,29 @@
   }
 }
 
+/* ---------- 2б. Результаты адресной строки — продолжение самой строки ----------
+ * Родное раскрытие (breakout) Firefox ставит поле выше на 5px (top: -5px — расчёт на панель у самого края окна)
+ * и растёт вверх, накрывая строку. Здесь поле остаётся на своём месте, результаты — прямо под ним: та же ширина,
+ * общий фон и рамка, скруглены только внешние углы. Плавающую строку Zen (по центру окна) это не касается. */
+#urlbar[breakout-extend]:not([zen-floating-urlbar]) {
+  top: auto !important; align-self: flex-start !important; /* место, где поле стояло в панели, а не -5px от края окна */
+  /* размеры закрытого поля снимает js/lumi-urlbar.uc.js перед раскрытием; запасные значения — для обычной панели */
+  margin-top: var(--lumi-ub-dy, 4px) !important;
+  width: var(--lumi-ub-w, calc(var(--urlbar-width) + 2px)) !important;
+  --urlbar-container-height: var(--lumi-ub-h, 35px) !important; /* строка ввода — той же высоты, что у закрытого поля */
+  --urlbar-margin-inline: 0px !important;
+  & .urlbar-background {
+    margin: 1px !important; /* как у закрытого поля */
+    background: var(--lumi-surface) !important;
+    border-radius: 10px !important;
+    outline: 1px solid var(--lumi-accent) !important; outline-offset: -1px !important;
+    box-shadow: 0 14px 32px rgba(0, 0, 0, 0.45) !important;
+    backdrop-filter: none !important;
+  }
+  & .urlbarView { border-top: 1px solid var(--lumi-raised); }
+  & #urlbar-results { margin-block: 4px 6px !important; }
+}
+
 /* ---------- 4. Выгруженные вкладки — серые ---------- */
 .tabbrowser-tab:is([pending], [discarded]) .tab-content {
   filter: grayscale(1) brightness(0.6);
@@ -137,7 +160,7 @@
   width: 48px;
   flex-shrink: 0;
   margin: 8px 0 8px 8px;
-  padding: 9px 0;
+  padding: 9px 0 24px; /* снизу место под кнопку пространств */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -155,9 +178,21 @@
   & button { -moz-window-dragging: no-drag; appearance: none; cursor: default; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
+/* Кнопка рабочих пространств — «скобка» на боку: маленький выступ от самого нижнего края рейки со скруглёнными верхними углами,
+ * снизу открыта (сливается с краем). Клик — настройки, блок «Рабочие пространства» (js/lumi-rail.uc.js) */
+#lumi-spaces-button {
+  position: absolute; left: 50%; bottom: -1px; translate: -50% 0;
+  width: 32px; height: 16px; padding: 0; box-sizing: border-box;
+  border: 1px solid color-mix(in srgb, var(--lumi-dim) 55%, transparent); border-bottom: none; border-radius: 9px 9px 0 0;
+  background: var(--lumi-raised); color: var(--lumi-muted);
+  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  &::before { content: ""; display: block; width: 10px; height: 10px; margin: 0 auto; background: currentColor;
+    mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5zM3 13l9 5 9-5'/%3E%3C/svg%3E"); }
+  &:hover { background: var(--lumi-raised); border-color: var(--lumi-accent); color: var(--lumi-accent); }
+  &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
+}
 .lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }
 .lumi-spacer { flex-grow: 1; }
-.lumi-caption { font-family: var(--lumi-mono); font-size: 9px; font-weight: 500; letter-spacing: 0.08em; color: var(--lumi-dim); }
 
 #lumi-logo {
   width: 34px; height: 34px; flex-shrink: 0;
@@ -223,6 +258,10 @@
   &[pending] img { filter: grayscale(1) brightness(0.6); } /* выгружен — серый, как выгруженные вкладки */
   &[unpinning] { translate: -64px 0; opacity: 0; } /* «Открепить»: улетает влево и гаснет */
 }
+/* перетаскивание: остальные закрепы расступаются (translate ставит js/lumi-rail.uc.js), перетаскиваемый гаснет, черта-указатель не нужна */
+#lumi-pins[lumi-gap] .lumi-pin { transition: translate 180ms cubic-bezier(0.2, 0.8, 0.2, 1), opacity 120ms; }
+.lumi-pin[dragging] { opacity: 0; }
+:is(#lumi-pin-dropline, #lumi-tab-dropline)[quiet] { opacity: 0; }
 #lumi-pin-dropline {
   position: absolute; left: 6px; width: 34px; height: 2px; margin-top: -1px;
   border-radius: 1px; background: var(--lumi-accent); pointer-events: none;
@@ -276,6 +315,7 @@
 @keyframes lumi-fade-in { from { opacity: 0; } }
 @keyframes lumi-pin-in { from { opacity: 0; translate: -12px 0; } }
 @media (prefers-reduced-motion: reduce) {
+  .lumi-tab, #lumi-pins[lumi-gap] .lumi-pin { transition: none; }
   .lumi-pin, :is(#lumi-pin-backdrop, #lumi-pin-frame, .lumi-pin-window) { transition: none; animation: none; }
 }
 
@@ -353,7 +393,7 @@
 /* ---------- 8. Панель адреса: без родной боковой панели Firefox ----------
  * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. Слева от неё — «⋯»: родное меню
  * Zen/Firefox (#PanelUI-button, значок «три точки» даёт Zen), его ставит js/lumi-appmenu.uc.js; скрытые в настройках пункты — [lumi-hidden]. */
-#appMenu-mainView [lumi-hidden] { display: none !important; }
+#appMenu-mainView [lumi-hidden], #tabContextMenu > [lumi-hidden] { display: none !important; } /* пункты, скрытые в настройках («Меню») */
 #zen-sidebar-top-buttons,             /* кнопка compact mode — мод держит его включённым */
 #sidebar-button, #sidebar-box, #sidebar-splitter, #sidebar-container, #sidebar-launcher-splitter {
   display: none !important;
@@ -421,11 +461,15 @@ zen-library {
   &:hover:not([selected]) { --pill-bg: var(--lumi-surface); }
   &[selected] { color: var(--lumi-fg); --pill-bg: var(--lumi-raised); --pill-line: var(--lumi-accent); }
   &[pending] > * { filter: grayscale(1) brightness(0.6); } /* выгруженные — серые, как в этапе 1 */
+  transition: translate 180ms cubic-bezier(0.2, 0.8, 0.2, 1); /* расступаются при перетаскивании вкладки (js/lumi-tabstrip.uc.js) */
+  &[dragging] { opacity: 0; }
   &[busy] .lumi-tab-icon { opacity: 0.5; }
 
   /* квадратик: закреплённые вкладки пространства всегда, остальные — когда сжались до квадрата */
   &[square] { flex: none; width: 28px; min-width: 28px; }
 }
+/* закрывающаяся вкладка (js/lumi-tabstrip.uc.js): улетает вверх и гаснет, место потом схлопывается — клики ей уже не нужны */
+.lumi-tab[closing], .lumi-tab[closing] * { pointer-events: none !important; }
 /* таблетка вкладки и «+» (::before; у скошенных — ещё ::after, ниже) */
 :is(.lumi-tab, #lumi-newtab-button)::before {
   content: ""; position: absolute; z-index: -1; pointer-events: none;
@@ -481,11 +525,13 @@ zen-library {
   &:hover:active { --pill-bg: var(--lumi-raised); }
 }
 /* «+» сразу за последней вкладкой, как в других браузерах (настройка luminoctis.tabs.newtab-position = after-tabs):
- * ряд вкладок не шире своих вкладок, пустое место — справа от «+». Вкладки так же сжимаются, «+» всегда виден */
+ * ряд вкладок не шире своих вкладок, пустое место — справа от «+». «+» — как ещё одна вкладка: тех же размеров (210px)
+ * и сжимается вместе с ними до квадратика 28px, всегда виден */
 @media -moz-pref("luminoctis.tabs.newtab-position", "after-tabs") {
-  /* --lumi-tabs-w — полная ширина вкладок (считает js/lumi-tabstrip.uc.js): у прокручиваемого ряда своей ширины по содержимому нет */
-  #lumi-tabs { flex: 0 1 var(--lumi-tabs-w, auto); }
-  #lumi-newtab-button { margin-inline: 6px auto !important; }
+  /* --lumi-tabs-w — полная ширина вкладок, --lumi-tabs-shrink — доля сжатия ряда (считает js/lumi-tabstrip.uc.js):
+   * у прокручиваемого ряда своей ширины по содержимому нет */
+  #lumi-tabs { flex: 0 var(--lumi-tabs-shrink, 1) var(--lumi-tabs-w, auto); }
+  #lumi-newtab-button { flex: 0 1 210px; width: auto; min-width: 28px; margin-inline: 6px auto !important; --pill-bg: var(--lumi-bg1); } /* таблетка как у вкладок */
   @media -moz-pref("luminoctis.tabs.shape", "slanted") { #lumi-tabs { flex-basis: calc(var(--lumi-tabs-w) + 6px); } } /* выступы скошенных краёв */
 }
 #lumi-strip-separator { width: 1px; height: 18px; margin: auto 0 auto 6px; flex-shrink: 0; background: var(--lumi-raised); }
@@ -552,7 +598,6 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   .lumi-tab[pending] > *, .lumi-pin[pending] img, .tabbrowser-tab:is([pending], [discarded]) .tab-content { filter: none !important; }
 }
 @media -moz-pref("luminoctis.rail.hide-players") { #lumi-players { display: none !important; } }
-@media -moz-pref("luminoctis.rail.hide-pin-label") { #lumi-rail .lumi-caption { display: none !important; } }
 
 /* ---------- 10. Панель настроек Luminoctis — как вид «edit» концепта ----------
  * Строит js/lumi-rail.uc.js, содержимое — страница settings/settings.html. Справа от рейки, поверх сайта;
@@ -560,7 +605,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 #lumi-settings {
   position: fixed; z-index: 4; /* как у рейки, но раньше неё в разметке: раскрытые плееры — поверх панели */
   inset: 8px auto 8px 64px;    /* рейка 8 + 48 и зазор 8 */
-  width: 456px; max-width: calc(100vw - 80px); /* в концепте 360px — шире, чтобы ряд из пяти разделов помещался в одну строку */
+  width: 520px; max-width: calc(100vw - 80px); /* в концепте 360px — шире, чтобы ряд из шести разделов помещался в одну строку */
   box-sizing: border-box; overflow: hidden;
   border-radius: var(--lumi-radius);
   border: 1px solid color-mix(in srgb, var(--lumi-accent) 55%, transparent);
@@ -573,3 +618,40 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { #lumi-settings { transition: none; } }
+
+/* ---------- 12. Compacting: рейка и полоса вкладок прячутся за край окна и выезжают у края ----------
+ * Настройки luminoctis.compact.sidebar / luminoctis.compact.tabstrip (панель настроек → «Внешний вид»). Сайт занимает освободившееся место.
+ * Когда показать — решает js/lumi-compact.uc.js: ставит атрибут корня lumi-show-sidebar / lumi-show-tabstrip (мышь у края, перетаскивание,
+ * открытое меню). Адресная строка прячется родным compact mode Zen (zen.view.compact.hide-toolbar, раздел 2). */
+#lumi-hot-left, #lumi-hot-top {
+  display: none; position: fixed; z-index: 7; -moz-window-dragging: no-drag;
+  /* прозрачные полоски над сайтом: мышь над сайтом до интерфейса не доходит, а над полоской — да */
+}
+#lumi-hot-left { top: 0; bottom: 0; left: 0; width: 5px; }
+#lumi-hot-top { top: 0; left: 0; right: 0; height: 5px; }
+@media -moz-pref("luminoctis.compact.sidebar") {
+  :root:not([inDOMFullscreen="true"]) {
+    & #lumi-hot-left { display: block; }
+    & #lumi-rail {
+      position: fixed; top: 0; bottom: 0; left: 0; z-index: 6;
+      translate: calc(-100% - 12px) 0; transition: translate 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    &[lumi-show-sidebar] #lumi-rail { translate: 0 0; box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5); }
+    & #zen-appcontent-wrapper { margin-left: 0 !important; }
+  }
+}
+@media -moz-pref("luminoctis.compact.tabstrip") {
+  :root:not([inDOMFullscreen="true"]) {
+    & #lumi-hot-top { display: block; }
+    & #zen-appcontent-wrapper { position: relative; }
+    & #lumi-tabstrip {
+      position: absolute; inset: 0 0 auto 0; z-index: 6; background: var(--lumi-bg0);
+      translate: 0 -100%; transition: translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    &[lumi-show-tabstrip] #lumi-tabstrip { translate: 0 0; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
+  }
+  /* адресная строка тоже прячется: она выезжает под выехавшей полосой, а не под ней (полоса ложится поверх и не мешает) */
+  @media -moz-pref("zen.view.compact.hide-toolbar") {
+    :root[lumi-show-tabstrip]:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper { translate: 0 36px; }
+  }
+}

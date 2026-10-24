@@ -58,17 +58,57 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   };
 
   // Essentials — это закрепы в рейке (js/lumi-rail.uc.js), в полосе их нет
-  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential"));
+  const dying = new WeakSet(); // вкладки, у которых уже прошёл TabClose: в списке ещё есть, в полосе — уже нет
+  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !dying.has(tab));
+  // Закрытие: вкладка улетает вверх и гаснет, потом освободившееся место схлопывается, соседи плавно занимают его.
+  // Пока идёт анимация, элемент остаётся в ряду «призраком» (ghosts) на своём месте — render его не убирает.
+  const ghosts = new Set();
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const fly = (tab) => {
+    dying.add(tab);
+    const item = items.get(tab);
+    if (!item?.isConnected || calm()) return;
+    const { width } = item.getBoundingClientRect();
+    item.lumiSlot = [...row.children].indexOf(item);
+    item.toggleAttribute("closing", true); // не кликается, не перетаскивается
+    ghosts.add(item);
+    item.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-48px)", opacity: 0 }],
+      { duration: 170, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" });
+    const shrink = { flexGrow: 0, flexShrink: 0, minWidth: 0, paddingInline: "0px" };
+    item.animate([
+      { ...shrink, flexBasis: `${width}px`, maxWidth: `${width}px`, marginLeft: "6px" },
+      { ...shrink, flexBasis: "0px", maxWidth: "0px", marginLeft: "0px" },
+    ], { delay: 140, duration: 220, easing: "cubic-bezier(0.3, 0, 0.2, 1)", fill: "both" }).finished.then(() => {
+      ghosts.delete(item);
+      item.removeAttribute("closing");
+      item.getAnimations().forEach(a => a.cancel());
+      schedule();
+    }, () => ghosts.delete(item));
+  };
+  // перетаскивание вкладок (ниже): расступившиеся остаются сдвинутыми после броска, пока render не пересоберёт ряд
+  let dragged = null, dragFrom = -1, gapPending = false;
+  const liveItems = () => [...row.children].filter(el => !el.hasAttribute("closing"));
+  function releaseGap(instant) {
+    gapPending = false;
+    luminoctis.clearGap([...row.children], instant);
+    row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
+  }
   let queued = false;
   const render = () => {
     queued = false;
     const tabs = stripTabs();
     tabs.forEach(tab => update(itemFor(tab), tab));
     const wanted = tabs.map(itemFor);
+    for (const ghost of [...ghosts].sort((a, b) => a.lumiSlot - b.lumiSlot)) wanted.splice(Math.min(ghost.lumiSlot, wanted.length), 0, ghost);
     const now = [...row.children];
     if (wanted.length != now.length || wanted.some((el, i) => el !== now[i])) row.replaceChildren(...wanted);
-    // полная ширина вкладок (без сжатия) — для «+» сразу за вкладками (chrome.css, раздел 9): 210px, квадратики 28px, зазоры 6px
-    strip.style.setProperty("--lumi-tabs-w", `${Math.max(0, tabs.reduce((w, tab) => w + (tab.pinned ? 28 : 210) + 6, -6))}px`);
+    // полная ширина вкладок (без сжатия) — для «+» сразу за вкладками (chrome.css, раздел 9): 210px, квадратики 28px, зазоры 6px.
+    // «+» — как ещё одна вкладка: сжимается вместе с ними; --lumi-tabs-shrink уравнивает долю сжатия ряда и «+»
+    // (зазоры не сжимаются, без поправки «+» вышла бы на пару пикселей шире вкладки)
+    const full = Math.max(0, tabs.reduce((w, tab) => w + (tab.pinned ? 28 : 210) + 6, -6));
+    strip.style.setProperty("--lumi-tabs-w", `${full}px`);
+    strip.style.setProperty("--lumi-tabs-shrink", full ? (tabs.filter(tab => !tab.pinned).length * 210) / full : 1);
+    if (gapPending) releaseGap(true);
     const selected = items.get(gBrowser.selectedTab);
     if (selected?.isConnected) row.ensureElementIsVisible(selected);
   };
@@ -86,7 +126,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // если в обоих пространствах выбрана общая пустая вкладка Zen (так сразу после запуска). Родной хук смены — этот.
   gZenWorkspaces.addChangeListeners(schedule);
   // закрытая вкладка ещё в gBrowser.visibleTabs во время своего TabClose — перерисовываем после её ухода
-  window.addEventListener("TabClose", () => setTimeout(schedule, 0));
+  window.addEventListener("TabClose", event => {
+    fly(event.target);
+    setTimeout(schedule, 0);
+  });
   render();
 
   // ---------- действия: всё через родные API ----------
@@ -111,19 +154,22 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   });
 
   // ---------- перетаскивание внутри полосы ----------
-  let dragged = null;
+  // Остальные вкладки расступаются (luminoctis.gap, js/lumi-rail.uc.js), показывая, куда встанет перетаскиваемая;
+  // бросили — расступившиеся стоят, пока ряд не пересоберётся (render), потом встают на место без прыжка.
   const dropIndex = x => {
-    // куда встанет: перед первой вкладкой, чья середина правее курсора
-    const list = [...row.children];
+    // куда встанет: перед первой вкладкой, чья середина правее курсора (середины — без учёта сдвига расступившихся)
+    const list = liveItems();
     const i = list.findIndex(el => {
       const r = el.getBoundingClientRect();
-      return x < r.left + r.width / 2;
+      return x < r.left - luminoctis.shiftOf(el, "x") + r.width / 2;
     });
     return i < 0 ? list.length : i;
   };
   row.addEventListener("dragstart", event => {
     dragged = tabOf(event);
     if (!dragged) return;
+    dragFrom = liveItems().indexOf(items.get(dragged));
+    setTimeout(() => dragged && items.get(dragged)?.setAttribute("dragging", "")); // гаснет, когда снимок для курсора уже сделан
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", dragged.linkedBrowser.currentURI.spec);
     event.dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", dragged, 0); // родной тип вкладки: по нему рейка делает её закрепом
@@ -131,16 +177,20 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   row.addEventListener("dragover", event => {
     if (!dragged) return;
     event.preventDefault();
-    const list = [...row.children];
+    const list = liveItems();
     const i = dropIndex(event.clientX);
     const ref = list[i] ?? list.at(-1);
     const r = ref.getBoundingClientRect();
     const x = list[i] ? r.left - 3 : r.right + 3;
     dropLine.style.left = `${x - strip.getBoundingClientRect().left}px`;
     dropLine.hidden = false;
+    dropLine.toggleAttribute("quiet", !calm()); // с расступанием черта не нужна — остаётся при «уменьшить анимацию»
+    if (!calm()) luminoctis.gap(list, "x", items.get(dragged).getBoundingClientRect().width + 6, dragFrom, i);
   });
   row.addEventListener("dragleave", event => {
-    if (!row.contains(event.relatedTarget)) dropLine.hidden = true;
+    if (row.contains(event.relatedTarget)) return;
+    dropLine.hidden = true;
+    if (!gapPending) releaseGap(false); // ушли с полосы — щель плавно закрывается
   });
   row.addEventListener("drop", event => {
     if (!dragged) return;
@@ -151,12 +201,16 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const target = visible[i] ?? visible.at(-1);
     let tabIndex = gBrowser.tabs.indexOf(target) + (visible[i] ? 0 : 1);
     if (gBrowser.tabs.indexOf(dragged) < tabIndex) tabIndex--; // moveTabTo ждёт итоговый индекс
+    gapPending = row.querySelector("[style*=translate]") != null; // расступившиеся стоят, пока ряд не пересоберётся (render)
+    if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500); // порядок не изменился — пересборки не будет
     gBrowser.moveTabTo(dragged, { tabIndex });
   });
   row.addEventListener("dragend", event => {
     dropLine.hidden = true;
     const tab = dragged;
     dragged = null;
+    if (!gapPending) releaseGap(false); // отмена или ушли за пределы окна
+    else row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
     if (!tab || event.dataTransfer.dropEffect != "none") return;
     // отпустили за пределами окна — вкладка уезжает в новое окно, как в Firefox
     const outside =

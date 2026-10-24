@@ -1,6 +1,6 @@
 // ==UserScript==
-// @name           Luminoctis: выбор поисковика
-// @description    Поисковик, выбранный в адресной строке, становится поисковиком по умолчанию, а адрес в поле не стирается.
+// @name           Luminoctis: адресная строка
+// @description    Поисковик, выбранный в адресной строке, становится поисковиком по умолчанию, а адрес в поле не стирается; раскрытая строка встаёт на место закрытой.
 // ==/UserScript==
 
 // Родной выбор поисковика Firefox включает разовый «режим поиска» и стирает адрес из поля.
@@ -10,6 +10,18 @@
 // ещё и закрывает список результатов (без него строка теряет позицию по центру): меню оказывалось у свёрнутой верхней строки.
 // Пока меню открыто из плавающей строки, фокус остаётся в поле (mousedown не отдаёт его кнопке), а список результатов не закрывается.
 UC_API.Windows.waitWindowLoading(window).then(() => {
+  // Результаты — продолжение строки (chrome.css, раздел 2б): раскрытая строка должна встать ровно туда, где стояла закрытая.
+  // Размеры закрытой снимаем перед раскрытием (нажатие мыши или фокус) и отдаём CSS переменными.
+  const container = document.getElementById("urlbar-container");
+  const snapBar = () => {
+    if (gURLBar.hasAttribute("breakout-extend")) return;
+    const bar = gURLBar.getBoundingClientRect(), box = container.getBoundingClientRect();
+    if (!bar.height || !box.height) return; // панель спрятана
+    gURLBar.style.setProperty("--lumi-ub-dy", `${bar.top - box.top}px`);
+    gURLBar.style.setProperty("--lumi-ub-w", `${bar.width}px`);
+    gURLBar.style.setProperty("--lumi-ub-h", `${bar.height}px`);
+  };
+  for (const type of ["mousedown", "focusin"]) gURLBar.addEventListener(type, snapBar, true);
   const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
   const list = gURLBar.querySelector(".searchmode-switcher-panel-list");
   // в родной строке заголовок «This time search with:» (разовый поиск); у нас пункт меняет поисковик по умолчанию

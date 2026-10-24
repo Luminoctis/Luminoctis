@@ -17,7 +17,7 @@
     <button role="tab" data-tab="tabs">Вкладки</button>
     <button role="tab" data-tab="menu">Меню</button>
     <button role="tab" data-tab="keys">Шорткаты</button>
-    <button role="tab" data-tab="inter">Inter Menu</button>
+    <button role="tab" data-tab="home">Home</button>
   </nav>
 </header>
 
@@ -140,26 +140,24 @@
     </div>
     <div class="row key-row" data-key="inter">
       <button class="bind"></button>
-      <div class="text"><b>Inter Menu</b><span>Клавиша, по которой откроется Inter Menu (можно с Ctrl, Alt, Shift)</span></div>
+      <div class="text"><b>Luminoctis Home</b><span>Открыть Home и вернуться на прежнюю вкладку, как «L» на рейке (можно с Ctrl, Alt, Shift).
+        Сайт это нажатие не получит</span></div>
       <button class="small reset" title="Вернуть по умолчанию">↺</button>
-      <span class="soon">скоро</span>
+      <span class="ok">работает</span>
     </div>
   </section>
 
-  <section id="inter" role="tabpanel">
-    <h2>Inter Menu <span class="soon">скоро</span></h2>
-    <label class="row disabled">
-      <div class="text"><b>Открывать Inter Menu по клавише</b><span>Отдельная вкладка на весь экран</span></div>
-      <input type="checkbox" checked disabled>
-    </label>
-    <label class="row disabled">
-      <div class="text"><b>Перехватывать клавишу</b><span>Сайт не получит нажатие, даже если оно ему нужно (например, Tab в полях ввода)</span></div>
-      <input type="checkbox" checked disabled>
-    </label>
-    <div class="row disabled">
-      <div class="text"><b>Клавиша</b></div>
+  <section id="home" role="tabpanel">
+    <h2>Luminoctis Home <span class="hint">· вкладка с часами, обоями, заметками и таймером — «L» на рейке</span></h2>
+    <div class="row">
+      <div class="text"><b>Клавиша</b><span>Открыть Home / вернуться</span></div>
       <div class="key"><kbd data-key-view="inter">Tab</kbd><button id="inter-key">Изменить</button></div>
     </div>
+    <div class="row stack">
+      <div class="text"><b>Папка данных</b><span>Заметки, журнал таймера, избранные обои. Пусто — папка по умолчанию</span></div>
+      <input id="home-dir" type="text" spellcheck="false">
+    </div>
+    <p class="hint">Настройки виджетов (часы, обои, LumiNotes, LumiTime) появятся здесь позже.</p>
   </section>
 </main>
 

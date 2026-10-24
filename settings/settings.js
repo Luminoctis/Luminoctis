@@ -505,3 +505,18 @@ const onPalette = () => {
 Services.prefs.addObserver("luminoctis.palette", onPalette);
 window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.palette", onPalette));
 renderPalette();
+
+// ---------- Luminoctis Home: папка данных (home/store.js; пусто — Documents\Luminoctis Home) ----------
+{
+  const store = await import("./home/store.js");
+  const box = $("#home-dir");
+  box.placeholder = store.defaultDir();
+  const read = () => (box.value = Services.prefs.getStringPref(store.PREF, ""));
+  box.addEventListener("change", () => {
+    const v = box.value.trim();
+    v ? Services.prefs.setStringPref(store.PREF, v) : Services.prefs.clearUserPref(store.PREF);
+  });
+  Services.prefs.addObserver(store.PREF, read);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(store.PREF, read));
+  read();
+}

@@ -1,0 +1,31 @@
+/* Luminoctis Home — каркас: фон (#lumi-wallpaper), часы в центре, LumiTime справа столбцом, доски LumiNotes снизу.
+ * Цвета — токены палитры (--lumi-*), их ставит js/lumi-palette.sys.mjs (home.js). Вид виджетов — в их собственных css. */
+:root {
+  --lumi-mono: "JetBrains Mono", Consolas, monospace;
+  --lumi-time-w: 320px;   /* ширина столбца LumiTime */
+  --lumi-notes-h: 180px;  /* высота полосы досок в покое */
+  color-scheme: dark;
+}
+html, body { height: 100%; margin: 0; overflow: hidden; }
+body { background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c0caf5); font: 14px Inter, system-ui, sans-serif; }
+
+#lumi-wallpaper { position: fixed; inset: 0; z-index: 0;
+  background: radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--lumi-accent, #7aa2f7) 18%, transparent), transparent 60%),
+    var(--lumi-bg0, #16161e); }
+
+#lumi-home {
+  position: relative; z-index: 1; height: 100%;
+  display: grid; grid-template-columns: 1fr var(--lumi-time-w); grid-template-rows: 1fr var(--lumi-notes-h);
+  grid-template-areas: "clock time" "notes time";
+  pointer-events: none; /* пустые места — клики по обоям */
+  & > * { pointer-events: auto; min-width: 0; min-height: 0; }
+}
+#lumi-clock { grid-area: clock; place-self: center; text-align: center; user-select: none; }
+#lumi-time  { grid-area: time; }
+#lumi-notes { grid-area: notes; }
+#lumi-clock:empty, #lumi-time:empty, #lumi-notes:empty { pointer-events: none; }
+
+/* заглушка часов (home.js) — заменит home/clock.js */
+.lumi-clock-time { font: 600 clamp(64px, 12vw, 160px)/1 var(--lumi-mono); letter-spacing: -0.02em;
+  text-shadow: 0 4px 30px rgb(0 0 0 / .45); }
+.lumi-clock-date { margin-top: 10px; font-size: clamp(16px, 2vw, 24px); color: var(--lumi-muted, #a9b1d6); }

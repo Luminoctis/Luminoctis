@@ -205,7 +205,7 @@
   background: var(--lumi-raised); color: var(--lumi-accent);
   font-family: var(--lumi-mono) !important; font-size: 19px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
   transition: box-shadow 0.2s;
-  &:hover { box-shadow: var(--lumi-rail-glow); }
+  &:hover, &[lumi-home-open] { box-shadow: var(--lumi-rail-glow); } /* lumi-home-open — открыта Home (js/lumi-home.uc.js) */
   /* невидимая зона клика до самого угла окна: мышь в левом верхнем углу — «L» под ней */
   &::after { content: ""; position: absolute; inset: -9px -4px 0 -4px; }
 }

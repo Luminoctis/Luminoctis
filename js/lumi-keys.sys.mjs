@@ -8,7 +8,7 @@
 // "shift+right", "Tab", "ctrl+alt+k". Значения по умолчанию — на ветке по умолчанию: «сбросить» — просто clearUserPref.
 export const KEYS = {
   unload: { combo: "shift+right", mouse: true }, // выгрузить вкладку или закреп
-  inter: { combo: "Tab", mouse: false },         // Inter Menu (скоро)
+  inter: { combo: "Tab", mouse: false },         // открыть / закрыть Luminoctis Home (js/lumi-home.uc.js)
 };
 const PREF = "luminoctis.keys.";
 const defaults = Services.prefs.getDefaultBranch(PREF);

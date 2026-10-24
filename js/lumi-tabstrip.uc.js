@@ -66,7 +66,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
 
   // Essentials — это закрепы в рейке (js/lumi-rail.uc.js), в полосе их нет
   const dying = new WeakSet(); // вкладки, у которых уже прошёл TabClose: в списке ещё есть, в полосе — уже нет
-  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !dying.has(tab));
+  // Home (js/lumi-home.uc.js) открывается «L» на рейке, в полосе её нет
+  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !dying.has(tab));
   // Закрытие: вкладка улетает вверх и гаснет, потом освободившееся место схлопывается, соседи плавно занимают его.
   // Пока идёт анимация, элемент остаётся в ряду «призраком» (ghosts) на своём месте — render его не убирает.
   const ghosts = new Set();

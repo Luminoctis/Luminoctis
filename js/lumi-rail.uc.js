@@ -83,8 +83,9 @@
     const rail = h("nav", "", { id: "lumi-rail" });
     rail.setAttribute("aria-label", "Боковая панель Luminoctis");
 
-    // Клик (Inter Menu) и смена картинки по ПКМ — на следующих этапах.
-    const logo = labeled(h("button", "", { id: "lumi-logo", textContent: "L" }), "Luminoctis");
+    // Клик — Luminoctis Home: открыть / вернуться (js/lumi-home.uc.js; подсветку lumi-home-open ставит он же)
+    const logo = labeled(h("button", "", { id: "lumi-logo", textContent: "L" }), "Luminoctis Home");
+    logo.addEventListener("click", () => window.lumiHome?.toggle());
 
     const pins = h("div", "", { id: "lumi-pins" });
     const players = h("div", "", { id: "lumi-players" });

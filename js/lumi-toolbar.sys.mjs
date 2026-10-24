@@ -9,20 +9,38 @@ import { CustomizableUI } from "moz-src:///browser/components/customizableui/Cus
 // Настройки мода — правой кнопкой по рейке (js/lumi-rail.uc.js).
 // Раскладку ставим один раз (номер версии в настройке), дальше пользователь вправе её менять.
 // Ждём первое окно: до него CustomizableUI ещё не загрузил сохранённую раскладку и перезапишет нашу.
-const LAYOUT_VERSION = 3; // 2: «+» переехал в полосу вкладок; 3: своя шестерёнка заменена родной
+const LAYOUT_VERSION = 4; // 2: «+» переехал в полосу вкладок; 3: своя шестерёнка заменена родной; 4: «⋯» — свой виджет lumi-appmenu-button
+
+// «⋯»: родная #PanelUI-button не настраивается (removable=false), поэтому своя кнопка-виджет; меню открывает lumi-appmenu.uc.js
+// (PanelUI.menuButton подменён на неё), родная кнопка спрятана в chrome.css. Значок и «Меню» — в chrome.css / label.
+if (CustomizableUI.getWidget("lumi-appmenu-button")?.provider != "api") {
+  CustomizableUI.createWidget({
+    id: "lumi-appmenu-button", type: "button", label: "Меню", tooltiptext: "Меню",
+    removable: true, overflows: false,
+    onCreated(node) { node.setAttribute("badged", "true"); node.setAttribute("delegatesanchor", "true"); },
+  });
+}
+
 function applyLayout() {
   Services.obs.removeObserver(applyLayout, "browser-delayed-startup-finished");
   const version = Services.prefs.getIntPref("luminoctis.toolbar.layout", 0);
   if (version >= LAYOUT_VERSION) return;
-  if (version == 2) {
-    // раскладка уже стоит (возможно, с правками пользователя) — меняем только кнопку, на том же месте
-    const gear = CustomizableUI.getPlacementOfWidget("lumi-gear-button", false);
-    if (gear) CustomizableUI.addWidgetToArea("preferences-button", gear.area, gear.position);
-    CustomizableUI.removeWidgetFromArea("lumi-gear-button");
+  if (version >= 2) {
+    if (version == 2) {
+      // раскладка уже стоит (возможно, с правками пользователя) — меняем только кнопку, на том же месте
+      const gear = CustomizableUI.getPlacementOfWidget("lumi-gear-button", false);
+      if (gear) CustomizableUI.addWidgetToArea("preferences-button", gear.area, gear.position);
+      CustomizableUI.removeWidgetFromArea("lumi-gear-button");
+    }
+    // 3→4: добавляем «⋯» перед шестерёнкой, только если виджета ещё нигде нет
+    if (!CustomizableUI.getPlacementOfWidget("lumi-appmenu-button", false)) {
+      const gear = CustomizableUI.getPlacementOfWidget("preferences-button", false);
+      CustomizableUI.addWidgetToArea("lumi-appmenu-button", gear?.area ?? CustomizableUI.AREA_NAVBAR, gear?.position);
+    }
   } else {
     const order = [
       "back-button", "stop-reload-button", "forward-button",
-      "urlbar-container", "unified-extensions-button", "downloads-button", "preferences-button",
+      "urlbar-container", "unified-extensions-button", "downloads-button", "lumi-appmenu-button", "preferences-button",
     ];
     order.forEach((id, i) => CustomizableUI.addWidgetToArea(id, CustomizableUI.AREA_NAVBAR, i));
     for (const id of CustomizableUI.getWidgetIdsInArea(CustomizableUI.AREA_NAVBAR)) {

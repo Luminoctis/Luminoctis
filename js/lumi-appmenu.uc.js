@@ -1,31 +1,37 @@
 // ==UserScript==
 // @name           Luminoctis: меню «⋯» и меню вкладки
-// @description    Родное меню Zen/Firefox (кнопка ☰, у Zen — три точки) в панели адреса слева от шестерёнки; пункты меню прячутся по настройке luminoctis.appmenu.hidden, пункты меню вкладки — по luminoctis.tabmenu.hidden.
+// @description    Родное меню Zen/Firefox открывает своя кнопка-виджет «⋯» (по умолчанию в панели адреса слева от шестерёнки); пункты меню прячутся по настройке luminoctis.appmenu.hidden, пункты меню вкладки — по luminoctis.tabmenu.hidden.
 // ==/UserScript==
 
 UC_API.Windows.waitWindowLoading(window).then(() => {
-  // «⋯» — родная кнопка меню (#PanelUI-button: открывает, держит подсветку и значки уведомлений — всё Zen/Firefox).
-  // Ставим её в панель адреса прямо перед шестерёнкой (#preferences-button) — так же Zen сам кладёт её в ряд кнопок
-  // в режиме одной панели. overflows=false — как у Zen: не уезжает в меню переполнения при узком окне.
-  // Шестерёнку убрали из панели адреса — кнопка остаётся на родном месте (конец панели адреса).
-  // Во время «Настроить панель» кнопка на родном месте: в ряду настраиваемых кнопок ей не место.
-  const dots = document.getElementById("PanelUI-button");
-  const navBar = document.getElementById("nav-bar");
-  dots.setAttribute("overflows", "false");
-  const place = () => {
-    if (document.documentElement.hasAttribute("customizing")) return;
-    const gear = document.getElementById("preferences-button");
-    if (gear?.parentNode?.id == "nav-bar-customization-target") {
-      if (dots.nextElementSibling !== gear) gear.before(dots);
-    } else if (dots.parentNode !== navBar) {
-      navBar.insertBefore(dots, document.getElementById("nav-bar-overflow-button"));
+  // «⋯» — свой виджет lumi-appmenu-button (js/lumi-toolbar.sys.mjs), настраивается как любая кнопка. Меню открывает родной PanelUI:
+  // подменяем PanelUI.menuButton на нашу кнопку (якорь панели, подсветка [open], значки уведомлений — всё родное) и повторяем
+  // родные обработчики mousedown/keypress. Если виджет убран в палитру, остаётся родная (спрятанная) кнопка.
+  const nativeDots = PanelUI.menuButton;
+  const widget = () => CustomizableUI.getPlacementOfWidget("lumi-appmenu-button", false) &&
+    document.getElementById("lumi-appmenu-button");
+  Object.defineProperty(PanelUI, "menuButton", { configurable: true, get: () => widget() || nativeDots });
+  // Firefox при каждом открытии/закрытии ставит на кнопку свои подписи (l10n) — возвращаем «Меню»
+  const nativeUpdate = PanelUI._updatePanelButton;
+  PanelUI._updatePanelButton = function (...args) {
+    nativeUpdate.apply(this, args);
+    const btn = widget();
+    if (btn) {
+      btn.removeAttribute("data-l10n-id");
+      btn.setAttribute("label", "Меню");
+      btn.setAttribute("tooltiptext", "Меню");
     }
   };
-  new MutationObserver(place).observe(navBar, { childList: true, subtree: true });
-  gNavToolbox.addEventListener("beforecustomization", () =>
-    navBar.insertBefore(dots, document.getElementById("nav-bar-overflow-button")));
-  gNavToolbox.addEventListener("aftercustomization", place);
-  place();
+  const isDots = event => event.target.closest?.("#lumi-appmenu-button");
+  window.addEventListener("mousedown", event => {
+    if (event.button == 0 && isDots(event)) PanelUI.toggle(event);
+  });
+  window.addEventListener("keypress", event => {
+    if ((event.key == " " || event.key == "Enter") && isDots(event)) {
+      PanelUI.toggle(event);
+      event.stopPropagation();
+    }
+  });
 
   // ---------- какие пункты меню видны: luminoctis.appmenu.hidden — id скрытых через запятую (выбор — в панели настроек) ----------
   // Пункты — строки главного вида меню (#appMenu-mainView). Применяем при смене настройки и при каждом открытии (Zen сам прячет и показывает часть строк).

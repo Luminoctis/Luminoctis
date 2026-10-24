@@ -179,16 +179,20 @@
   & button { -moz-window-dragging: no-drag; appearance: none; cursor: default; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
-/* Кнопка Библиотеки Zen под «L», размером с кнопку пространства. Круглая, с пунктирной рамкой —
- * чтобы не путать с квадратными кнопками пространств. Клик — Библиотека на «Пространствах» (js/lumi-rail.uc.js) */
+/* Свечение при наведении — как у «L»; общее для всех кнопок рейки */
+#lumi-rail {
+  --lumi-rail-glow: 0 0 0 1px var(--lumi-accent), 0 0 16px color-mix(in srgb, var(--lumi-accent) 55%, transparent);
+}
+
+/* Кнопка Библиотеки Zen под «L» — в стиле кнопок пространств. Клик — Библиотека на «Пространствах» (js/lumi-rail.uc.js) */
 #lumi-spaces-button {
   width: 34px; height: 34px; padding: 0; box-sizing: border-box; flex-shrink: 0;
-  border: 1.5px dashed color-mix(in srgb, var(--lumi-muted) 70%, transparent); border-radius: 50%;
+  border: 1px solid transparent; border-radius: 10px;
   background: transparent; color: var(--lumi-muted);
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
-  &::before { content: ""; display: block; width: 16px; height: 16px; margin: 0 auto; background: currentColor;
-    mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5zM3 13l9 5 9-5'/%3E%3C/svg%3E"); }
-  &:hover { border-style: solid; border-color: var(--lumi-accent); color: var(--lumi-accent); background: var(--lumi-surface); }
+  transition: background-color 0.15s, color 0.15s, box-shadow 0.2s;
+  &::before { content: ""; display: block; width: 20px; height: 20px; margin: 0 auto; background: currentColor;
+    mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5zM3 13l9 5 9-5'/%3E%3C/svg%3E"); }
+  &:hover { background: var(--lumi-surface); box-shadow: var(--lumi-rail-glow); }
   &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
 }
 .lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }
@@ -198,15 +202,15 @@
   width: 34px; height: 34px; flex-shrink: 0;
   border: none; border-radius: 10px; padding: 0;
   background: var(--lumi-raised); color: var(--lumi-accent);
-  font-family: var(--lumi-mono) !important; font-size: 16px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
+  font-family: var(--lumi-mono) !important; font-size: 19px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
   transition: box-shadow 0.2s;
-  &:hover { box-shadow: 0 0 0 1px var(--lumi-accent), 0 0 16px color-mix(in srgb, var(--lumi-accent) 55%, transparent); }
+  &:hover { box-shadow: var(--lumi-rail-glow); }
 }
 
 /* Рабочие пространства — родные кнопки Zen столбиком 40×40, с точкой контейнера */
 #lumi-rail #zen-workspaces-button {
   flex-direction: column;
-  gap: 7px;
+  gap: 10px !important; /* меньше — свечение при наведении сливает соседние кнопки */
   width: auto;
   & toolbarbutton {
     width: 34px !important; height: 34px !important; max-width: none !important; min-width: 0 !important;
@@ -217,9 +221,11 @@
     color: var(--lumi-muted);
     fill: currentColor !important; fill-opacity: 1 !important;
     filter: none !important; opacity: 1 !important;
-    & .zen-workspace-icon { opacity: 1 !important; transform: none !important; font-size: 15px; fill: currentColor !important; &:is(img) { width: 17px; } }
+    transition: box-shadow 0.2s;
+    & .zen-workspace-icon { opacity: 1 !important; transform: none !important; font-size: 19px !important; fill: currentColor !important; &:is(img) { width: 20px !important; height: 20px !important; } }
     &[active="true"] { border: 1px solid var(--lumi-accent); background: var(--lumi-raised) !important; color: var(--lumi-accent); }
     &:hover:not([active="true"]) { background: var(--lumi-surface) !important; }
+    &:hover { box-shadow: var(--lumi-rail-glow) !important; }
     /* точка контейнера в правом нижнем углу. Zen рисует свой ::after (точку по центру) при нехватке места
      * и при наведении; userChrome — пользовательский уровень, он уступает стилям Zen, поэтому всё с !important */
     &::after { display: none !important; }
@@ -245,15 +251,16 @@
 #zen-sidebar-foot-buttons { display: none !important; }
 
 /* ---------- 6. Закрепы — родные Essentials Zen (js/lumi-rail.uc.js) ---------- */
-#lumi-pins { display: flex; flex-direction: column; gap: 7px; }
+#lumi-pins { display: flex; flex-direction: column; gap: 10px; }
 .lumi-pin {
   width: 34px; height: 34px; box-sizing: border-box; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   border: 1px solid transparent; border-radius: 10px; background: var(--lumi-surface);
   -moz-window-dragging: no-drag;
-  transition: translate 300ms ease-in, opacity 300ms ease-in;
-  & img { width: 18px; height: 18px; pointer-events: none; }
-  &:is(:hover, :focus-visible) { outline: 2px solid var(--lumi-accent); }
+  transition: translate 300ms ease-in, opacity 300ms ease-in, box-shadow 0.2s;
+  & img { width: 22px; height: 22px; pointer-events: none; }
+  &:hover { box-shadow: var(--lumi-rail-glow); }
+  &:focus-visible { outline: 2px solid var(--lumi-accent); }
   &[selected] { border-color: var(--lumi-accent); background: var(--lumi-raised); } /* открыт — окошком или во вкладке */
   &[pending] img { filter: grayscale(1) brightness(0.6); } /* выгружен — серый, как выгруженные вкладки */
   &[unpinning] { translate: -64px 0; opacity: 0; } /* «Открепить»: улетает влево и гаснет */
@@ -391,8 +398,10 @@
 #zen-media-controls-toolbar { display: none !important; }
 
 /* ---------- 8. Панель адреса: без родной боковой панели Firefox ----------
- * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. Слева от неё — «⋯»: родное меню
- * Zen/Firefox (#PanelUI-button, значок «три точки» даёт Zen), его ставит js/lumi-appmenu.uc.js; скрытые в настройках пункты — [lumi-hidden]. */
+ * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. Слева от неё — «⋯»: свой виджет
+ * #lumi-appmenu-button (js/lumi-toolbar.sys.mjs; открывает родное меню Zen/Firefox, js/lumi-appmenu.uc.js); скрытые в настройках пункты — [lumi-hidden]. */
+#PanelUI-button { display: none !important; } /* родная «⋯» не настраивается — вместо неё виджет #lumi-appmenu-button */
+#lumi-appmenu-button { list-style-image: url("chrome://browser/skin/zen-icons/menu.svg"); }
 #appMenu-mainView [lumi-hidden], #tabContextMenu > [lumi-hidden] { display: none !important; } /* пункты, скрытые в настройках («Меню») */
 #zen-sidebar-top-buttons,             /* кнопка compact mode — мод держит его включённым */
 #sidebar-button, #sidebar-box, #sidebar-splitter, #sidebar-container, #sidebar-launcher-splitter {

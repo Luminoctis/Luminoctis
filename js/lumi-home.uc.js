@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: Home
-// @description    Вкладка Luminoctis Home (home/home.html): одна на окно, не видна в полосе вкладок и рейке; «L» на рейке или клавиша (luminoctis.keys.inter) — открыть / вернуться на прежнюю вкладку.
+// @description    Вкладка Luminoctis Home (home/home.html): одна на окно, не видна в полосе вкладок и рейке; «L» на рейке — открыть / вернуться на прежнюю вкладку.
 // ==/UserScript==
 
 // Home — обычная вкладка (не Essentials: те в рейке, у них свой лимит и своя логика мини-окна), помеченная атрибутом lumi-home
@@ -12,7 +12,6 @@
 (() => {
   const URL = "chrome://userchrome/content/luminoctis/home/home.html";
   const KEY = "lumi-home";
-  const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
   let prev = null; // вкладка, с которой пришли на Home
 
   const isHome = tab => !!tab?.hasAttribute(KEY);
@@ -68,7 +67,7 @@
   };
 
   UC_API.Windows.waitWindowLoading(window).then(() => {
-    // Home никогда не «замена» закрытой/выгруженной вкладки (Zen выбирает её сам) — туда попадают только по «L» или клавише
+    // Home никогда не «замена» закрытой/выгруженной вкладки (Zen выбирает её сам) — туда попадают только по «L»
     const shouldChange = gZenWorkspaces._shouldChangeToTab;
     gZenWorkspaces._shouldChangeToTab = function (tab) {
       return shouldChange.call(this, tab) && !isHome(tab);
@@ -79,16 +78,6 @@
       if (isHome(event.target) && !isHome(event.detail?.previousTab)) prev = event.detail?.previousTab ?? null;
       sync();
     });
-    // клавиша (по умолчанию Tab; читаем при каждом нажатии — смена в настройках действует сразу).
-    // В полях ввода самого браузера (адресная строка, поля Home) — не перехватываем.
-    window.addEventListener("keydown", event => {
-      if (event.repeat || !keys.matches("inter", event)) return;
-      const t = event.composedTarget ?? event.target;
-      if (t.isContentEditable || t.closest?.("input, textarea, select, [contenteditable]")) return;
-      event.preventDefault();
-      event.stopPropagation(); // и сайт нажатие не получит
-      toggle();
-    }, true);
     SessionStore.promiseAllWindowsRestored.then(() => { find(); sync(); }).catch(console.error);
   });
 })();

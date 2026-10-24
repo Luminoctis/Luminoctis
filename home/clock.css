@@ -1,0 +1,96 @@
+/* Часы Luminoctis Home (home/clock.js): .lumi-clock + класс стиля lumi-clock-<стиль>. Размер — --clock-size (всё в em),
+ * цвета — токены палитры. Тот же файл подключают настройки для превью стилей. */
+.lumi-clock {
+  --clock-size: clamp(64px, 12vw, 160px);
+  font-size: var(--clock-size); line-height: 1; text-align: center; user-select: none;
+  display: flex; flex-direction: column; align-items: center;
+  color: var(--lumi-fg, #c0caf5);
+}
+.lumi-clock-time { font: 600 1em/1 var(--lumi-mono, Consolas, monospace); letter-spacing: -0.02em; white-space: nowrap;
+  font-variant-numeric: tabular-nums; text-shadow: 0 4px 30px rgb(0 0 0 / .45); }
+.lumi-clock-date { margin-top: .1em; font: 400 max(13px, .16em) Inter, system-ui, sans-serif; color: var(--lumi-muted, #a9b1d6);
+  text-shadow: 0 2px 12px rgb(0 0 0 / .5); }
+.lumi-clock-date::first-letter { text-transform: uppercase; }
+.lumi-clock > .ampm { margin-top: .08em; font: 600 .16em var(--lumi-mono, monospace); letter-spacing: .2em; color: var(--lumi-muted); }
+.lumi-clock .c { position: relative; }
+.lumi-clock .c i, .lumi-clock-dial { display: none; }
+
+/* Тонкие */
+.lumi-clock-thin .lumi-clock-time { font: 200 1.1em/1 "Segoe UI Variable Display", "Segoe UI", system-ui, sans-serif; letter-spacing: .01em; }
+
+/* Сегменты: цифра — 7 палочек <i>, текст цифры прозрачный */
+.lumi-clock-segment .lumi-clock-time { display: flex; align-items: center; gap: .06em; text-shadow: none; }
+.lumi-clock-segment .g { display: flex; gap: .1em; }
+.lumi-clock-segment .c { display: inline-block; width: .5em; height: .9em; color: transparent; font-size: 1em; }
+.lumi-clock-segment .c i {
+  display: block; position: absolute; border-radius: .03em; background: color-mix(in srgb, var(--lumi-fg) 7%, transparent);
+  &.on { background: var(--lumi-accent); box-shadow: 0 0 .12em color-mix(in srgb, var(--lumi-accent) 60%, transparent); }
+  &.sa, &.sd, &.sg { left: .07em; right: .07em; height: .075em; }
+  &.sa { top: 0; } &.sd { bottom: 0; } &.sg { top: calc(50% - .0375em); }
+  &.sb, &.sc, &.se, &.sf { width: .075em; height: calc(50% - .06em); }
+  &.sf, &.se { left: 0; } &.sb, &.sc { right: 0; }
+  &.sf, &.sb { top: .045em; } &.se, &.sc { bottom: .045em; }
+}
+.lumi-clock-segment .sep { color: var(--lumi-accent); font-size: .8em; }
+.lumi-clock-segment .lumi-clock-date, .lumi-clock-flip .lumi-clock-date { margin-top: .2em; }
+
+/* Перелистывание: карточки, прежняя цифра откидывается вниз */
+.lumi-clock-flip .lumi-clock-time { display: flex; gap: .08em; align-items: center; text-shadow: none; font-size: .9em; }
+.lumi-clock-flip .g { display: flex; gap: .05em; }
+.lumi-clock-flip .c {
+  display: inline-block; width: .7em; padding: .08em 0; border-radius: .08em; perspective: 3em;
+  background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 88%, transparent); box-shadow: 0 .05em .2em rgb(0 0 0 / .45);
+  &::before { content: ""; position: absolute; left: 0; right: 0; top: 50%; height: .02em; background: rgb(0 0 0 / .55); z-index: 2; }
+  &.flip::after {
+    content: attr(data-p); position: absolute; inset: 0; padding: .08em 0; border-radius: inherit; background: inherit;
+    clip-path: inset(0 0 50% 0); transform-origin: 50% 50%; animation: lumi-flip .45s ease-in forwards; backface-visibility: hidden;
+  }
+}
+.lumi-clock-flip .sep { color: var(--lumi-muted); }
+@keyframes lumi-flip { to { transform: rotateX(-90deg); } }
+
+/* Стрелки */
+.lumi-clock-analog .lumi-clock-time { display: none; }
+.lumi-clock-analog .lumi-clock-dial { display: block; width: 2em; height: 2em; overflow: visible;
+  filter: drop-shadow(0 .05em .2em rgb(0 0 0 / .45)); }
+.lumi-clock-dial {
+  & .face { fill: color-mix(in srgb, var(--lumi-bg0, #16161e) 55%, transparent); stroke: color-mix(in srgb, var(--lumi-fg) 25%, transparent); stroke-width: .8; }
+  & .tick { stroke: var(--lumi-dim); stroke-width: .6; } & .major { stroke: var(--lumi-muted); stroke-width: 1.4; }
+  & .hand { stroke: var(--lumi-fg); stroke-linecap: round; }
+  & .hour { stroke-width: 3.2; } & .minute { stroke-width: 2; } & .second { stroke: var(--lumi-accent); stroke-width: .8; display: none; }
+  & .pin { fill: var(--lumi-accent); }
+}
+.lumi-clock-seconds .lumi-clock-dial .second { display: inline; }
+
+/* Неон */
+.lumi-clock-neon .lumi-clock-time { font: 300 1em/1 "Segoe UI", system-ui, sans-serif; color: color-mix(in srgb, var(--lumi-accent) 35%, white);
+  text-shadow: 0 0 .04em #fff, 0 0 .1em var(--lumi-accent), 0 0 .25em var(--lumi-accent), 0 0 .5em color-mix(in srgb, var(--lumi-accent) 60%, transparent); }
+.lumi-clock-neon .lumi-clock-date { color: var(--lumi-accent); }
+
+/* Контур */
+.lumi-clock-outline .lumi-clock-time { font: 800 1.05em/1 "Segoe UI", system-ui, sans-serif; color: transparent;
+  -webkit-text-stroke: max(1.5px, .012em) var(--lumi-fg); text-shadow: none; }
+
+/* Столбиком: часы над минутами */
+.lumi-clock-stacked .lumi-clock-time { display: flex; flex-direction: column; font: 800 1em/.86 "Segoe UI", system-ui, sans-serif; letter-spacing: -.04em; }
+.lumi-clock-stacked .sep { display: none; }
+.lumi-clock-stacked .g0 { color: var(--lumi-accent); }
+.lumi-clock-stacked .g2 { font-size: .35em; color: var(--lumi-muted); letter-spacing: 0; margin-top: .3em; }
+
+/* С засечками */
+.lumi-clock-serif .lumi-clock-time { font: 400 1.05em/1 Georgia, Cambria, "Times New Roman", serif; letter-spacing: .01em; }
+.lumi-clock-serif .lumi-clock-date { font-family: Georgia, Cambria, serif; font-style: italic; }
+
+/* Терминал */
+.lumi-clock-terminal .lumi-clock-time { font: 500 .8em/1 var(--lumi-mono, Consolas, monospace); color: var(--lumi-green, #9ece6a);
+  padding: .15em .3em; border-radius: .08em; background: rgb(0 0 0 / .45); text-shadow: 0 0 .15em color-mix(in srgb, var(--lumi-green) 50%, transparent);
+  &::before { content: "> "; color: var(--lumi-dim); }
+  &::after { content: "▌"; animation: lumi-caret 1s steps(1) infinite; }
+}
+.lumi-clock-terminal .lumi-clock-date { font-family: var(--lumi-mono, monospace); }
+@keyframes lumi-caret { 50% { opacity: 0; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .lumi-clock-flip .c.flip::after { animation: none; display: none; }
+  .lumi-clock-terminal .lumi-clock-time::after { animation: none; }
+}

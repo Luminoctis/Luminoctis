@@ -5,6 +5,7 @@
 <title>Настройки Luminoctis</title>
 <link rel="icon" href="chrome://global/skin/icons/settings.svg">
 <link rel="stylesheet" href="settings.css">
+<link rel="stylesheet" href="home/clock.css">
 <script type="module" src="settings.js"></script>
 </head>
 <body>
@@ -138,26 +139,77 @@
       <button class="small reset" title="Вернуть по умолчанию">↺</button>
       <span class="ok">работает</span>
     </div>
-    <div class="row key-row" data-key="inter">
-      <button class="bind"></button>
-      <div class="text"><b>Luminoctis Home</b><span>Открыть Home и вернуться на прежнюю вкладку, как «L» на рейке (можно с Ctrl, Alt, Shift).
-        Сайт это нажатие не получит</span></div>
-      <button class="small reset" title="Вернуть по умолчанию">↺</button>
-      <span class="ok">работает</span>
-    </div>
   </section>
 
   <section id="home" role="tabpanel">
     <h2>Luminoctis Home <span class="hint">· вкладка с часами, обоями, заметками и таймером — «L» на рейке</span></h2>
-    <div class="row">
-      <div class="text"><b>Клавиша</b><span>Открыть Home / вернуться</span></div>
-      <div class="key"><kbd data-key-view="inter">Tab</kbd><button id="inter-key">Изменить</button></div>
-    </div>
     <div class="row stack">
       <div class="text"><b>Папка данных</b><span>Заметки, журнал таймера, избранные обои. Пусто — папка по умолчанию</span></div>
       <input id="home-dir" type="text" spellcheck="false">
     </div>
-    <p class="hint">Настройки виджетов (часы, обои, LumiNotes, LumiTime) появятся здесь позже.</p>
+    <div class="row stack">
+      <div class="text"><b>Заметки: видно в покое</b><span>Сколько доски LumiNotes выглядывает снизу. Доски и карточки правятся прямо на Home — клик по доске</span></div>
+      <div class="seg" data-pref="luminoctis.notes.peek" data-default="1"><button data-value="0">Заголовок</button><button data-value="1">Первая карточка</button><button data-value="2">Две карточки</button></div>
+    </div>
+    <!-- Обои и часы (home/clock.js, home/wallpaper.js; см. docs/areas/home.md) -->
+    <h2>Часы <span class="hint">· клик — выбрать стиль</span></h2>
+    <div class="clock-styles" data-pref="luminoctis.home.clock.style" data-default="digital">
+      <button data-value="digital"><span class="clock-prev"></span>Цифровые</button>
+      <button data-value="thin"><span class="clock-prev"></span>Тонкие</button>
+      <button data-value="segment"><span class="clock-prev"></span>Сегменты</button>
+      <button data-value="flip"><span class="clock-prev"></span>Перелистывание</button>
+      <button data-value="analog"><span class="clock-prev"></span>Стрелки</button>
+      <button data-value="neon"><span class="clock-prev"></span>Неон</button>
+      <button data-value="outline"><span class="clock-prev"></span>Контур</button>
+      <button data-value="stacked"><span class="clock-prev"></span>Столбиком</button>
+      <button data-value="serif"><span class="clock-prev"></span>С засечками</button>
+      <button data-value="terminal"><span class="clock-prev"></span>Терминал</button>
+    </div>
+    <label class="row"><div class="text"><b>12-часовой формат</b><span>AM / PM вместо 24 часов</span></div><input type="checkbox" data-pref="luminoctis.home.clock.h12"></label>
+    <label class="row"><div class="text"><b>Секунды</b></div><input type="checkbox" data-pref="luminoctis.home.clock.seconds"></label>
+    <label class="row"><div class="text"><b>Дата</b><span>День недели и число под часами</span></div><input type="checkbox" data-pref="luminoctis.home.clock.date" data-default="true"></label>
+
+    <h2>Обои <span class="hint">· кнопки ⟳ ♥ ✕ ↗ — в левом верхнем углу Home при наведении</span></h2>
+    <div class="row stack">
+      <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки. Нет сети — тёмный градиент</span></div>
+      <div class="checks">
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan">Konachan (аниме)</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing">Bing — картинка дня</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local">Своя папка</label>
+      </div>
+    </div>
+    <div class="row stack">
+      <div class="text"><b>Поиск</b><span>Теги или тема для Wallhaven и Konachan, например «night city» или «landscape». Пусто — любые</span></div>
+      <input id="wp-query" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.query" placeholder="любые">
+      <div class="seg" data-pref="luminoctis.home.wallpaper.category" data-default="all"><button data-value="all">Всё</button><button data-value="anime">Аниме</button><button data-value="general">Общие</button></div>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random">Случайные</button><button data-value="toplist">Лучшие</button></div>
+    </div>
+    <div class="row stack">
+      <div class="text"><b>Своя папка</b><span>Картинки, GIF и видео mp4/webm (без звука, по кругу)</span></div>
+      <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана"><button id="wp-pick">Выбрать…</button></div>
+    </div>
+    <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — их копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
+    <div class="row stack">
+      <div class="text"><b>Смена обоев</b></div>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.rotate" data-default="open"><button data-value="open">При открытии</button><button data-value="interval">По таймеру</button><button data-value="daily">Раз в день</button><button data-value="manual">Кнопкой ⟳</button></div>
+      <label class="slider">По таймеру — каждые
+        <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="30"><option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="60">1 час</option><option value="180">3 часа</option></select></label>
+    </div>
+    <label class="row"><div class="text"><b>Параллакс</b><span>Обои чуть сдвигаются вслед за мышью (не работает при «уменьшить движение» в системе)</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.parallax" data-default="true"></label>
+    <div class="row stack">
+      <label class="slider">Сила параллакса<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.parallaxStrength" data-default="40"><output></output></label>
+      <label class="slider">Затемнение<input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
+      <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
+    </div>
+    <label class="row"><div class="text"><b>Цвет мода из обоев</b><span>Акцент палитры берётся из текущих обоев Home; выключите — вернётся цвет палитры</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
+    <!-- LumiTime (home/time*.js, js/lumi-time.sys.mjs; см. docs/areas/home.md) -->
+    <h2>LumiTime <span class="hint">· фокус-таймер справа на Home</span></h2>
+    <div class="row">
+      <div class="text"><b>Настройки таймера</b><span>Пары фокус/перерыв, пресеты, темы, звук, цели, блок сайтов во время фокуса — в панели самого таймера</span></div>
+      <button id="lumitime-settings">Открыть</button>
+    </div>
+    <p class="hint">Настройки остальных виджетов (LumiNotes, LumiTime) появятся здесь позже.</p>
   </section>
 </main>
 

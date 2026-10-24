@@ -25,7 +25,3 @@ body { background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c0caf5); fon
 #lumi-notes { grid-area: notes; }
 #lumi-clock:empty, #lumi-time:empty, #lumi-notes:empty { pointer-events: none; }
 
-/* заглушка часов (home.js) — заменит home/clock.js */
-.lumi-clock-time { font: 600 clamp(64px, 12vw, 160px)/1 var(--lumi-mono); letter-spacing: -0.02em;
-  text-shadow: 0 4px 30px rgb(0 0 0 / .45); }
-.lumi-clock-date { margin-top: 10px; font-size: clamp(16px, 2vw, 24px); color: var(--lumi-muted, #a9b1d6); }

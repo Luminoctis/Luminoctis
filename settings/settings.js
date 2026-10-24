@@ -337,10 +337,6 @@ window.addEventListener("keydown", event => {
   stopRecording();
 }, true);
 window.addEventListener("blur", stopRecording); // ушли из панели (или её закрыли) — запись не висит до следующего открытия
-$("#inter-key").addEventListener("click", () => {
-  location.replace("#keys");
-  record("inter");
-});
 renderKeys();
 
 // ---------- палитра: готовые палитры и правка каждого цвета (js/lumi-palette.sys.mjs) ----------
@@ -520,3 +516,49 @@ renderPalette();
   window.addEventListener("unload", () => Services.prefs.removeObserver(store.PREF, read));
   read();
 }
+
+// ---------- Luminoctis Home: часы и обои (home/clock.js, home/wallpaper.js; docs/areas/home.md) ----------
+{
+  const { Clock } = await import("./home/clock.js");
+  for (const b of document.querySelectorAll(".clock-styles [data-value]")) new Clock(b.querySelector(".clock-prev"), b.dataset.value); // живые превью
+  const watchPref = (pref, read) => {
+    Services.prefs.addObserver(pref, read);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
+    read();
+  };
+  // числа: ползунки (рядом <output>) и списки
+  for (const input of document.querySelectorAll("[data-int-pref]")) {
+    const pref = input.dataset.intPref, out = input.nextElementSibling?.matches("output") ? input.nextElementSibling : null;
+    input.addEventListener("input", () => Services.prefs.setIntPref(pref, Number(input.value)));
+    watchPref(pref, () => { input.value = String(Services.prefs.getIntPref(pref, Number(input.dataset.default))); if (out) out.value = input.value; });
+  }
+  // строки: поиск, папка (пусто — сброс)
+  for (const input of document.querySelectorAll("[data-str-pref]")) {
+    const pref = input.dataset.strPref;
+    input.addEventListener("change", () => {
+      const v = input.value.trim();
+      v ? Services.prefs.setStringPref(pref, v) : Services.prefs.clearUserPref(pref);
+    });
+    watchPref(pref, () => (input.value = Services.prefs.getStringPref(pref, "")));
+  }
+  $("#wp-pick").addEventListener("click", () => {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, "Папка с обоями", Ci.nsIFilePicker.modeGetFolder);
+    fp.open(r => {
+      if (r != Ci.nsIFilePicker.returnOK) return;
+      Services.prefs.setStringPref("luminoctis.home.wallpaper.folder", fp.file.path);
+      Services.prefs.setBoolPref("luminoctis.home.wallpaper.src.local", true); // выбрали папку — значит, её и показывать
+    });
+  });
+}
+
+// ---------- LumiTime: «Открыть» — Home и панель настроек таймера (home/time.js) ----------
+$("#lumitime-settings")?.addEventListener("click", async () => {
+  const tab = win.lumiHome.open();
+  win.luminoctis.closeSettings();
+  for (let i = 0; i < 50; i++) { // Home могла только что создаться — ждём страницу
+    const lt = tab.linkedBrowser.contentWindow?.lumiTime;
+    if (lt) { if (lt.panelName() != "settings") lt.openPanel("settings"); return; }
+    await new Promise(r => setTimeout(r, 100));
+  }
+});

@@ -1,0 +1,100 @@
+/* LumiNotes — доски внизу Home (home/notes.js). Доски прижаты к нижнему краю окна: в покое выглядывают на --peek
+ * (шапка + первая карточка, считает notes.js), при наведении выезжают целиком и «парят» (покачивание только вниз —
+ * нижний край не отрывается от края окна), в режиме редактирования (#lumi-notes.editing) подняты все и стоят. */
+#lumi-home > #lumi-notes { position: relative; pointer-events: none; } /* пустые места — клики к обоям */
+
+.lumi-boards {
+  position: absolute; left: 0; right: 0; bottom: 0; height: 100vh;
+  display: flex; align-items: flex-end; gap: 14px; padding: 0 24px;
+  overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+}
+
+.lumi-board {
+  pointer-events: auto; position: relative;
+  flex: 1 1 0; min-width: 220px; max-width: 320px;
+  max-height: min(62vh, calc(100vh - 170px)); display: flex;
+  transform: translateY(calc(100% - var(--peek, 72px)));
+  transition: transform .6s cubic-bezier(.22, 1, .36, 1);
+  &:hover, #lumi-notes.editing & { transform: none; }
+  &.dragging { opacity: .5; }
+  &.drop-before::before { content: ""; position: absolute; left: -9px; top: 0; bottom: 0; width: 3px; border-radius: 2px; background: var(--lumi-accent, #7aa2f7); }
+}
+
+.lumi-board-body {
+  flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 10px 14px; border-radius: 14px 14px 0 0;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent);
+  backdrop-filter: blur(16px);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); border-bottom: none;
+  box-shadow: 0 -4px 18px rgb(0 0 0 / .25);
+  transition: box-shadow .5s;
+}
+#lumi-notes:not(.editing) .lumi-board:hover .lumi-board-body {
+  animation: lumi-float 3.4s ease-in-out .55s infinite;
+  box-shadow: 0 -16px 44px rgb(0 0 0 / .45), 0 0 0 1px color-mix(in srgb, var(--lumi-accent, #7aa2f7) 35%, transparent);
+}
+@keyframes lumi-float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+
+.lumi-board-head {
+  display: flex; align-items: center; gap: 6px; padding: 2px 4px 0; cursor: pointer; user-select: none;
+  #lumi-notes.editing & { cursor: grab; }
+}
+.lumi-board-title { margin: 0; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  #lumi-notes.editing & { cursor: text; } }
+.lumi-board-count { font-size: 11px; color: var(--lumi-dim, #565f89); }
+.lumi-board-rename { flex: 1; min-width: 0; font: 600 13px Inter, system-ui, sans-serif; }
+
+.lumi-cards {
+  list-style: none; margin: 0; padding: 0 2px 0 0; min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  display: flex; flex-direction: column; gap: 6px;
+  &.drop-end { box-shadow: inset 0 -3px 0 var(--lumi-accent, #7aa2f7); min-height: 24px; }
+}
+.lumi-card {
+  position: relative; display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0;
+  padding: 8px 10px; border-radius: 9px; line-height: 1.4; font-size: 13px;
+  background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent);
+  & input[type="checkbox"] { margin: 2px 0 0; accent-color: var(--lumi-accent, #7aa2f7); }
+  &.done .lumi-card-text { text-decoration: line-through; color: var(--lumi-dim, #565f89); }
+  &.dragging { opacity: .4; }
+  &.drop-before { box-shadow: 0 -3px 0 var(--lumi-accent, #7aa2f7); }
+  #lumi-notes.editing & { cursor: grab; }
+  #lumi-notes.editing &:hover { background: color-mix(in srgb, var(--lumi-raised, #292e42) 85%, transparent); }
+}
+.lumi-card-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere;
+  #lumi-notes.editing & { cursor: text; }
+  #lumi-notes:not(.editing) & { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; } }
+.lumi-card-link { color: var(--lumi-accent, #7aa2f7); text-decoration: none; &:hover { text-decoration: underline; } }
+.lumi-note-editor { flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.4; padding: 0; border: none; outline: none;
+  background: transparent; color: inherit; }
+
+.lumi-card-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .15s;
+  .lumi-card:hover & { opacity: 1; } }
+
+.lumi-board button, .lumi-add-board {
+  border: none; border-radius: 7px; background: transparent; color: var(--lumi-muted, #a9b1d6); font: inherit; cursor: pointer;
+  &:hover { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); color: var(--lumi-fg, #c0caf5); }
+}
+.lumi-card-tools button, .lumi-board-del { width: 22px; height: 22px; padding: 0; font-size: 14px; line-height: 1; }
+.lumi-board-foot { display: flex; gap: 6px; & button { flex: 1; height: 28px; font-size: 12px; } }
+.lumi-add-board {
+  pointer-events: auto; flex-shrink: 0; align-self: flex-end; margin-bottom: 16px; height: 34px; padding: 0 14px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent); backdrop-filter: blur(12px);
+}
+.lumi-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-radius: 9px; font-size: 12px;
+  background: color-mix(in srgb, var(--lumi-red, #f7768e) 18%, transparent);
+  & span { flex-basis: 100%; }
+  & .lumi-confirm-yes { color: var(--lumi-red, #f7768e); } }
+
+#lumi-notes:not(.editing) .lumi-edit-only { display: none; }
+
+.lumi-notes-error {
+  pointer-events: auto; position: fixed; top: 16px; left: 50%; translate: -50% 0; z-index: 10; max-width: 60vw;
+  padding: 10px 14px; border-radius: 10px; cursor: pointer; font-size: 13px;
+  background: color-mix(in srgb, var(--lumi-red, #f7768e) 85%, black); color: white; box-shadow: 0 6px 24px rgb(0 0 0 / .4);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lumi-board { transition-duration: .01s; }
+  .lumi-board-body { animation: none !important; }
+}

@@ -1,0 +1,29 @@
+/* Обои Luminoctis Home (home/wallpaper.js). Под слоями остаётся градиент #lumi-wallpaper из home.css — он же запасной фон без сети.
+ * --wp-dim (0..0.9) и --wp-blur (px) ставит wallpaper.js из настроек. */
+#lumi-wallpaper { overflow: hidden; }
+.lumi-wp-stage { position: absolute; inset: 0; filter: blur(var(--wp-blur, 0px)); will-change: transform; }
+.lumi-wp-zoom .lumi-wp-stage { transform: scale(1.06); }
+.lumi-wp-layer {
+  position: absolute; inset: 0; opacity: 0; transition: opacity .8s ease;
+  &.on { opacity: 1; }
+  & > img, & > video, & > iframe { width: 100%; height: 100%; object-fit: cover; display: block; border: 0; }
+}
+.lumi-wp-dim { position: absolute; inset: 0; background: #000; opacity: var(--wp-dim, .25); pointer-events: none; }
+
+/* кнопки — в левом верхнем углу (справа LumiTime, снизу доски), видны при наведении на угол */
+.lumi-wp-controls {
+  position: absolute; top: 0; left: 0; z-index: 1; display: flex; gap: 6px; padding: 16px 40px 40px 16px;
+  opacity: 0; transition: opacity .2s;
+  &:hover, &:focus-within { opacity: 1; }
+  & button {
+    width: 32px; height: 32px; padding: 0; border-radius: 9px; cursor: pointer;
+    border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 18%, transparent);
+    background: color-mix(in srgb, var(--lumi-bg0, #16161e) 60%, transparent); backdrop-filter: blur(8px);
+    color: var(--lumi-fg, #c0caf5); font: 15px/1 "Segoe UI Symbol", system-ui, sans-serif;
+    &:hover:not(:disabled) { background: color-mix(in srgb, var(--lumi-accent, #7aa2f7) 30%, var(--lumi-bg0, #16161e)); }
+    &:disabled { opacity: .4; cursor: default; }
+    &.on { color: var(--lumi-red, #f7768e); border-color: color-mix(in srgb, var(--lumi-red, #f7768e) 50%, transparent); }
+    &:focus-visible { outline: 2px solid var(--lumi-accent, #7aa2f7); }
+  }
+}
+@media (prefers-reduced-motion: reduce) { .lumi-wp-layer { transition: none; } }

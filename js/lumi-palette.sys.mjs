@@ -37,9 +37,18 @@ export function colors(id = presetId()) {
 export const edited = (id = presetId()) => TOKENS.filter(t => HEX.test(own(id, t)));
 
 const docs = new Set();
-const paint = doc => { const c = colors(); for (const t of TOKENS) doc.documentElement.style.setProperty(`--lumi-${t}`, c[t]); };
+// цвет акцента из обоев Home (home/wallpaper.js пишет accentOverride; действует, пока включён luminoctis.home.accentFromWallpaper)
+const FROM_WALL = "luminoctis.home.accentFromWallpaper";
+const override = () => Services.prefs.getBoolPref(FROM_WALL, false) && Services.prefs.getStringPref(`${PREF}.accentOverride`, "").toLowerCase();
+const paint = doc => {
+  const c = colors(), o = override();
+  if (HEX.test(o)) c.accent = o;
+  for (const t of TOKENS) doc.documentElement.style.setProperty(`--lumi-${t}`, c[t]);
+};
 let queued = null; // «Сбросить палитру» меняет много настроек — перекрашиваем один раз
-Services.prefs.addObserver(PREF, () => queued ||= Promise.resolve().then(() => { queued = null; docs.forEach(paint); }));
+const repaint = () => queued ||= Promise.resolve().then(() => { queued = null; docs.forEach(paint); });
+Services.prefs.addObserver(PREF, repaint);
+Services.prefs.addObserver(FROM_WALL, repaint);
 export function watch(doc) {
   docs.add(doc);
   paint(doc);

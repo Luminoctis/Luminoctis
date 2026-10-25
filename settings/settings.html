@@ -205,11 +205,12 @@
     </div>
     <!-- Wallpaper Engine (home/we.js) -->
     <div class="row stack">
-      <div class="text"><b>Wallpaper Engine</b><span>Обои из мастерской Steam. Видео и веб-обои живые, сцены — только превью. Клик по картинке — поставить сейчас, галочка — брать в смену. Пусто — папка Steam ищется сама</span></div>
+      <div class="text"><b>Wallpaper Engine</b><span>Обои из мастерской Steam. Видео, веб-обои и сцены живые (сцены — через программу Wallpaper Engine, см. ниже). Клик по картинке — поставить сейчас, галочка — брать в смену. Пусто — папка Steam ищется сама</span></div>
       <div class="key"><input id="we-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.we.folder"><button id="we-pick">Выбрать…</button></div>
       <div id="we-items" class="we-items"></div>
     </div>
     <label class="row"><div class="text"><b>Как в Wallpaper Engine</b><span id="we-sync-hint">Home показывает те же обои, что Wallpaper Engine на рабочем столе, и меняет их вслед за ним</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.sync"></label>
+    <label class="row"><div class="text"><b>Живые сцены через Wallpaper Engine</b><span id="we-live-hint">Сцену на Home играет сама программа Wallpaper Engine в своём окне под браузером — как на рабочем столе. Выключено или программы нет — статичный кадр сцены. Над живой сценой интерфейс только тонируется (без размытия), «Размытие» обоев к ней не применяется</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.live" data-default="true"></label>
     <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — их копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
     <div class="row stack">
       <div class="text"><b>Смена обоев</b></div>

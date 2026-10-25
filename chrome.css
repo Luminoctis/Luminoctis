@@ -757,3 +757,17 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #lumi-home-wall { display: block; }
   & #lumi-rail { background: transparent !important; }
 }
+/* живая сцена Wallpaper Engine (js/lumi-home-live.uc.js): окно WE лежит под окном браузера, окно насквозь прозрачно (accent policy).
+ * Всё от корня до <browser> Home — прозрачное; холст окна скрыт, тон интерфейса (::after) — только вне вкладки (--lumi-home-x/y
+ * ставит страница), у края вкладки тон продолжает сама страница (.lumi-wp-edge). Размыть чужое окно CSS не может — только тон. */
+:root[lumi-home-live]:not([inDOMFullscreen="true"]) {
+  background: transparent !important;
+  & :is(#browser, #tabbrowser-tabbox, #tabbrowser-tabpanels, .browserSidebarContainer, .browserStack, .browserContainer,
+    #zen-main-app-wrapper, #zen-appcontent-wrapper, #zen-browser-background, #tabbrowser-tabpanels browser) { background: transparent !important; }
+  & #zen-main-app-wrapper:-moz-window-inactive { background: transparent !important; }
+  & #zen-browser-background::before, & #zen-browser-background::after { background: transparent !important; }
+  & #lumi-home-wall > canvas { display: none; }
+  & #lumi-home-wall::after {
+    mask-image: linear-gradient(to right, #000 var(--lumi-home-x, 0px), transparent 0), linear-gradient(to bottom, #000 var(--lumi-home-y, 0px), transparent 0);
+  }
+}

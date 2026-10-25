@@ -130,7 +130,10 @@ function show(layer) {
   syncButtons();
   applyAccent();
   kick();
+  liveWant();
 }
+// живая сцена WE в своём окне под браузером (js/lumi-home-live.uc.js); здесь остаётся её статичный кадр — пока окно WE не готово или его нет
+const liveWant = () => win.lumiHomeLive?.want(current?.item.source == "we" && current.item.type == "scene" ? current.item.page : null);
 // показать выбранные обои сейчас (выбор Wallpaper Engine в настройках)
 export async function showItem(item) {
   show(await load(item));
@@ -267,6 +270,8 @@ function place() { // позиция вкладки в окне; true — изм
   for (const [n, v] of [["--wp-x", g.x], ["--wp-y", g.y], ["--wp-w", g.W], ["--wp-h", g.H]]) root.style.setProperty(n, v * k + "px");
   root.style.setProperty("--wp-ramp-l", g.x > 0.5 ? "var(--wp-ramp)" : "0px"); // нарастание блюра — только у краёв, где интерфейс
   root.style.setProperty("--wp-ramp-t", g.y > 0.5 ? "var(--wp-ramp)" : "0px");
+  wall()?.style.setProperty("--lumi-home-x", g.x + "px"); // тон интерфейса над живой сценой — только вне вкладки (chrome.css раздел 15)
+  wall()?.style.setProperty("--lumi-home-y", g.y + "px");
   return true;
 }
 const wall = () => win.document.getElementById("lumi-home-wall");
@@ -426,6 +431,7 @@ window.addEventListener("unload", () => {
   prefs.removeObserver(P, onPref);
   prefs.removeObserver(ACCENT, onPref);
   clearInterval(timer);
+  win.lumiHomeLive?.want(null);
 });
 
 // для проверок (dev/check-home-wallpaper.js) и будущих виджетов

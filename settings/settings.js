@@ -612,6 +612,11 @@ renderPalette();
     const cfg = await we.configPath(), it = cfg ? await we.selected(cfg).catch(() => null) : null;
     hint.textContent = !cfg ? "Wallpaper Engine не найден — нужна программа Wallpaper Engine из Steam (её файл steamapps\\common\\wallpaper_engine\\config.json)"
       : it ? `${HINT}. Сейчас там: «${it.title}»` : `${HINT}. Сейчас в нём не выбраны обои из мастерской`;
+    // живые сцены: нужна программа WE и прозрачность окна от Windows (Mica; без неё — только статичный кадр)
+    const live = $("#we-live-hint");
+    live.dataset.base ??= live.textContent;
+    live.textContent = live.dataset.base + (!(await we.exePath()) ? ". Сейчас: программа Wallpaper Engine не найдена — будет статичный кадр"
+      : !matchMedia("(-moz-windows-mica)").matches ? ". Сейчас: Windows не даёт окну прозрачность (нужны Windows 11, аппаратное ускорение и widget.windows.mica = true, затем перезапуск) — будет статичный кадр" : "");
   }
   const SYNC = "luminoctis.home.wallpaper.we.sync";
   for (const p of [we.CONFIG_PREF, SYNC]) Services.prefs.addObserver(p, syncHint);

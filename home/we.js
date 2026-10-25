@@ -30,6 +30,9 @@ async function firstExisting(...rel) {
   return null;
 }
 export const detectDir = () => firstExisting(...APP);
+// программа Wallpaper Engine (для живых сцен в своём окне — js/lumi-home-live.uc.js)
+const WE_APP = ["steamapps", "common", "wallpaper_engine"];
+export const exePath = async () => (await firstExisting(...WE_APP, "wallpaper64.exe")) ?? firstExisting(...WE_APP, "wallpaper32.exe");
 let detected = null;
 export const folder = async () => prefs.getStringPref(PREF, "").trim() || (detected ??= detectDir());
 

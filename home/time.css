@@ -41,7 +41,8 @@
 }
 /* спрятать: столбец уезжает вправо, колонка схлопывается (часы и доски занимают всю ширину), --lumi-time-w = 0 заодно у панелей */
 body[lumi-time-hidden] { --lumi-time-w: 0px; }
-#lumi-time { transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s; }
+/* ширина своя, не по колонке: пока колонка растёт/схлопывается, содержимое не сжимается и не переносится (было видно на выезде) */
+#lumi-time { width: calc(320px - 14px); transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s; }
 body[lumi-time-hidden] #lumi-time { translate: calc(100% + 24px) 0; opacity: 0; visibility: hidden; transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s .35s; }
 @media (prefers-reduced-motion: reduce) {
   #lumi-time, body[lumi-time-hidden] #lumi-time { transition-duration: .01s; transition-delay: 0s; }

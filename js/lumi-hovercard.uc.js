@@ -82,7 +82,8 @@
 
     document.addEventListener("mouseover", event => {
       const el = targetOf(event);
-      if (el == current || (el && el == targetOf({ target: event.relatedTarget ?? document }))) return;
+      // el && …: мышь ушла с вкладки раньше, чем карточка показалась (current ещё null) — отложенный показ тоже снимаем
+      if (el && (el == current || el == targetOf({ target: event.relatedTarget ?? document }))) return;
       if (!el) {
         quiet = null;
         return hide();

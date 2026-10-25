@@ -386,8 +386,11 @@ function effects() {
   const box = wall();
   if (box) { // окно: размытие интерфейса поверх размытия самих обоев (гауссовы складываются по корню из суммы квадратов)
     box.style.setProperty("--lumi-home-blur", Math.hypot(ui, blur).toFixed(1) + "px");
-    box.style.opacity = alpha;
+    box.querySelector("canvas").style.opacity = alpha; // только кадр: тон стекла (::after, chrome.css раздел 15) — как на других вкладках
   }
+  // у края страницы — тот же тон стекла, что над обоями в окне (bg0 окна с ползунком «Прозрачность интерфейса»), иначе на стыке ступенька
+  const solid = 100 - clamp(prefs.getIntPref("luminoctis.look.transparency", 45), 0, 90);
+  root.style.setProperty("--wp-ui-tint", glass() ? `color-mix(in srgb, var(--lumi-bg0, #16161e) ${solid}%, transparent)` : "transparent");
   paint();
 }
 document.addEventListener("visibilitychange", () => { // видео не играет, пока Home не видна

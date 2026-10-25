@@ -18,7 +18,7 @@ body[lumi-notes-hidden] .lumi-boards { translate: 0 100%; opacity: 0; visibility
   pointer-events: auto; position: relative;
   flex: 1 1 0; min-width: 220px; max-width: 320px;
   max-height: min(62vh, calc(100vh - 170px)); display: flex;
-  transform: translateY(calc(100% - var(--peek, 72px)));
+  transform: translateY(max(0px, calc(100% - var(--peek, 72px)))); /* доска ниже --peek не отрывается от края окна */
   transition: transform .26s cubic-bezier(.2, .9, .25, 1), translate .22s cubic-bezier(.2, .9, .25, 1);
   &:hover, #lumi-notes.editing & { transform: none; }
   &.dragging { opacity: .5; }

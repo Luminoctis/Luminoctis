@@ -83,15 +83,23 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     item.animate([{ transform: "none", opacity: 1 }, { transform: "translateY(-48px)", opacity: 0 }],
       { duration: 170, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" });
     const shrink = { flexGrow: 0, flexShrink: 0, minWidth: 0, paddingInline: "0px" };
+    const collapse = { delay: 140, duration: 220, easing: "cubic-bezier(0.3, 0, 0.2, 1)", fill: "both" };
+    // «+» сразу за вкладками (ширина ряда = --lumi-tabs-w): ряд сужается вместе с призраком, а не сразу при закрытии —
+    // иначе все вкладки на миг сжимались и снова расширялись, а «+» прыгал
+    const basis = getComputedStyle(row).flexBasis;
+    const rowAnim = Services.prefs.getStringPref("luminoctis.tabs.newtab-position", "end") == "after-tabs" && basis.endsWith("px")
+      ? row.animate([{ flexBasis: basis }, { flexBasis: `${Math.max(0, parseFloat(basis) - (tab.pinned ? 28 : 210) - 6)}px` }], collapse)
+      : null;
     item.animate([
       { ...shrink, flexBasis: `${width}px`, maxWidth: `${width}px`, marginLeft: "6px" },
       { ...shrink, flexBasis: "0px", maxWidth: "0px", marginLeft: "0px" },
-    ], { delay: 140, duration: 220, easing: "cubic-bezier(0.3, 0, 0.2, 1)", fill: "both" }).finished.then(() => {
+    ], collapse).finished.then(() => {
       ghosts.delete(item);
       item.removeAttribute("closing");
       item.getAnimations().forEach(a => a.cancel());
+      rowAnim?.cancel();
       schedule();
-    }, () => ghosts.delete(item));
+    }, () => (ghosts.delete(item), rowAnim?.cancel()));
   };
   // перетаскивание вкладок (ниже): расступившиеся остаются сдвинутыми после броска, пока render не пересоберёт ряд
   let dragged = null, dragFrom = -1, gapPending = false;
@@ -101,7 +109,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     luminoctis.clearGap([...row.children], instant);
     row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
   }
-  let queued = false;
+  let queued = false, shownSelected = null;
   const render = () => {
     queued = false;
     const tabs = stripTabs();
@@ -117,8 +125,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     strip.style.setProperty("--lumi-tabs-w", `${full}px`);
     strip.style.setProperty("--lumi-tabs-shrink", full ? (tabs.filter(tab => !tab.pinned).length * 210) / full : 1);
     if (gapPending) releaseGap(true);
+    // к выбранной — только когда выбор сменился: иначе любая фоновая вкладка (загрузка, заголовок) сбивала прокрутку пользователя
     const selected = items.get(gBrowser.selectedTab);
-    if (selected?.isConnected) row.ensureElementIsVisible(selected);
+    if (selected?.isConnected && selected !== shownSelected) row.ensureElementIsVisible(selected);
+    shownSelected = selected;
   };
   const schedule = () => {
     if (!queued) {

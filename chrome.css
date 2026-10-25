@@ -116,6 +116,8 @@
     & #zen-appcontent-navbar-wrapper {
       height: var(--zen-toolbar-height-with-bookmarks) !important;
       overflow: inherit !important;
+      /* фон панели Zen (.zen-toolbar-background) здесь не создаётся — без своего фона раскрытая панель лежала над сайтом прозрачной */
+      background: var(--lumi-solid); /* непрозрачный и в прозрачном режиме: размытие под ней сайт не размывает (раздел 14) */
       & #urlbar { opacity: 1 !important; pointer-events: auto !important; }
       & #zen-appcontent-navbar-container { opacity: 1 !important; }
     }
@@ -389,7 +391,7 @@
 .lumi-player :is(.lumi-player-prev, .lumi-player-next) {
   width: 26px; height: 26px; background-color: var(--lumi-muted) !important;
   mask: center / 16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M18 6 9 12l9 6zM6 6v12'/%3E%3C/svg%3E");
-  &:disabled { opacity: 0.35; }
+  #lumi-players[open] &:disabled { opacity: 0.35; } /* только у открытой карточки: у закрытой содержимое спрятано (opacity 0), серые кнопки висели поверх плитки */
 }
 .lumi-player .lumi-player-next { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 6 9 6-9 6zM18 6v12'/%3E%3C/svg%3E"); }
 .lumi-player-play {
@@ -670,7 +672,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
     & #lumi-hot-top { display: block; }
     & #zen-appcontent-wrapper { position: relative; }
     & #lumi-tabstrip {
-      position: absolute; inset: 0 0 auto 0; z-index: 6; background: var(--lumi-bg0);
+      position: absolute; inset: 0 0 auto 0; z-index: 6; background: var(--lumi-solid); /* над сайтом — непрозрачная (раздел 14) */
       translate: 0 -100%; transition: translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     &[lumi-show-tabstrip] #lumi-tabstrip { translate: 0 0; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
@@ -679,6 +681,17 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   @media -moz-pref("zen.view.compact.hide-toolbar") {
     :root[lumi-show-tabstrip]:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper { translate: 0 36px; }
   }
+}
+/* у панели адреса Zen свой transition (height) и он бьёт наш без !important: сдвиг под полосу (translate) и от рейки (margin-left)
+ * шёл рывком — при прятании строка прыгала на 36px вверх поверх уходящей полосы. Фон гаснет вместе с высотой */
+@media -moz-pref("zen.view.compact.hide-toolbar") {
+  :root:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper {
+    transition: height var(--zen-hidden-toolbar-transition), background-color var(--zen-hidden-toolbar-transition),
+      translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1), margin-left 180ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  #lumi-rail, #lumi-tabstrip, #zen-appcontent-navbar-wrapper { transition: none !important; }
 }
 
 /* ---------- 13. Карточка при наведении на вкладку полосы или закреп рейки ----------
@@ -723,7 +736,11 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #lumi-players[open] .lumi-player,
   & #urlbar[breakout-extend] .urlbar-background { backdrop-filter: var(--lumi-glass-blur-filter) !important; }
   & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame) { border-color: var(--lumi-glass-edge); }
-  @media -moz-pref("luminoctis.compact.sidebar") { & #lumi-rail { backdrop-filter: var(--lumi-glass-blur-filter); } }
+  /* backdrop-filter в Firefox размывает только интерфейс, а сайт (<browser> другого процесса) — нет: сквозь полупрозрачные панели над сайтом
+   * читался текст страницы. Под цветом палитры у них непрозрачная подложка --lumi-solid */
+  & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame),
+  & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
+  @media -moz-pref("luminoctis.compact.sidebar") { & #lumi-rail { backdrop-filter: var(--lumi-glass-blur-filter); background: linear-gradient(var(--lumi-bg1), var(--lumi-bg1)) var(--lumi-solid); } }
   @media -moz-pref("luminoctis.compact.tabstrip") { & #lumi-tabstrip { backdrop-filter: var(--lumi-glass-blur-filter); } }
   @media -moz-pref("zen.view.compact.hide-toolbar") { & #zen-appcontent-navbar-wrapper { backdrop-filter: var(--lumi-glass-blur-filter); } }
 }
@@ -758,6 +775,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   filter: blur(var(--lumi-home-blur, 24px));
 }
 :root[lumi-home-wall][lumi-glass]:not([inDOMFullscreen="true"]) #lumi-home-wall { display: block; }
+/* стекло окна (bg0 #zen-main-app-wrapper с ползунком «Прозрачность интерфейса») лежит под обоями — повторяем его над ними,
+ * иначе на Home полосы и адрес — голые обои и ползунок их не меняет. Прозрачность обоев — только у холста (wallpaper.js), тон — как везде */
+:root[lumi-home-wall][lumi-glass] #lumi-home-wall::after { content: ""; position: absolute; inset: 0; background: var(--lumi-bg0); }
 :root[lumi-home-live]:not([inDOMFullscreen="true"]) {
   background: transparent !important;
   & :is(#browser, #tabbrowser-tabbox, #tabbrowser-tabpanels, .browserSidebarContainer, .browserStack, .browserContainer,

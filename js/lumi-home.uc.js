@@ -58,8 +58,13 @@
   // подсветка «L» и обои под всем окном ([lumi-home-wall] на корне — chrome.css раздел 15); кадр в #lumi-home-wall рисует сама Home (home/wallpaper.js)
   function lit(on) {
     document.getElementById("lumi-logo")?.toggleAttribute("lumi-home-open", on);
-    document.documentElement.toggleAttribute("lumi-home-wall", on);
+    document.documentElement.toggleAttribute("lumi-home-wall", on || underPin());
   }
+  // выбран закреп-окошко (lumi-rail.uc.js), а под ним видна Home — обои под интерфейсом остаются (как «насквозь» в lumi-home-live.uc.js)
+  const panelOf = t => t && document.getElementById(t.linkedPanel);
+  // в момент TabSelect класса окошка ещё нет — закреп (zen-essential) узнаём сразу, иначе на кадр мигает рабочий стол; rAF-повтор в TabSelect уточнит
+  const underPin = () => !!(gBrowser.selectedTab?.hasAttribute("zen-essential") || panelOf(gBrowser.selectedTab)?.classList.contains("lumi-pin-window")) &&
+    !!panelOf(gBrowser.tabs.find(isHome))?.classList.contains("deck-selected");
   const toggle = () => (isHome(gBrowser.selectedTab) ? back() : open());
   window.lumiHome = { toggle, open, back, isHome, find, URL };
 
@@ -86,6 +91,7 @@
     window.addEventListener("TabSelect", event => {
       if (isHome(event.target) && !isHome(event.detail?.previousTab)) prev = event.detail?.previousTab ?? null;
       sync();
+      requestAnimationFrame(sync); // класс окошка закрепа ставится после TabSelect
     });
     SessionStore.promiseAllWindowsRestored.then(() => { find(); sync(); }).catch(console.error);
   });

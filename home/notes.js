@@ -373,7 +373,9 @@ document.addEventListener("keydown", e => {
 document.addEventListener("visibilitychange", () => (document.hidden ? flushAll() : reload()));
 window.addEventListener("focus", reload);
 window.addEventListener("pagehide", flushAll);
-window.addEventListener("resize", peek);
+// ширина досок меняется и без resize окна (столбец LumiTime выезжает/прячется), шрифт догружается — высота карточек другая, --peek пересчитать
+new ResizeObserver(() => peek()).observe(box);
+document.fonts.ready.then(peek);
 const onPeek = () => peek();
 const onDir = () => flushAll().then(() => { boards = []; reload(); });
 const onChanged = () => reload();

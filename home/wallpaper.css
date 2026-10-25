@@ -55,10 +55,11 @@
 .lumi-eq { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 
 /* живая сцена Wallpaper Engine (js/lumi-home-live.uc.js ставит [lumi-live]): сцену играет окно WE под окном браузера, страница насквозь —
- * свои слои и холст края скрыты, остаются затемнение, тон у краёв (как под интерфейсом) и кнопки. Размытие обоев к живой сцене не применяется */
+ * свои слои скрыты, остаются затемнение, край (размытый статичный кадр сцены + тон, как под интерфейсом) и кнопки.
+ * Размытие самих обоев к живой сцене не применяется */
 html[lumi-live] {
   & body, & #lumi-wallpaper { background: transparent; }
-  & .lumi-wp-stage, & .lumi-wp-edge > canvas { display: none; }
+  & .lumi-wp-stage { display: none; }
 }
 
 /* панель ⚙ (wallpaper.js): громкость и свойства обоев Wallpaper Engine (home/we-props.js) — под кнопками, прокручивается */

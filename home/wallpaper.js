@@ -328,6 +328,8 @@ function paint() {
   const g = c.getContext("2d");
   g.setTransform(dpr, 0, 0, dpr, PAD * dpr, PAD * dpr);
   g.globalAlpha = 1;
+  g.clearRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
+  if (transparent()) return copyToWall(c); // прозрачная Home: под интерфейсом — рабочий стол, кадра нет
   g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--lumi-bg0") || "#16161e";
   g.fillRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
   const t = fade ? clamp((performance.now() - fade.at) / 800, 0, 1) : 1;
@@ -337,11 +339,15 @@ function paint() {
   g.fillStyle = `rgba(0,0,0,${clamp(int("dim", 25), 0, 90) / 100})`;
   g.fillRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
   if (t >= 1) fade = null;
-  const wc = wall()?.querySelector("canvas"); // окну — копия кадра
-  if (wc) {
-    if (wc.width != cw || wc.height != ch) Object.assign(wc, { width: cw, height: ch });
-    wc.getContext("2d").drawImage(c, 0, 0);
-  }
+  copyToWall(c);
+}
+function copyToWall(c) { // окну — копия кадра
+  const wc = wall()?.querySelector("canvas");
+  if (!wc) return;
+  if (wc.width != c.width || wc.height != c.height) Object.assign(wc, { width: c.width, height: c.height });
+  const g = wc.getContext("2d");
+  g.clearRect(0, 0, wc.width, wc.height);
+  g.drawImage(c, 0, 0);
 }
 // цикл: пока Home видна и идёт смена слоёв или играет видео; положение вкладки проверяется каждые 0.5 с
 let raf = 0, lastPaint = 0, lastPlace = 0;

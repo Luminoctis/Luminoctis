@@ -5,15 +5,19 @@ import { E, h, s, clockOf, goalsBlock, openPanel, closePanel, panelName, refresh
 
 const root = document.getElementById("lumi-time");
 
-// Спрятать столбец (pref luminoctis.home.time.hidden): body[lumi-time-hidden] уводит его вправо (time.css), движок идёт как шёл.
-// Вернуть — кнопка в углу окна, невидимая, пока на неё не наведёшь мышь (.lt-show).
+// Спрятать столбец (pref luminoctis.home.time.hidden, по умолчанию спрятан): body[lumi-time-hidden] уводит его вправо (time.css),
+// движок идёт как шёл. Открыть/закрыть — плашка у правого края (.lumi-bar, home.css), невидимая, пока на неё не наведёшь мышь.
 const HIDDEN = "luminoctis.home.time.hidden";
-const setHidden = v => Services.prefs.setBoolPref(HIDDEN, v);
-const applyHidden = () => document.body.toggleAttribute("lumi-time-hidden", Services.prefs.getBoolPref(HIDDEN, false));
+const isHidden = () => Services.prefs.getBoolPref(HIDDEN, true);
+const bar = h("button", { class: "lumi-bar lumi-bar-time", on: { click: () => Services.prefs.setBoolPref(HIDDEN, !isHidden()) } });
+const applyHidden = () => {
+  document.body.toggleAttribute("lumi-time-hidden", isHidden());
+  bar.title = isHidden() ? "Открыть LumiTime" : "Закрыть LumiTime";
+  bar.setAttribute("aria-label", bar.title);
+};
 Services.prefs.addObserver(HIDDEN, applyHidden);
 applyHidden();
-document.body.append(h("div", { class: "lt-show" },
-  h("button", { text: "⏱", title: "Показать LumiTime", "aria-label": "Показать LumiTime", on: { click: () => setHidden(false) } })));
+document.body.append(bar);
 await E.init();
 
 let els = {}, buttonsKey = "", rebuildOnBlur = false;
@@ -33,7 +37,6 @@ function build() {
   root.replaceChildren(
     h("header", { class: "lt-head" },
       h("b", { class: "lt-title", text: "LumiTime" }),
-      h("button", { class: "lt-hide", text: "›", title: "Спрятать таймер (вернуть — наведите на правый верхний угол)", "aria-label": "Спрятать таймер", on: { click: () => setHidden(true) } }),
       els.streak = h("span", { class: "lt-chip" }),
       els.month = h("span", { class: "lt-chip" })),
     h("div", { class: "lt-seg lt-mode", title: idle ? "" : "Режим меняется, когда таймер стоит" },

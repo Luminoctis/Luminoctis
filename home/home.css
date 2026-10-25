@@ -24,4 +24,18 @@ body { background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c0caf5); fon
 #lumi-time  { grid-area: time; }
 #lumi-notes { grid-area: notes; }
 #lumi-clock:empty, #lumi-time:empty, #lumi-notes:empty { pointer-events: none; }
+/* спрятанные таймер и доски (time.js, notes.js) схлопывают свою колонку/строку — часы встают в центр */
+#lumi-home { transition: grid-template-columns .35s cubic-bezier(.2, .8, .2, 1), grid-template-rows .35s cubic-bezier(.2, .8, .2, 1); }
+
+/* плашки LumiTime (у правого края) и LumiNotes (у нижнего): сплошные, цвета акцента, видны только при наведении;
+ * клик — открыть/закрыть, место одно и то же (у таймера плашка в его отступе от края, над досками — поверх) */
+.lumi-bar {
+  position: fixed; z-index: 6; padding: 0; border: 0; border-radius: 0; background: var(--lumi-accent, #7aa2f7); cursor: pointer;
+  opacity: 0; transition: opacity .2s;
+  &:hover, &:focus-visible { opacity: 1; }
+  &:focus-visible { outline: 2px solid var(--lumi-fg, #c0caf5); outline-offset: 2px; }
+  }
+.lumi-bar-time { top: 0; right: 0; bottom: 0; width: 12px; } /* на всю высоту окна */
+.lumi-bar-notes { left: 0; right: 0; bottom: 0; height: 12px; } /* на всю ширину окна */
+@media (prefers-reduced-motion: reduce) { #lumi-home, .lumi-bar { transition-duration: .01s; } }
 

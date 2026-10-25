@@ -24,6 +24,20 @@ errBox.title = "Скрыть";
 errBox.onclick = () => (errBox.hidden = true);
 root.replaceChildren(box, errBox);
 
+// Спрятать доски (pref luminoctis.home.notes.hidden, по умолчанию спрятаны): body[lumi-notes-hidden] уводит их вниз (notes.css).
+// Открыть/закрыть — плашка у нижнего края (.lumi-bar, home.css), невидимая, пока на неё не наведёшь мышь.
+const HIDDEN = "luminoctis.home.notes.hidden";
+const isHidden = () => Services.prefs.getBoolPref(HIDDEN, true);
+const bar = btn("", "lumi-bar lumi-bar-notes");
+bar.onclick = () => Services.prefs.setBoolPref(HIDDEN, !isHidden());
+const applyHidden = () => {
+  if (isHidden()) setEditing(false);
+  document.body.toggleAttribute("lumi-notes-hidden", isHidden());
+  bar.title = isHidden() ? "Открыть LumiNotes" : "Закрыть LumiNotes";
+  bar.setAttribute("aria-label", bar.title);
+};
+document.body.append(bar);
+
 function fail(e, what) {
   console.error("LumiNotes:", what, e);
   errBox.textContent = `LumiNotes: не удалось ${what} — ${e?.message ?? e}`;
@@ -365,10 +379,13 @@ const onDir = () => flushAll().then(() => { boards = []; reload(); });
 const onChanged = () => reload();
 Services.prefs.addObserver(PEEK, onPeek);
 Services.prefs.addObserver(DIR, onDir);
+Services.prefs.addObserver(HIDDEN, applyHidden);
+applyHidden();
 Services.obs.addObserver(onChanged, md.CHANGED);
 window.addEventListener("unload", () => {
   Services.prefs.removeObserver(PEEK, onPeek);
   Services.prefs.removeObserver(DIR, onDir);
+  Services.prefs.removeObserver(HIDDEN, applyHidden);
   Services.obs.removeObserver(onChanged, md.CHANGED);
 });
 

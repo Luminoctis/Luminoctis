@@ -7,7 +7,12 @@
   position: absolute; left: 0; right: 0; bottom: 0; height: 100vh;
   display: flex; align-items: flex-end; gap: 14px; padding: 0 24px;
   overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
+  transition: translate .35s cubic-bezier(.2, .8, .2, 1), opacity .25s, visibility 0s;
 }
+/* спрятаны (notes.js, плашка у нижнего края): строка досок схлопывается, доски уезжают вниз */
+body[lumi-notes-hidden] { --lumi-notes-h: 0px; }
+body[lumi-notes-hidden] .lumi-boards { translate: 0 100%; opacity: 0; visibility: hidden; transition: translate .35s cubic-bezier(.2, .8, .2, 1), opacity .25s, visibility 0s .35s; }
+@media (prefers-reduced-motion: reduce) { .lumi-boards { transition-duration: .01s !important; transition-delay: 0s !important; } }
 
 .lumi-board {
   pointer-events: auto; position: relative;

@@ -20,11 +20,16 @@
   const we = ChromeUtils.importESModule("chrome://userchrome/content/luminoctis/home/we.js");
   const enabled = () => Services.prefs.getBoolPref(PREF, true);
   const mica = matchMedia("(-moz-windows-mica)"); // без него Windows не рисует прозрачные пиксели окна
-  // имя окна WE — своё у каждого окна браузера («Luminoctis Home», «Luminoctis Home 2», …)
+  // имя окна WE — своё у каждого окна браузера и у каждого профиля («Luminoctis Home k3x9q», «Luminoctis Home k3x9q 2», …):
+  // окно WE ищется по имени во всей системе — два браузера (два профиля) с одним именем делили бы одно окно WE и закрывали его друг другу.
+  // Имя от пути профиля постоянно между запусками — остаток прошлого запуска этого профиля находится и закрывается.
+  let hash = 0;
+  for (const c of PathUtils.profileDir.toLowerCase()) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
+  const BASE = "Luminoctis Home " + hash.toString(36);
   const taken = new Set([...Services.wm.getEnumerator("navigator:browser")].map(w => w.lumiHomeLive?.name));
   let n = 1;
-  while (taken.has(n == 1 ? "Luminoctis Home" : "Luminoctis Home " + n)) n++;
-  const NAME = n == 1 ? "Luminoctis Home" : "Luminoctis Home " + n;
+  while (taken.has(n == 1 ? BASE : BASE + " " + n)) n++;
+  const NAME = n == 1 ? BASE : BASE + " " + n;
   const DESKTOP = "desktop"; // want(DESKTOP) — прозрачная Home без окна WE (папка обоев — всегда полный путь, не совпадёт)
 
   // ---------- Win32 через js-ctypes ----------
@@ -196,7 +201,7 @@
     whenIdle: () => chain,
   };
 
-  window.addEventListener("TabSelect", update);
+  window.addEventListener("TabSelect", () => { failed = null; update(); }); // сцена не открылась — пробуем снова при возврате на Home
   window.addEventListener("sizemodechange", update);
   window.addEventListener("activate", () => poll && place(true)); // браузер поднялся над другими окнами — WE снова сразу под ним
   mica.addEventListener("change", update);

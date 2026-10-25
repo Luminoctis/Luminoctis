@@ -488,7 +488,7 @@ zen-library {
   content: ""; position: absolute; z-index: -1; pointer-events: none;
   inset: var(--lumi-pill-top) 0 auto 0; height: var(--lumi-pill-h);
   border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
-  background: var(--pill-bg);
+  background: color-mix(in srgb, var(--pill-bg) var(--pill-a, 100%), transparent); /* --pill-a — над живой сценой (раздел 15) */
 }
 @container (max-width: 44px) {
   .lumi-tab-label, .lumi-tab-close, .lumi-tab-audio { display: none !important; }
@@ -523,7 +523,7 @@ zen-library {
     &::before { background: var(--pill-line);
       clip-path: polygon(evenodd, calc(2 * var(--d)) 0, calc(100% - 2 * var(--d)) 0, 100% 100%, 0 100%,
         calc(2 * var(--d) + 1px) 1px, calc(100% - 2 * var(--d) - 1px) 1px, calc(100% - 1px) calc(100% - 1px), 1px calc(100% - 1px)); }
-    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; height: var(--lumi-pill-h); background: var(--pill-bg);
+    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; height: var(--lumi-pill-h); background: color-mix(in srgb, var(--pill-bg) var(--pill-a, 100%), transparent);
       clip-path: polygon(calc(2 * var(--d) + 1px) 1px, calc(100% - 2 * var(--d) - 1px) 1px, calc(100% - 1px) calc(100% - 1px), 1px calc(100% - 1px)); }
   }
 }
@@ -768,6 +768,15 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #zen-main-app-wrapper:-moz-window-inactive { background: transparent !important; }
   & #zen-browser-background::before, & #zen-browser-background::after { background: transparent !important; }
   & #lumi-home-wall > canvas { display: none; }
+  /* тон над сценой везде один (::after ниже, ползунок «Прозрачность» — --lumi-home-tint): таблетки вкладок и поле адреса —
+   * своим цветом с той же непрозрачностью, что тон (без этого — сплошные тёмные пятна); размытие под полосами (compact, стекло)
+   * над дырой в окне ничего не размывает, только даёт резкий край */
+  & :is(.lumi-tab, #lumi-newtab-button) { --pill-a: var(--lumi-home-tint, 30%); }
+  & #urlbar:not([focused], [breakout-extend]) > .urlbar-background {
+    background: color-mix(in srgb, var(--lumi-surface) var(--lumi-home-tint, 30%), transparent) !important;
+    outline: 1px solid color-mix(in srgb, var(--lumi-fg) 14%, transparent) !important; outline-offset: -1px !important;
+  }
+  & :is(#zen-appcontent-navbar-wrapper, #lumi-rail, #lumi-tabstrip) { backdrop-filter: none !important; }
   & #lumi-home-wall::after {
     mask-image: linear-gradient(to right, #000 var(--lumi-home-x, 0px), transparent 0), linear-gradient(to bottom, #000 var(--lumi-home-y, 0px), transparent 0);
   }

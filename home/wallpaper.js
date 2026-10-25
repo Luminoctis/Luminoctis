@@ -287,14 +287,19 @@ function place() { // позиция вкладки в окне; true — изм
   const b = window.browsingContext.embedderElement;
   if (!b?.isConnected) return false;
   const r = b.getBoundingClientRect(), k = win.devicePixelRatio / devicePixelRatio; // px окна → px страницы (масштаб страницы)
-  const g = { x: r.x, y: r.y, W: win.innerWidth, H: win.innerHeight, k };
-  if (["x", "y", "W", "H", "k"].every(n => Math.abs(g[n] - geo[n]) < 0.01)) return false;
+  // видимая часть вкладки: Zen в compact-режиме сдвигает страницу вверх под адресную строку (margin-top < 0), её верх обрезает контейнер
+  const c = b.closest(".browserSidebarContainer")?.getBoundingClientRect() ?? r;
+  const g = { x: r.x, y: r.y, W: win.innerWidth, H: win.innerHeight, k, vx: Math.max(r.x, c.x), vy: Math.max(r.y, c.y) };
+  if (["x", "y", "W", "H", "k", "vx", "vy"].every(n => Math.abs(g[n] - geo[n]) < 0.01)) return false;
   geo = g;
-  for (const [n, v] of [["--wp-x", g.x], ["--wp-y", g.y], ["--wp-w", g.W], ["--wp-h", g.H]]) root.style.setProperty(n, v * k + "px");
-  root.style.setProperty("--wp-ramp-l", g.x > 0.5 ? "var(--wp-ramp)" : "0px"); // нарастание блюра — только у краёв, где интерфейс
-  root.style.setProperty("--wp-ramp-t", g.y > 0.5 ? "var(--wp-ramp)" : "0px");
-  wall()?.style.setProperty("--lumi-home-x", g.x + "px"); // тон интерфейса над живой сценой — только вне вкладки (chrome.css раздел 15)
-  wall()?.style.setProperty("--lumi-home-y", g.y + "px");
+  for (const [n, v] of [["--wp-x", g.x], ["--wp-y", g.y], ["--wp-w", g.W], ["--wp-h", g.H], ["--wp-vx", g.vx - g.x], ["--wp-vy", g.vy - g.y]])
+    root.style.setProperty(n, v * k + "px");
+  root.style.setProperty("--wp-ramp-l", g.vx > 0.5 ? "var(--wp-ramp)" : "0px"); // нарастание блюра — только у краёв, где интерфейс
+  root.style.setProperty("--wp-ramp-t", g.vy > 0.5 ? "var(--wp-ramp)" : "0px");
+  // тон интерфейса над живой сценой — только вне видимой части вкладки (chrome.css раздел 15); по прямоугольнику <browser> между ними
+  // оставалась полоса без тона — светлая полоса с резким краем под адресной строкой
+  wall()?.style.setProperty("--lumi-home-x", g.vx + "px");
+  wall()?.style.setProperty("--lumi-home-y", g.vy + "px");
   return true;
 }
 const wall = () => win.document.getElementById("lumi-home-wall");
@@ -368,6 +373,7 @@ function effects() {
     box.style.setProperty("--lumi-home-blur", Math.hypot(ui, blur).toFixed(1) + "px");
     box.style.setProperty("--lumi-home-tint", tint + "%");
   }
+  win.document.documentElement.style.setProperty("--lumi-home-tint", tint + "%"); // таблетки вкладок и поле адреса над живой сценой (chrome.css раздел 15)
   paint();
 }
 document.addEventListener("visibilitychange", () => { // видео не играет, пока Home не видна

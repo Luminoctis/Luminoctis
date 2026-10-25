@@ -1,6 +1,9 @@
 // Wallpaper Engine для Luminoctis Home: папка мастерской Steam (431960), список обоев из <id>\project.json,
-// виды обоев "web" (страница в изолированном iframe + API Wallpaper Engine) и "scene" (только превью).
+// виды обоев "web" (страница в изолированном iframe + API Wallpaper Engine) и "scene" (статичный кадр из scene.pkg, кеш в папке Home; не вышло — превью).
 // Видео-обои Wallpaper Engine — обычный вид "video" из wallpaper.js. Импортируют: home/wallpaper.js (Home) и settings.js (выбор обоев).
+import * as store from "./store.js";
+import { extract } from "./we-scene.js";
+export { extract }; // для проверок
 const prefs = Services.prefs;
 export const PREF = "luminoctis.home.wallpaper.we.folder"; // пусто — найти Steam самим
 const APP = ["steamapps", "workshop", "content", "431960"];
@@ -55,7 +58,7 @@ export async function selected(cfg) {
 }
 
 // обои папки: { source:"we", id, kind (video|web|scene), type, title, file, page, preview, props }
-// scene/application — показываем превью (file = preview); битые и неполные папки пропускаются
+// scene/application — file = preview (кадр сцены достаёт kinds.scene); битые и неполные папки пропускаются
 export async function list(dir) {
   dir ??= await folder();
   if (!dir) return [];
@@ -76,6 +79,33 @@ export async function item(d) {
     return { source: "we", id: PathUtils.filename(d), kind, type, title: String(p.title || PathUtils.filename(d)), file, page: d, preview,
       props: p.general?.properties ?? {} };
   } catch { return null; }
+}
+
+// ---------- вид "scene": статичный кадр из scene.pkg (home/we-scene.js) ----------
+// кадр сцены (байты scene.pkg) → OffscreenCanvas размера видимой части главной текстуры
+export async function sceneCanvas(bytes) {
+  const t = extract(bytes), c = new OffscreenCanvas(t.width, t.height), g = c.getContext("2d");
+  if (t.image) g.drawImage(await createImageBitmap(new Blob([t.image.bytes], { type: t.image.mime })), 0, 0);
+  else g.putImageData(new ImageData(t.rgba, t.texW), 0, 0); // texW×texH обрезается по холсту до imgW×imgH
+  return c;
+}
+// file://-адрес кадра в кеше wallpapers/we-cache/<id>.jpg (время изменения кеша = времени scene.pkg — так видно, что сцену обновили);
+// не вышло — null. Папку Steam только читаем.
+// shortcut: разбор и DXT-декодирование идут в потоке страницы (~0.1–0.3 с на 4K, один раз на обои — дальше кеш); подвиснет заметно — вынести в worker
+const scenes = new Map();
+export function sceneImage(item) {
+  if (!scenes.has(item.page)) scenes.set(item.page, sceneFrame(item).catch(e => (console.warn("Luminoctis WE: кадр сцены", item.page, e), null)));
+  return scenes.get(item.page);
+}
+async function sceneFrame(item) {
+  const pkg = PathUtils.join(item.page, "scene.pkg"), { lastModified } = await IOUtils.stat(pkg);
+  const rel = `wallpapers/we-cache/${String(item.id).replace(/[^\w.-]+/g, "_")}.jpg`, out = store.path(rel), url = () => `${PathUtils.toFileURI(out)}?${lastModified}`;
+  if ((await IOUtils.stat(out).catch(() => null))?.lastModified == lastModified) return url();
+  const blob = await (await sceneCanvas(await IOUtils.read(pkg))).convertToBlob({ type: "image/jpeg", quality: 0.92 });
+  await store.ensureDir("wallpapers/we-cache");
+  await IOUtils.write(out, new Uint8Array(await blob.arrayBuffer()), { tmpPath: out + ".tmp" });
+  await IOUtils.setModificationTime(out, lastModified);
+  return url();
 }
 
 // ---------- вид "web": страница обоев без прав браузера ----------
@@ -136,15 +166,25 @@ export const kinds = {
     },
     ready: () => Promise.resolve(), // iframe грузится, только когда слой вставлен в страницу
   },
-  scene: {
+  scene: { // сцена — её главная картинка из scene.pkg; не вышло (или «программа») — превью с подписью
     create(src, item) {
       const box = Object.assign(document.createElement("div"), { className: "lumi-wp-scene" });
-      const hint = Object.assign(document.createElement("span"), { className: "lumi-wp-hint",
-        textContent: item?.type == "application" ? "Программа — только превью" : "Сцена — только превью" });
-      box.append(Object.assign(new Image(), { src, decoding: "async", alt: "" }), hint);
+      box.lumiPreview = src;
+      box.lumiItem = item;
+      box.append(Object.assign(new Image(), { decoding: "async", alt: "" }));
       return box;
     },
-    ready: el => el.firstChild.decode(),
+    async ready(box) {
+      const img = box.firstChild, frame = box.lumiItem?.type == "scene" && (await sceneImage(box.lumiItem));
+      if (frame) {
+        img.src = frame;
+        try { return await img.decode(); } catch (e) { console.warn("Luminoctis WE: кадр сцены не открылся", e); }
+      }
+      box.append(Object.assign(document.createElement("span"), { className: "lumi-wp-hint",
+        textContent: box.lumiItem?.type == "application" ? "Программа — только превью" : "Сцена — только превью" }));
+      img.src = box.lumiPreview;
+      return img.decode();
+    },
   },
 };
 

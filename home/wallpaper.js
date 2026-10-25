@@ -2,7 +2,7 @@
 // Источники: Wallhaven, Konachan (safe), картинка дня Bing, своя папка (картинки/gif/mp4/webm), избранное.
 // Данные (home/store.js): wallpapers/state.json (текущие + очередь), favorites.json + favorites/<файлы>, bans.json.
 // Настройки: luminoctis.home.wallpaper.* (+ luminoctis.home.accentFromWallpaper — цвет акцента мода из обоев).
-// Wallpaper Engine (home/we.js): источник "we", виды "web" (страница без прав браузера) и "scene" (превью); эквалайзер — home/equalizer.js.
+// Wallpaper Engine (home/we.js): источник "we", виды "web" (страница без прав браузера) и "scene" (кадр из scene.pkg); эквалайзер — home/equalizer.js.
 // Новый вид обоев — registerKind(name, { create(src, item), ready(el) }).
 import * as store from "./store.js";
 import * as we from "./we.js";

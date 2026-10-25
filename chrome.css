@@ -151,6 +151,25 @@
   & #urlbar-results { margin-block: 4px 6px !important; }
 }
 
+/* ---------- 2в. Загрузка сайта заполняет поле адреса слева направо ----------
+ * js/lumi-urlbar.uc.js ставит #urlbar --lumi-load (0..1, реальный прогресс выбранной вкладки) и [lumi-loading] (грузится дольше 150 мс).
+ * Заливка — псевдоэлемент фона поля акцентом палитры, текст остаётся читаемым; при раскрытых результатах не рисуется. */
+#urlbar .urlbar-background {
+  overflow: hidden; /* заливка обрезается скруглением поля */
+  &::before {
+    content: ""; position: absolute; inset: 0 auto 0 0; pointer-events: none;
+    width: calc(var(--lumi-load, 0) * 100%);
+    background: linear-gradient(90deg, color-mix(in srgb, var(--lumi-accent) 5%, transparent), color-mix(in srgb, var(--lumi-accent) 30%, transparent));
+    box-shadow: inset -2px 0 0 color-mix(in srgb, var(--lumi-accent) 55%, transparent); /* светлая кромка у фронта */
+    opacity: 0; transition: width 220ms ease-out, opacity 350ms ease;
+  }
+}
+#urlbar[lumi-loading]:not([breakout-extend]) .urlbar-background::before { opacity: 1; transition-duration: 220ms, 120ms; }
+#urlbar[lumi-load-jump] .urlbar-background::before { transition: none; } /* переключение вкладки — сразу на её состояние */
+@media (prefers-reduced-motion: reduce) {
+  #urlbar .urlbar-background::before { transition: opacity 120ms; }
+}
+
 /* ---------- 4. Выгруженные вкладки — серые ---------- */
 .tabbrowser-tab:is([pending], [discarded]) .tab-content {
   filter: grayscale(1) brightness(0.6);
@@ -792,4 +811,48 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   &:not([lumi-glass]) #lumi-home-wall > canvas { display: none; }
   /* размытие под полосами над дырой в окне ничего не размывает, только даёт резкий край */
   & :is(#zen-appcontent-navbar-wrapper, #lumi-rail, #lumi-tabstrip) { backdrop-filter: none !important; }
+}
+
+/* ---------- 16. Библиотека: панель Zen <zen-library> и старое окно «Библиотека» Firefox ----------
+ * <zen-library> (Медиа/Загрузки/Бусты/Пространства/История; кнопка под «L», Alt+Shift+L, Ctrl+Shift+H, Ctrl+J) — в главном окне,
+ * своего фона нет: лежит на фоне окна (bg0), сайт отодвигается — в прозрачном режиме уже стекло. Здесь — пилюли, выбор и шрифт мода.
+ * Окно «Библиотека» (places.xhtml: Ctrl+Shift+O, «Open the old library window» в панели) — отдельное: палитру и [lumi-glass]
+ * ему ставит js/lumi-palette.sys.mjs (слушатель окон), цвета Firefox заданы переменными --organizer-* (organizer.css) — их и подменяем. */
+zen-library {
+  --zen-library-pill-bg: var(--lumi-surface) !important;
+  --zen-library-pill-hover-bg: var(--lumi-raised) !important;
+  font-family: Inter, system-ui, sans-serif !important;
+  & #zen-library-side { background: var(--lumi-bg1) !important; box-shadow: none !important; border-inline-end: 1px solid var(--lumi-line) !important; }
+  & .zen-library-tab:hover::before { background: color-mix(in srgb, var(--lumi-raised) 70%, transparent) !important; }
+  & .zen-library-tab[active]::before { background: var(--lumi-raised) !important; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--lumi-accent) 55%, transparent) !important; }
+  & .zen-library-filter-chip[active] { background: var(--lumi-raised) !important; box-shadow: inset 0 0 0 1px var(--lumi-accent) !important; }
+  & .zen-library-row:hover { background: var(--lumi-raised) !important; }
+  & :is(.zen-library-row-subtitle, .zen-library-group h3, .zen-library-empty) { color: var(--lumi-muted) !important; opacity: 1 !important; }
+  & .zen-library-search-results[scrolled] { border-top-color: var(--lumi-line) !important; }
+  & .zen-library-media-opt-in { background: var(--lumi-surface) !important; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px color-mix(in srgb, var(--lumi-accent) 55%, transparent) !important; }
+}
+#places {
+  --organizer-color: var(--lumi-fg) !important;
+  --organizer-deemphasized-color: var(--lumi-muted) !important;
+  --organizer-toolbar-background: var(--lumi-bg1) !important;
+  --organizer-pane-background: var(--lumi-bg1) !important;
+  --organizer-content-background: transparent !important; /* дерево и список загрузок — на фоне окна */
+  --organizer-hover-background: color-mix(in srgb, var(--lumi-raised) 70%, transparent) !important;
+  --organizer-hover-color: var(--lumi-fg) !important;
+  --organizer-selected-background: var(--lumi-raised) !important;
+  --organizer-selected-color: var(--lumi-fg) !important;
+  --organizer-focus-selected-background: var(--lumi-accent) !important;
+  --organizer-focus-selected-color: var(--lumi-solid) !important;
+  --organizer-outline-color: var(--lumi-accent) !important;
+  --organizer-separator-color: var(--lumi-line) !important;
+  --organizer-border-color: var(--lumi-line) !important;
+  --organizer-pane-field-border-color: var(--lumi-line) !important;
+  --input-text-background-color: var(--lumi-surface) !important;
+  --button-background-color: var(--lumi-surface) !important;
+  --button-background-color-hover: var(--lumi-raised) !important;
+  background: var(--lumi-bg0) !important;
+  color: var(--lumi-fg) !important;
+  font-family: Inter, system-ui, sans-serif !important;
+  & :is(input, #editBMPanel_tagsSelector, menulist) { border-radius: 8px !important; }
+  &[lumi-glass] #placesToolbar { border-color: var(--lumi-glass-edge, var(--lumi-line)) !important; }
 }

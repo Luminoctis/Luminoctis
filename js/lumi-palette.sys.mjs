@@ -80,3 +80,18 @@ export function setColor(t, hex) {
   else Services.prefs.setStringPref(`${PREF}.${id}.${t}`, hex);
 }
 export const resetPalette = () => Services.prefs.getChildList(`${PREF}.${presetId()}.`).forEach(n => Services.prefs.clearUserPref(n));
+
+// Окно «Библиотека» Firefox (places.xhtml, Ctrl+Shift+O) — отдельное, скрипты fx-autoconfig до него не доходят (ждут второй DOMContentLoaded).
+// Красим его отсюда; стили — chrome.css раздел 16. windowsmica — подложка Windows, как у главного окна: без неё в прозрачном режиме под фоном чёрное.
+const PLACES = "chrome://browser/content/places/places.xhtml";
+Services.wm.addListener({
+  onOpenWindow(appWin) {
+    const win = appWin.docShell.domWindow;
+    win.addEventListener("load", () => {
+      if (win.location.href != PLACES) return;
+      win.document.documentElement.setAttribute("windowsmica", "true");
+      watch(win.document, { glass: true });
+    }, { once: true });
+  },
+  onCloseWindow() {},
+});

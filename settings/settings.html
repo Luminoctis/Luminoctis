@@ -9,22 +9,25 @@
 <script type="module" src="settings.js"></script>
 </head>
 <body>
-<!-- Панель настроек справа от рейки (js/lumi-rail.uc.js встраивает эту страницу). Раздел — в адресе: settings.html#sidebar -->
+<!-- Панель настроек справа от рейки (js/lumi-rail.uc.js встраивает эту страницу). Раздел — в адресе: settings.html#sidebar.
+     Разделы по тому, что хочется поменять: рейка (пространства, закрепы) → оформление → панели и их поведение → Home → меню → шорткаты.
+     Группа = h2 (+ .hint после «·»), строка = .row (.text: b — название, span — пояснение). -->
 <header>
   <h1>Настройки Luminoctis</h1>
   <nav class="tabs" role="tablist" aria-label="Разделы настроек">
-    <button role="tab" data-tab="sidebar">Боковая панель</button>
-    <button role="tab" data-tab="look">Внешний вид</button>
-    <button role="tab" data-tab="tabs">Вкладки</button>
+    <button role="tab" data-tab="sidebar">Пространства</button>
+    <button role="tab" data-tab="look">Оформление</button>
+    <button role="tab" data-tab="panels">Панели</button>
+    <button role="tab" data-tab="home">Home</button>
     <button role="tab" data-tab="menu">Меню</button>
     <button role="tab" data-tab="keys">Шорткаты</button>
-    <button role="tab" data-tab="home">Home</button>
   </nav>
 </header>
 
 <main>
+  <!-- ===== Пространства и закрепы (содержимое рейки) ===== -->
   <section id="sidebar" role="tabpanel">
-    <h2 id="spaces-section">Рабочие пространства</h2>
+    <h2 id="spaces-section">Рабочие пространства <span class="hint">· кнопки на рейке; ⠿ — перетащить</span></h2>
     <div id="spaces" class="list"></div>
     <button id="space-add" class="dashed">+ Новое пространство</button>
 
@@ -35,64 +38,13 @@
       <input id="pin-search" type="search" placeholder="+ Из закладок: название или адрес">
     </div>
     <div id="pin-results" class="list"></div>
-
-    <h2>Вид</h2>
-    <label class="row">
-      <div class="text"><b>Плееры внизу рейки</b><span>Плитки играющих вкладок</span></div>
-      <input type="checkbox" data-pref="luminoctis.rail.hide-players" data-inverted>
-    </label>
   </section>
 
+  <!-- ===== Оформление: цвета, форма, прозрачность окна ===== -->
   <section id="look" role="tabpanel">
-    <h2>Режим окна</h2>
-    <div class="row stack">
-      <div class="text"><b>Окно браузера</b><span>Прозрачный — сквозь рейку, вкладки, панель адреса, меню и панели видно рабочий стол с размытием Windows; цвета — из палитры. Сайты не меняются</span></div>
-      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque">Непрозрачный</button><button data-value="transparent">Прозрачный</button></div>
-    </div>
-    <div id="glass-options">
-      <p id="glass-off" class="note" hidden>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
-      <div class="row stack">
-        <div class="text"><b>Прозрачность интерфейса</b><span>Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Home</span></div>
-        <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.transparency" data-default="45"><output></output></label>
-      </div>
-      <div class="row stack">
-        <div class="text"><b>Прозрачность обоев на Home</b><span>Главное окно вкладки Home: сквозь обои (в том числе живые сцены Wallpaper Engine) виден рабочий стол, %. 0 — обои непрозрачные</span></div>
-        <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
-      </div>
-      <div class="row stack">
-        <div class="text"><b>Подложка окна</b><span>Размытие делает сама Windows, его силу менять нельзя: Acrylic — размытые окна и обои за браузером, Mica — только обои, спокойнее</span></div>
-        <div class="seg" data-pref="widget.windows.mica.toplevel-backdrop" data-default="2" data-int><button data-value="2">Acrylic</button><button data-value="1">Mica</button></div>
-      </div>
-      <div class="row stack">
-        <div class="text"><b>Размытие панелей над сайтом</b><span>Настройки, карточка вкладки, выехавшие рейка и полоса, мини-окно закрепа и выехавшая адресная строка размывают сайт под собой, px</span></div>
-        <label class="slider"><input type="range" min="0" max="60" step="2" data-int-pref="luminoctis.look.blur" data-default="24"><output></output></label>
-      </div>
-    </div>
-    <h2>Compacting <span class="hint">· прятать у края окна, показывать у края мышью</span></h2>
-    <label class="row">
-      <div class="text"><b>Sidebar</b><span>Рейка слева: выезжает, когда мышь у левого края</span></div>
-      <input type="checkbox" data-pref="luminoctis.compact.sidebar">
-    </label>
-    <label class="row">
-      <div class="text"><b>Полоса вкладок</b><span>Выезжает у верхнего края окна</span></div>
-      <input type="checkbox" data-pref="luminoctis.compact.tabstrip">
-    </label>
-    <label class="row">
-      <div class="text"><b>Адресная строка</b><span>Выезжает при наведении на верхний край или на полосу вкладок</span></div>
-      <input type="checkbox" data-pref="zen.view.compact.hide-toolbar">
-    </label>
-
-    <h2>Кнопки панели адреса</h2>
-    <label class="row">
-      <div class="text"><b>VPN (Mozilla)</b><span>Встроенный VPN Firefox: кнопка «VPN» слева от загрузок. Нужен аккаунт Mozilla (вход — на панели VPN); работает не во всех странах</span></div>
-      <input type="checkbox" data-pref="browser.ipProtection.enabled">
-    </label>
-
-    <h2>Цветовая палитра</h2>
+    <h2>Палитра</h2>
     <div id="presets" class="list"></div>
-    <div class="palette-head"><h2>Цвета</h2><span class="hint">клик — изменить; правки — свои у каждой палитры</span></div>
-    <div id="colors" class="list"></div>
-    <button id="palette-reset" class="dashed">Сбросить палитру</button>
+    <label class="row"><div class="text"><b>Акцент из обоев Home</b><span>Цвет акцента берётся из текущих обоев Home; выключите — вернётся цвет палитры</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
 
     <h2>Форма вкладок</h2>
     <div class="shapes" data-pref="luminoctis.tabs.shape" data-default="rounded">
@@ -102,72 +54,104 @@
       <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Трапеции</button>
     </div>
 
+    <!-- прозрачность и стекло — всё здесь; ползунки видны только в прозрачном режиме (#glass-options, settings.css) -->
+    <h2>Прозрачность окна <span class="hint">· сайты не меняются</span></h2>
+    <div class="row stack">
+      <div class="text"><b>Окно браузера</b><span>Прозрачное — сквозь рейку, вкладки, панель адреса, меню и панели видно рабочий стол с размытием Windows; цвета — из палитры</span></div>
+      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque">Непрозрачное</button><button data-value="transparent">Прозрачное</button></div>
+    </div>
+    <div id="glass-options">
+      <p id="glass-off" class="note" hidden>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
+      <div class="row stack">
+        <div class="text"><b>Прозрачность панелей</b><span>Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Home</span></div>
+        <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.transparency" data-default="45"><output></output></label>
+      </div>
+      <div class="row stack">
+        <div class="text"><b>Размытие Windows</b><span>Силу размытия задаёт сама Windows. Acrylic — размыты окна и обои за браузером, Mica — только обои, спокойнее</span></div>
+        <div class="seg" data-pref="widget.windows.mica.toplevel-backdrop" data-default="2" data-int><button data-value="2">Acrylic</button><button data-value="1">Mica</button></div>
+      </div>
+      <div class="row stack">
+        <div class="text"><b>Размытие выезжающих панелей</b><span>Настройки, карточка вкладки, выехавшие рейка и полоса, мини-окно закрепа и выехавшая адресная строка, px</span></div>
+        <label class="slider"><input type="range" min="0" max="60" step="2" data-int-pref="luminoctis.look.blur" data-default="24"><output></output></label>
+      </div>
+      <div class="row stack">
+        <div class="text"><b>На Home</b><span>Прозрачность обоев: сквозь них (и живые сцены Wallpaper Engine) виден рабочий стол, 0 — обои непрозрачные. Размытие обоев под рейкой, вкладками и адресной строкой</span></div>
+        <label class="slider">Прозрачность обоев<input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
+        <label class="slider">Размытие под панелями<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
+      </div>
+    </div>
+
+    <h2>Цвета палитры <span class="hint">· клик — изменить; правки свои у каждой палитры</span></h2>
+    <div id="colors" class="list"></div>
+    <button id="palette-reset" class="dashed">Сбросить палитру</button>
   </section>
 
-  <section id="tabs" role="tabpanel">
+  <!-- ===== Панели: рейка, полоса вкладок, адресная строка и их поведение ===== -->
+  <section id="panels" role="tabpanel">
+    <h2>Прятать у края <span class="hint">· панель выезжает, когда мышь у края окна</span></h2>
+    <label class="row">
+      <div class="text"><b>Рейка</b><span>Выезжает у левого края</span></div>
+      <input type="checkbox" data-pref="luminoctis.compact.sidebar">
+    </label>
+    <label class="row">
+      <div class="text"><b>Полоса вкладок</b><span>Выезжает у верхнего края</span></div>
+      <input type="checkbox" data-pref="luminoctis.compact.tabstrip">
+    </label>
+    <label class="row">
+      <div class="text"><b>Адресная строка</b><span>Выезжает у верхнего края или при наведении на полосу вкладок</span></div>
+      <input type="checkbox" data-pref="zen.view.compact.hide-toolbar">
+    </label>
+
     <h2>Вкладки</h2>
     <div class="row stack">
-      <div class="text"><b>Кнопка «+» (новая вкладка)</b><span>В конце полосы — у кнопок окна; за вкладками — сразу после последней вкладки, как в других браузерах</span></div>
+      <div class="text"><b>Кнопка «+»</b><span>В конце полосы — у кнопок окна; за вкладками — сразу после последней вкладки, как в других браузерах</span></div>
       <div class="seg" data-pref="luminoctis.tabs.newtab-position" data-default="end">
         <button data-value="end">В конце полосы</button><button data-value="after-tabs">За вкладками</button>
       </div>
     </div>
     <label class="row">
-      <div class="text"><b>Unload Countdown Time</b>
-        <span>Вкладка или закреп не выбраны, не на виду и ничего не играют — через это время Luminoctis выгружает их из памяти
-        (родной выгрузкой Firefox; потом они серые и грузятся заново по клику). Действует сразу.</span></div>
+      <div class="text"><b>Карточка при наведении</b><span>Наведите на вкладку или закреп — появится карточка с названием и памятью, которую занимает вкладка (выгруженная — 0 МБ)</span></div>
+      <input type="checkbox" data-pref="luminoctis.tabs.hover-memory" data-default="true">
+    </label>
+    <label class="row">
+      <div class="text"><b>Выгружать неактивные</b>
+        <span>Вкладку или закреп, которые не выбраны, не на виду и ничего не играют, через это время выгружать из памяти
+        (родной выгрузкой Firefox; по клику грузятся заново)</span></div>
       <select id="unload">
         <option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option>
         <option value="30">30 минут</option><option value="60">1 час</option><option value="0">Никогда</option>
       </select>
     </label>
     <label class="row">
-      <div class="text"><b>Настоящая страница новой вкладки</b><span>Ctrl+T и «+» открывают обычную страницу новой вкладки, а не плавающий поиск Zen посреди окна</span></div>
+      <div class="text"><b>Серые выгруженные</b><span>Выгруженные из памяти вкладки — чёрно-белые и затемнённые</span></div>
+      <input type="checkbox" data-pref="luminoctis.tabs.no-grey-unloaded" data-inverted>
+    </label>
+
+    <h2>Новая вкладка и адресная строка</h2>
+    <label class="row">
+      <div class="text"><b>Обычная страница новой вкладки</b><span>Ctrl+T и «+» открывают страницу новой вкладки, а не плавающий поиск Zen посреди окна</span></div>
       <input type="checkbox" data-pref="zen.urlbar.replace-newtab" data-inverted>
     </label>
     <label class="row">
-      <div class="text"><b>Новая вкладка вместо переключения</b><span>Если сайт уже открыт — открывать его заново в новой вкладке, а не переходить на открытую</span></div>
+      <div class="text"><b>Открывать заново, а не переключаться</b><span>Если сайт из адресной строки уже открыт — открыть его в новой вкладке, а не перейти на открытую</span></div>
       <input type="checkbox" data-pref="luminoctis.urlbar.always-new-tab">
     </label>
     <label class="row">
-      <div class="text"><b>Показывать память при наведении</b><span>Наведите на вкладку или закреп — через долю секунды появится карточка с названием и памятью, которую занимает вкладка (выгруженная — 0 МБ)</span></div>
-      <input type="checkbox" data-pref="luminoctis.tabs.hover-memory" data-default="true">
+      <div class="text"><b>Кнопка VPN</b><span>Встроенный VPN Firefox (Mozilla): кнопка слева от загрузок. Нужен аккаунт Mozilla (вход — на панели VPN); работает не во всех странах</span></div>
+      <input type="checkbox" data-pref="browser.ipProtection.enabled">
     </label>
+
+    <h2>Рейка</h2>
     <label class="row">
-      <div class="text"><b>Серые выгруженные вкладки</b><span>Выгруженные из памяти вкладки — чёрно-белые и затемнённые</span></div>
-      <input type="checkbox" data-pref="luminoctis.tabs.no-grey-unloaded" data-inverted>
+      <div class="text"><b>Плееры внизу рейки</b><span>Плитки играющих вкладок</span></div>
+      <input type="checkbox" data-pref="luminoctis.rail.hide-players" data-inverted>
     </label>
   </section>
 
-  <section id="menu" role="tabpanel">
-    <div class="palette-head"><h2>Меню «⋯»</h2><span class="hint">кнопка слева от шестерёнки; какие пункты в нём видны</span></div>
-    <div id="appmenu" class="list"></div>
-    <div class="palette-head"><h2>Меню вкладки</h2><span class="hint">правая кнопка по вкладке; какие пункты в нём видны</span></div>
-    <div id="tabmenu" class="list"></div>
-  </section>
-
-  <section id="keys" role="tabpanel">
-    <div class="palette-head"><h2>Шорткаты мода</h2><span class="hint">клик по сочетанию — нажмите новое, Esc — отмена</span></div>
-    <div class="row key-row" data-key="unload">
-      <button class="bind"></button>
-      <div class="text"><b>Выгрузить вкладку или закреп</b><span>По вкладке в полосе или закрепу в рейке. Выбранная вкладка сначала сменяется соседней.
-        Сочетание — Ctrl, Alt или Shift с кнопкой мыши</span></div>
-      <button class="small reset" title="Вернуть по умолчанию">↺</button>
-      <span class="ok">работает</span>
-    </div>
-  </section>
-
+  <!-- ===== Luminoctis Home (home/*.js; см. docs/areas/home.md) ===== -->
   <section id="home" role="tabpanel">
-    <h2>Luminoctis Home <span class="hint">· вкладка с часами, обоями, заметками и таймером — «L» на рейке</span></h2>
-    <div class="row stack">
-      <div class="text"><b>Папка данных</b><span>Заметки, журнал таймера, избранные обои. Пусто — папка по умолчанию</span></div>
-      <input id="home-dir" type="text" spellcheck="false">
-    </div>
-    <div class="row stack">
-      <div class="text"><b>Заметки: видно в покое</b><span>Сколько доски LumiNotes выглядывает снизу. Доски и карточки правятся прямо на Home — клик по доске</span></div>
-      <div class="seg" data-pref="luminoctis.notes.peek" data-default="1"><button data-value="0">Заголовок</button><button data-value="1">Первая карточка</button><button data-value="2">Две карточки</button></div>
-    </div>
-    <!-- Обои и часы (home/clock.js, home/wallpaper.js; см. docs/areas/home.md) -->
+    <p class="hint">Вкладка с часами, обоями, заметками и таймером — «L» на рейке. Прозрачность обоев и окна — в «Оформлении».</p>
+
     <h2>Часы <span class="hint">· клик — выбрать стиль</span></h2>
     <div class="clock-styles" data-pref="luminoctis.home.clock.style" data-default="digital">
       <button data-value="digital"><span class="clock-prev"></span>Цифровые</button>
@@ -181,16 +165,16 @@
       <button data-value="serif"><span class="clock-prev"></span>С засечками</button>
       <button data-value="terminal"><span class="clock-prev"></span>Терминал</button>
     </div>
-    <div class="row stack"><label class="slider">Размер часов, %<input type="range" min="50" max="150" step="5" data-int-pref="luminoctis.home.clock.size" data-default="100"><output></output></label></div>
+    <div class="row stack"><label class="slider">Размер, %<input type="range" min="50" max="150" step="5" data-int-pref="luminoctis.home.clock.size" data-default="100"><output></output></label></div>
     <label class="row"><div class="text"><b>12-часовой формат</b><span>AM / PM вместо 24 часов</span></div><input type="checkbox" data-pref="luminoctis.home.clock.h12"></label>
     <label class="row"><div class="text"><b>Секунды</b></div><input type="checkbox" data-pref="luminoctis.home.clock.seconds"></label>
     <label class="row"><div class="text"><b>Дата</b><span>День недели и число под часами</span></div><input type="checkbox" data-pref="luminoctis.home.clock.date" data-default="true"></label>
 
     <h2>Обои <span class="hint">· кнопки ⟳ ♥ ✕ ↗ ⚙ — в левом верхнем углу Home при наведении</span></h2>
     <div class="row stack">
-      <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки. Нет сети — тёмный градиент.
-        «Прозрачный» — без своих обоев: Home насквозь, виден рабочий стол (и живые обои Wallpaper Engine на нём, если окна свёрнуты). Нужна прозрачность окна от Windows</span></div>
-      <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper">Обои</button><button data-value="transparent">Прозрачный (рабочий стол)</button></div>
+      <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки; нет сети — тёмный градиент.
+        «Рабочий стол» — без своих обоев: Home насквозь, виден рабочий стол (и живые обои Wallpaper Engine на нём, если окна свёрнуты). Нужна прозрачность окна от Windows</span></div>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper">Обои</button><button data-value="transparent">Рабочий стол</button></div>
       <div class="checks">
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan">Konachan (аниме)</label>
@@ -200,27 +184,14 @@
       </div>
     </div>
     <div class="row stack">
-      <div class="text"><b>Поиск</b><span>Теги или тема для Wallhaven и Konachan, например «night city» или «landscape». Пусто — любые</span></div>
+      <div class="text"><b>Поиск в сети</b><span>Теги или тема для Wallhaven и Konachan, например «night city» или «landscape». Пусто — любые</span></div>
       <input id="wp-query" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.query" placeholder="любые">
       <div class="seg" data-pref="luminoctis.home.wallpaper.category" data-default="all"><button data-value="all">Всё</button><button data-value="anime">Аниме</button><button data-value="general">Общие</button></div>
       <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random">Случайные</button><button data-value="toplist">Лучшие</button></div>
     </div>
     <div class="row stack">
-      <div class="text"><b>Своя папка</b><span>Картинки, GIF и видео mp4/webm (по кругу; звук — ряд «Звук обоев»)</span></div>
+      <div class="text"><b>Своя папка</b><span>Картинки, GIF и видео mp4/webm (по кругу; звук — в группе «Звук»)</span></div>
       <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана"><button id="wp-pick">Выбрать…</button></div>
-    </div>
-    <!-- Wallpaper Engine (home/we.js) -->
-    <div class="row stack">
-      <div class="text"><b>Wallpaper Engine</b><span>Обои из мастерской Steam. Видео, веб-обои и сцены живые (сцены — через программу Wallpaper Engine, см. ниже). Клик по картинке — поставить сейчас, галочка — брать в смену. Пусто — папка Steam ищется сама</span></div>
-      <div class="key"><input id="we-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.we.folder"><button id="we-pick">Выбрать…</button></div>
-      <div id="we-items" class="we-items"></div>
-    </div>
-    <label class="row"><div class="text"><b>Как в Wallpaper Engine</b><span id="we-sync-hint">Home показывает те же обои, что Wallpaper Engine на рабочем столе, и меняет их вслед за ним</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.sync"></label>
-    <label class="row"><div class="text"><b>Живые сцены через Wallpaper Engine</b><span id="we-live-hint">Сцену на Home играет сама программа Wallpaper Engine в своём окне под браузером — как на рабочем столе. Выключено или программы нет — статичный кадр сцены. Над живой сценой интерфейс только тонируется (без размытия), «Размытие» обоев к ней не применяется</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.live" data-default="true"></label>
-    <div class="row stack">
-      <div class="text"><b>Звук обоев</b><span>Видео и веб-обои на Home. Звук живой сцены играет сама программа Wallpaper Engine — у неё громкость одна на все обои (и на рабочем столе), поэтому здесь не меняется. Свойства обоев Wallpaper Engine (цвета, скорость и т. п.) — кнопка ⚙ в левом верхнем углу Home</span></div>
-      <label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.volume" data-default="50"><output></output></label>
-      <label class="slider"><input type="checkbox" data-pref="luminoctis.home.wallpaper.muted">Без звука</label>
     </div>
     <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — их копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
     <div class="row stack">
@@ -230,27 +201,70 @@
         <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="30"><option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="60">1 час</option><option value="180">3 часа</option></select></label>
     </div>
     <div class="row stack">
+      <div class="text"><b>Вид обоев</b></div>
       <label class="slider">Затемнение<input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
       <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
     </div>
+
+    <!-- Wallpaper Engine (home/we.js) -->
+    <h2>Wallpaper Engine <span class="hint">· обои из мастерской Steam</span></h2>
     <div class="row stack">
-      <div class="text"><b>Интерфейс над обоями</b><span>Только в прозрачном режиме окна («Внешний вид»): на Home обои лежат под всем окном, рейка, вкладки и адресная строка — на размытых обоях. Прозрачность задаётся там же</span></div>
-      <label class="slider">Размытие<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
+      <div class="text"><b>Обои мастерской</b><span>Видео, веб-обои и сцены живые (сцены — через программу Wallpaper Engine, см. ниже). Клик по картинке — поставить сейчас, галочка — брать в смену. Пусто — папка Steam ищется сама</span></div>
+      <div class="key"><input id="we-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.we.folder"><button id="we-pick">Выбрать…</button></div>
+      <div id="we-items" class="we-items"></div>
     </div>
-    <label class="row"><div class="text"><b>Цвет мода из обоев</b><span>Акцент палитры берётся из текущих обоев Home; выключите — вернётся цвет палитры</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
-    <!-- Эквалайзер (home/equalizer.js, home/eq-actor.sys.mjs) -->
+    <label class="row"><div class="text"><b>Как в Wallpaper Engine</b><span id="we-sync-hint">Home показывает те же обои, что Wallpaper Engine на рабочем столе, и меняет их вслед за ним</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.sync"></label>
+    <label class="row"><div class="text"><b>Живые сцены</b><span id="we-live-hint">Сцену на Home играет сама программа Wallpaper Engine в своём окне под браузером — как на рабочем столе. Выключено или программы нет — статичный кадр сцены. Над живой сценой интерфейс только тонируется (без размытия), «Размытие» обоев к ней не применяется</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.live" data-default="true"></label>
+
+    <!-- Звук и эквалайзер (home/equalizer.js, home/eq-actor.sys.mjs) -->
+    <h2>Звук</h2>
+    <div class="row stack">
+      <div class="text"><b>Звук обоев</b><span>Видео и веб-обои на Home. Звук живой сцены играет сама программа Wallpaper Engine — у неё громкость одна на все обои (и на рабочем столе), поэтому здесь не меняется. Свойства обоев Wallpaper Engine (цвета, скорость и т. п.) — кнопка ⚙ в левом верхнем углу Home</span></div>
+      <label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.volume" data-default="50"><output></output></label>
+      <label class="slider"><input type="checkbox" data-pref="luminoctis.home.wallpaper.muted">Без звука</label>
+    </div>
     <label class="row"><div class="text"><b>Эквалайзер от звука вкладок</b><span>Полоски на Home и звук для веб-обоев Wallpaper Engine из играющих вкладок. Выключено по умолчанию: звук страницы начинает идти через анализатор — если на каком-то сайте звук пропадёт, выключите</span></div><input type="checkbox" data-pref="luminoctis.home.eq.enabled"></label>
     <div class="row stack">
       <div class="text"><b>Вид эквалайзера</b></div>
       <div class="seg" data-pref="luminoctis.home.eq.style" data-default="bars"><button data-value="bars">Полоски над досками</button><button data-value="ring">Кольцо вокруг часов</button><button data-value="off">Не показывать</button></div>
     </div>
-    <!-- LumiTime (home/time*.js, js/lumi-time.sys.mjs; см. docs/areas/home.md) -->
-    <h2>LumiTime <span class="hint">· фокус-таймер справа на Home</span></h2>
+
+    <!-- LumiNotes и LumiTime (home/notes*.js, home/time*.js, js/lumi-time.sys.mjs) -->
+    <h2>Заметки и таймер</h2>
+    <div class="row stack">
+      <div class="text"><b>Заметки: видно в покое</b><span>Сколько доски LumiNotes выглядывает снизу. Доски и карточки правятся прямо на Home — клик по доске</span></div>
+      <div class="seg" data-pref="luminoctis.notes.peek" data-default="1"><button data-value="0">Заголовок</button><button data-value="1">Первая карточка</button><button data-value="2">Две карточки</button></div>
+    </div>
     <div class="row">
-      <div class="text"><b>Настройки таймера</b><span>Пары фокус/перерыв, пресеты, темы, звук, цели, блок сайтов во время фокуса — в панели самого таймера</span></div>
+      <div class="text"><b>Таймер LumiTime</b><span>Пары фокус/перерыв, пресеты, темы, звук, цели, блок сайтов во время фокуса — в панели самого таймера</span></div>
       <button id="lumitime-settings">Открыть</button>
     </div>
-    <p class="hint">Настройки остальных виджетов (LumiNotes, LumiTime) появятся здесь позже.</p>
+
+    <h2>Данные</h2>
+    <div class="row stack">
+      <div class="text"><b>Папка данных</b><span>Заметки, журнал таймера, избранные обои. Пусто — папка по умолчанию</span></div>
+      <input id="home-dir" type="text" spellcheck="false">
+    </div>
+  </section>
+
+  <!-- ===== Меню ===== -->
+  <section id="menu" role="tabpanel">
+    <h2>Меню «⋯» <span class="hint">· кнопка слева от шестерёнки; какие пункты видны</span></h2>
+    <div id="appmenu" class="list"></div>
+    <h2>Меню вкладки <span class="hint">· правая кнопка по вкладке; какие пункты видны</span></h2>
+    <div id="tabmenu" class="list"></div>
+  </section>
+
+  <!-- ===== Шорткаты (js/lumi-keys.sys.mjs, docs/areas/keys.md) ===== -->
+  <section id="keys" role="tabpanel">
+    <h2>Шорткаты мода <span class="hint">· клик по сочетанию — нажмите новое, Esc — отмена</span></h2>
+    <div class="row key-row" data-key="unload">
+      <button class="bind"></button>
+      <div class="text"><b>Выгрузить вкладку или закреп</b><span>По вкладке в полосе или закрепу в рейке. Выбранная вкладка сначала сменяется соседней.
+        Сочетание — Ctrl, Alt или Shift с кнопкой мыши</span></div>
+      <button class="small reset" title="Вернуть по умолчанию">↺</button>
+      <span class="ok">работает</span>
+    </div>
   </section>
 </main>
 

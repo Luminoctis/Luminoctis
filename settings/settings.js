@@ -20,8 +20,10 @@ const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.
 
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
+const RENAMED = { tabs: "panels" }; // старые разделы (запомненные в luminoctis.settings.tab, ссылки) → новые
 const showTab = () => {
-  const [wanted, anchor] = location.hash.slice(1).split("/"); // #раздел или #раздел/место
+  let [wanted, anchor] = location.hash.slice(1).split("/"); // #раздел или #раздел/место
+  wanted = RENAMED[wanted] ?? wanted;
   const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "sidebar";
   for (const b of tabButtons) b.setAttribute("aria-selected", b.dataset.tab == name);
   for (const s of document.querySelectorAll("main > section")) s.classList.toggle("shown", s.id == name);

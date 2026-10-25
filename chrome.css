@@ -76,14 +76,16 @@
 }
 
 /* Адресная строка */
-#urlbar-background {
-  background: var(--lumi-surface) !important;
+/* поле — .urlbar-background (id у него нет); Zen красит его --zen-toolbar-element-bg !important — перебиваем цветом (не shorthand: остаётся полосатый фон «управляется роботом»).
+ * В прозрачном режиме surface/raised уже стекло общей прозрачности (lumi-palette.sys.mjs) — своей альфы нет */
+#urlbar .urlbar-background {
+  background-color: var(--lumi-surface) !important;
   border-color: transparent !important;
 }
-#urlbar[focused] > #urlbar-background,
-#urlbar[breakout-extend] > #urlbar-background {
-  background: var(--lumi-raised) !important;
-  outline: 1px solid var(--lumi-accent) !important;
+#urlbar:not([focused]):hover .urlbar-background { background-color: color-mix(in srgb, var(--lumi-surface) 50%, var(--lumi-raised)) !important; }
+#urlbar[focused] .urlbar-background {
+  background-color: var(--lumi-raised) !important;
+  outline: 1px solid var(--lumi-accent) !important; outline-offset: -1px !important;
 }
 #urlbar-input, #urlbar .urlbar-input { color: var(--lumi-fg) !important; }
 /* выбор поисковика — первым слева, за ним кнопка «скопировать ссылку» Zen (у неё order: -1) */

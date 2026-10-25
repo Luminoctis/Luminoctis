@@ -22,6 +22,61 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     gURLBar.style.setProperty("--lumi-ub-h", `${bar.height}px`);
   };
   for (const type of ["mousedown", "focusin"]) gURLBar.addEventListener(type, snapBar, true);
+  // Загрузка сайта заполняет поле адреса слева направо (chrome.css, раздел 2в): --lumi-load (0..1) и [lumi-loading] на #urlbar
+  // по реальному прогрессу выбранной вкладки. Состояние хранится у каждой вкладки, при переключении рисуется без анимации (lumi-load-jump).
+  const { nsIWebProgressListener: WPL } = Ci;
+  const loads = new WeakMap(); // browser → { load, loading, shown, timer }
+  let fadeTimer;
+  const paint = (st, jump) => {
+    clearTimeout(fadeTimer);
+    if (jump) {
+      gURLBar.setAttribute("lumi-load-jump", "");
+      requestAnimationFrame(() => requestAnimationFrame(() => gURLBar.removeAttribute("lumi-load-jump")));
+    }
+    if (st?.shown) {
+      gURLBar.style.setProperty("--lumi-load", st.load);
+      gURLBar.setAttribute("lumi-loading", "");
+    } else {
+      gURLBar.removeAttribute("lumi-loading");
+      fadeTimer = setTimeout(() => gURLBar.style.setProperty("--lumi-load", 0), 500); // после затухания
+    }
+  };
+  const loadOf = browser => { let st = loads.get(browser); if (!st) loads.set(browser, st = {}); return st; };
+  gBrowser.addTabsProgressListener({
+    onStateChange(browser, webProgress, request, flags, status) {
+      if (!webProgress.isTopLevel || !(flags & WPL.STATE_IS_NETWORK)) return;
+      const st = loadOf(browser), selected = browser == gBrowser.selectedBrowser;
+      clearTimeout(st.timer);
+      if (flags & WPL.STATE_START) {
+        Object.assign(st, { load: 0.1, loading: true, shown: false });
+        if (selected) paint(st, true); // новая загрузка начинается с нуля, без «отката» от прошлой
+        // быстрые загрузки не мигают: показываем, только если идёт дольше 150 мс
+        st.timer = setTimeout(() => { st.shown = true; if (browser == gBrowser.selectedBrowser) paint(st); }, 150);
+      } else if (flags & WPL.STATE_STOP && st.loading) {
+        st.loading = false;
+        if (!st.shown) return;
+        const ok = Components.isSuccessCode(status); // остановка/ошибка — просто гаснет, без добегания до 100%
+        if (ok) st.load = 1;
+        if (selected) paint(st);
+        st.timer = setTimeout(() => { st.shown = false; if (browser == gBrowser.selectedBrowser) paint(st); }, ok ? 250 : 0);
+      }
+    }
+  });
+  // прогресс шлют только слушатели выбранной вкладки (у слушателей всех вкладок onProgressChange не приходит), у фоновых вкладок он не обновляется
+  gBrowser.addProgressListener({
+    onProgressChange(webProgress, request, curSelf, maxSelf, curTotal, maxTotal) { // webProgress здесь null: прогресс уже суммарный по странице
+      const st = loads.get(gBrowser.selectedBrowser);
+      if (!st?.loading || !(maxTotal > 0)) return;
+      const next = 0.1 + 0.8 * Math.min(curTotal / maxTotal, 1); // почти всё до 90%, остальное — по завершении
+      if (next <= st.load) return; // только вперёд: maxTotal растёт по ходу загрузки
+      st.load = next;
+      if (st.shown) paint(st);
+    },
+  });
+  gBrowser.tabContainer.addEventListener("TabSelect", () => {
+    const st = loads.get(gBrowser.selectedBrowser);
+    paint(st?.loading || st?.shown ? st : null, true);
+  });
   const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
   const list = gURLBar.querySelector(".searchmode-switcher-panel-list");
   // в родной строке заголовок «This time search with:» (разовый поиск); у нас пункт меняет поисковик по умолчанию

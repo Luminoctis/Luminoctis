@@ -60,7 +60,7 @@ export async function selected(cfg) {
   return dir ? item(dir) : null;
 }
 
-// обои папки: { source:"we", id, kind (video|web|scene), type, title, file, page, preview, props }
+// обои папки: { source:"we", id, kind (video|web|scene), type, title, file, page, preview, props, loc (подписи из localization) }
 // scene/application — file = preview (кадр сцены достаёт kinds.scene); битые и неполные папки пропускаются
 export async function list(dir) {
   dir ??= await folder();
@@ -80,8 +80,45 @@ export async function item(d) {
     const file = kind == "scene" ? preview : p.file ? PathUtils.joinRelative(d, String(p.file)) : null;
     if (!file) return null;
     return { source: "we", id: PathUtils.filename(d), kind, type, title: String(p.title || PathUtils.filename(d)), file, page: d, preview,
-      props: p.general?.properties ?? {} };
+      props: p.general?.properties ?? {}, loc: pickLoc(p.general?.localization ?? p.localization) };
   } catch { return null; }
+}
+
+// ---------- свойства обоев (project.json general.properties, как в WE): свои значения — wallpapers/we-props/<id>.json ----------
+// подписи: localization обоев (ru-ru поверх en-us; нет — первый язык)
+function pickLoc(l) {
+  if (!l || typeof l != "object") return {};
+  const lc = Object.fromEntries(Object.entries(l).map(([k, v]) => [k.toLowerCase(), v]));
+  return { ...(lc["en-us"] ?? (lc["ru-ru"] ? {} : Object.values(lc)[0])), ...lc["ru-ru"] };
+}
+const propsFile = item => `wallpapers/we-props/${String(item.id).replace(/[^\w.-]+/g, "_")}.json`;
+export const savedProps = item => store.readJSON(propsFile(item), {}).catch(() => ({}));
+export const saveProps = (item, values) => Object.keys(values).length ? store.writeJSON(propsFile(item), values)
+  : IOUtils.remove(store.path(propsFile(item)), { ignoreAbsent: true });
+export const defaults = props => Object.fromEntries(Object.entries(props).filter(([, p]) => p && "value" in p).map(([k, p]) => [k, p.value]));
+// project.json + свои значения — для applyUserProperties веб-обоев ({ key: { ...свойство, value } })
+export const withSaved = (props, values) => Object.fromEntries(Object.entries(props).map(([k, p]) => [k, k in values ? { ...p, value: values[k] } : p]));
+// значение свойства, проверенное по его описанию в project.json; не подходит — undefined (в CLI не попадёт)
+export function cliValue(p, v) {
+  switch (String(p?.type).toLowerCase()) {
+    case "slider": {
+      const n = Number(v), lo = Number(p.min), hi = Number(p.max);
+      return Number.isFinite(n) ? Math.min(Number.isFinite(hi) ? hi : n, Math.max(Number.isFinite(lo) ? lo : n, n)) : undefined;
+    }
+    case "bool": return typeof v == "boolean" ? v : undefined;
+    case "color": return typeof v == "string" && /^\s*\d*\.?\d+(\s+\d*\.?\d+){2}\s*$/.test(v) ? v.trim() : undefined; // «r g b», 0..1
+    case "combo": return (p.options ?? []).find(o => String(o?.value) == String(v))?.value;
+    case "textinput": return typeof v == "string" ? v.replace(/["\\~\x00-\x1f]/g, "").slice(0, 200) : undefined; // без кавычек, \ и ~ (RAW~(…)~END)
+  }
+}
+// аргумент -properties для -control applyProperties: RAW~({"key":value,…})~END; ключи — только \w, значения — через cliValue
+export function propsArg(props, values) {
+  const out = {};
+  for (const [k, v] of Object.entries(values)) {
+    const c = /^\w{1,64}$/.test(k) ? cliValue(props[k], v) : undefined;
+    if (c !== undefined) out[k] = c;
+  }
+  return Object.keys(out).length ? `RAW~(${JSON.stringify(out)})~END` : null;
 }
 
 // ---------- вид "scene": статичный кадр из scene.pkg (home/we-scene.js) ----------
@@ -130,6 +167,20 @@ function install(w, f) {
   const cbs = f.lumiAudio = [];
   Cu.exportFunction(cb => { if (typeof cb == "function") cbs.push(cb); }, w, { defineAs: "wallpaperRegisterAudioListener" });
   for (const n of NOOP_API) Cu.exportFunction(() => {}, w, { defineAs: n });
+  // громкость: у окна iframe своей громкости в Gecko нет — запоминаем играющие audio/video (событие play — элементы в документе,
+  // обёртка play() — и созданные кодом new Audio()) и ставим им громкость Home. Звук WebAudio не регулируется.
+  const media = f.lumiMedia = new Set(), proto = w.wrappedJSObject.HTMLMediaElement?.prototype, play = proto?.play;
+  const track = el => { media.add(el); setMediaVolume(el, f.lumiVolume ?? 1); };
+  w.addEventListener("play", e => track(e.target), true);
+  if (play) Cu.exportFunction(function () { track(this); return play.call(this); }, proto, { defineAs: "play" });
+}
+function setMediaVolume(el, v) { try { el.volume = v; el.muted = !v; } catch {} }
+// громкость веб-обоев страницы Home (0..1) — их audio/video
+export function setVolume(v) {
+  for (const f of webFrames()) {
+    f.lumiVolume = v;
+    for (const el of f.lumiMedia ?? []) setMediaVolume(el, v);
+  }
 }
 const ours = f => f?.classList?.contains("lumi-wp-web") && f.ownerDocument == document;
 const onGlobal = w => { try { const f = w.browsingContext?.embedderElement; if (ours(f)) install(w, f); } catch (e) { console.warn("Luminoctis WE:", e); } };
@@ -163,11 +214,13 @@ export const kinds = {
       f.className = "lumi-wp-web";
       f.setAttribute("sandbox", "allow-scripts allow-same-origin");
       f.lumiProps = item?.props ?? {};
+      f.lumiItem = item;
       f.addEventListener("load", () => onLoad(f));
       f.src = webURL(item);
       return f;
     },
-    ready: () => Promise.resolve(), // iframe грузится, только когда слой вставлен в страницу
+    // iframe грузится, только когда слой вставлен в страницу; до этого — свои значения свойств поверх project.json
+    ready: async f => { if (f.lumiItem) f.lumiProps = withSaved(f.lumiItem.props, await savedProps(f.lumiItem)); },
   },
   scene: { // сцена — её главная картинка из scene.pkg; не вышло (или «программа») — превью с подписью
     create(src, item) {

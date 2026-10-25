@@ -13,6 +13,8 @@
 // Ушли с Home / свернули окно — сначала обычный вид (ACCENT_DISABLED — снова Mica/Acrylic), потом окно WE прячется; через 30 с
 // закрывается (closeWallpaper). Закрыли окно браузера — закрывается сразу. Не вышло (нет WE, окно не появилось) — остаётся статичный кадр.
 // Запускается только wallpaper64/32.exe из папки Steam (we.exePath), аргументы — из папки обоев, у которой есть project.json сцены.
+// Прозрачная Home (want(DESKTOP), «Фон: Прозрачный» в настройках): то же «насквозь», но без окна WE — видно то, что за браузером.
+// Свойства сцены (редактор на Home) — -control applyProperties … -location <имя нашего окна>: только наше окно, обои рабочего стола не трогаются.
 (() => {
   const PREF = "luminoctis.home.wallpaper.we.live";
   const we = ChromeUtils.importESModule("chrome://userchrome/content/luminoctis/home/we.js");
@@ -23,6 +25,7 @@
   let n = 1;
   while (taken.has(n == 1 ? "Luminoctis Home" : "Luminoctis Home " + n)) n++;
   const NAME = n == 1 ? "Luminoctis Home" : "Luminoctis Home " + n;
+  const DESKTOP = "desktop"; // want(DESKTOP) — прозрачная Home без окна WE (папка обоев — всегда полный путь, не совпадёт)
 
   // ---------- Win32 через js-ctypes ----------
   let U;
@@ -108,6 +111,7 @@
     U.setEx(hwnd, -20, (U.getEx(hwnd, -20) | 0x80 | 0x08000000) & ~0x40000); // TOOLWINDOW | NOACTIVATE, без APPWINDOW
     shown = dir;
     place(true);
+    if (Object.keys(await we.savedProps(it)).length) await applyProps(dir); // свои значения свойств этой сцены
     await sleep(500); // первый кадр сцены
     return true;
   }
@@ -120,6 +124,12 @@
     last = key;
     U.pos(hwnd, me, r.x, r.y, r.w, r.h, SWP.NOACTIVATE | SWP.NOOWNERZORDER | SWP.SHOW | SWP.FRAME);
     return true;
+  }
+  // свойства сцены (свои значения поверх project.json) — только нашему окну; аргумент собирает we.propsArg из проверенных значений
+  async function applyProps(dir) {
+    if (dir != shown || !alive()) return false;
+    const it = await we.item(dir), arg = it && we.propsArg(it.props, { ...we.defaults(it.props), ...(await we.savedProps(it)) });
+    return !!arg && run(["-control", "applyProperties", "-properties", arg, "-location", NAME]);
   }
   function hide() {
     if (alive()) U.show(hwnd, 0);
@@ -153,8 +163,10 @@
   const update = () => (chain = chain.then(step).catch(e => console.warn("Luminoctis живые сцены:", e)));
   async function step() {
     const tab = homeTab();
-    const dir = tab && want && enabled() && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? want : null;
+    const desk = want == DESKTOP;
+    const dir = tab && want && (desk || enabled()) && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? want : null;
     if (!dir || dir == failed) { setThrough(null); hide(); stopPoll(); return; }
+    if (desk) { hide(); stopPoll(); setThrough(tab); return; } // прозрачная Home: окно WE не нужно
     if (dir != shown || !alive()) {
       setThrough(null); // пока сцена открывается — статичный кадр
       if (!(await open(dir))) { failed = dir; hide(); stopPoll(); return; } // не открылась — статичный кадр, до смены обоев не повторяем
@@ -171,6 +183,8 @@
 
   window.lumiHomeLive = {
     name: NAME,
+    DESKTOP,
+    applyProps,
     want(dir) { if (dir != want) { want = dir || null; failed = null; update(); } return want; },
     args,
     update,

@@ -4,8 +4,11 @@
 // Настройки: luminoctis.home.wallpaper.* (+ luminoctis.home.accentFromWallpaper — цвет акцента мода из обоев).
 // Wallpaper Engine (home/we.js): источник "we", виды "web" (страница без прав браузера) и "scene" (кадр из scene.pkg); эквалайзер — home/equalizer.js.
 // Новый вид обоев — registerKind(name, { create(src, item), ready(el) }).
+// Фон «Прозрачный» (mode = transparent): своих обоев нет, Home насквозь (js/lumi-home-live.uc.js) — виден рабочий стол.
+// Панель ⚙ (.lumi-wp-panel): громкость обоев (volume/muted) и свойства обоев WE (home/we-props.js, значения — wallpapers/we-props/<id>.json).
 import * as store from "./store.js";
 import * as we from "./we.js";
+import * as weProps from "./we-props.js";
 
 const P = "luminoctis.home.wallpaper.", ACCENT = "luminoctis.home.accentFromWallpaper", OVERRIDE = "luminoctis.palette.accentOverride";
 const prefs = Services.prefs;
@@ -13,6 +16,7 @@ const bool = (n, d = false) => prefs.getBoolPref(P + n, d), int = (n, d) => pref
 const win = window.browsingContext.topChromeWindow;
 const FAV = "wallpapers/favorites.json", BANS = "wallpapers/bans.json", STATE = "wallpapers/state.json";
 const key = it => it && `${it.source}:${it.id}`;
+const transparent = () => str("mode", "wallpaper") == "transparent";
 
 // ---------- виды обоев: как элемент получается из адреса ----------
 export const kinds = {
@@ -117,6 +121,7 @@ function show(layer) {
   const box = layer.box = Object.assign(document.createElement("div"), { className: "lumi-wp-layer" });
   box.append(layer.el);
   stage.append(box);
+  applyVolume();
   if (layer.el.play && !document.hidden) layer.el.play().catch(() => {});
   box.getBoundingClientRect(); // старт перехода прозрачности
   box.classList.add("on");
@@ -131,18 +136,35 @@ function show(layer) {
   applyAccent();
   kick();
   liveWant();
+  if (panel.classList.contains("open")) fillPanel();
 }
 // живая сцена WE в своём окне под браузером (js/lumi-home-live.uc.js); здесь остаётся её статичный кадр — пока окно WE не готово или его нет
-const liveWant = () => win.lumiHomeLive?.want(current?.item.source == "we" && current.item.type == "scene" ? current.item.page : null);
+// прозрачная Home — то же «насквозь», без окна WE (lumiHomeLive.DESKTOP)
+const liveWant = () => win.lumiHomeLive?.want(transparent() ? win.lumiHomeLive.DESKTOP
+  : current?.item.source == "we" && current.item.type == "scene" ? current.item.page : null);
 // показать выбранные обои сейчас (выбор Wallpaper Engine в настройках)
 export async function showItem(item) {
   show(await load(item));
+  if (transparent()) prefs.clearUserPref(P + "mode"); // выбрали обои — значит, уже не прозрачная (после show: onPref видит current)
   return true;
+}
+// прозрачная Home: свои обои убираются (видео и веб-обои не играют впустую)
+function clearWall() {
+  const old = current;
+  current = null;
+  fade = null;
+  if (old) { old.box?.classList.remove("on"); setTimeout(() => drop(old), 900); }
+  liveWant();
+  syncButtons();
+  applyAccent();
+  paint();
+  if (panel.classList.contains("open")) fillPanel();
 }
 
 // следующая картинка; не открылась — пробуем ещё (до 4 раз), нет ничего — остаётся градиент
 let busy = null;
 export function next() {
+  if (transparent()) return Promise.resolve(false);
   return busy ??= (async () => {
     try {
       for (let tries = 0; tries < 4; tries++) {
@@ -207,6 +229,7 @@ function syncButtons() {
   fav.title = isFav() ? "Убрать из избранного" : "В избранное (копия — в папке Luminoctis Home)";
   bar.querySelector("[data-act=open]").title = current?.item.source == "local" ? "Показать файл в папке" : "Открыть страницу обоев";
   for (const b of bar.querySelectorAll("[data-act=fav], [data-act=ban], [data-act=open]")) b.disabled = !current;
+  bar.querySelector("[data-act=next]").disabled = transparent();
   if (current?.item.source == "we") { fav.disabled = true; fav.title = "Обои Wallpaper Engine и так лежат в папке Steam"; }
 }
 
@@ -241,7 +264,7 @@ export function accentOf(el) {
   return hex(h, Math.max(s, 0.55), Math.min(Math.max(l, 0.62), 0.74));
 }
 function applyAccent() {
-  if (!prefs.getBoolPref(ACCENT, false)) return prefs.clearUserPref(OVERRIDE);
+  if (!prefs.getBoolPref(ACCENT, false) || transparent()) return prefs.clearUserPref(OVERRIDE); // прозрачная — акцент палитры
   const el = current?.el.matches("img, video") ? current.el : current?.el.querySelector("img"); // веб-обои — цвет не читаем
   if (!el) return;
   try {
@@ -357,7 +380,7 @@ addEventListener("resize", effects);
 // ---------- синхронизация с Wallpaper Engine (we.sync): обои рабочего стола из config.json программы ----------
 let weStamp = null, weBusy = null;
 function syncWE(force) {
-  if (!bool("we.sync")) return Promise.resolve(false);
+  if (!bool("we.sync") || transparent()) return Promise.resolve(false);
   return weBusy ??= (async () => {
     try {
       const cfg = await we.configPath();
@@ -389,15 +412,85 @@ function schedule() {
   if (mode == "interval" || mode == "daily") timer = setInterval(() => !bool("we.sync") && due() && next(), 30000); // синхронизация с WE главнее
 }
 
+// ---------- звук обоев: видео — громкость элемента, веб-обои — их audio/video (we.setVolume) ----------
+// Живая сцена в окне WE сюда не входит: у WE громкость/mute только на все обои сразу (и на рабочем столе) — не трогаем.
+const volume = () => (bool("muted") ? 0 : clamp(int("volume", 50), 0, 100) / 100);
+function applyVolume() {
+  const v = volume();
+  for (const m of stage.querySelectorAll("video")) Object.assign(m, { volume: v, muted: !v });
+  we.setVolume(v);
+}
+
+// ---------- панель ⚙: громкость и свойства обоев Wallpaper Engine ----------
+const panel = Object.assign(document.createElement("section"), { className: "lumi-wp-panel" });
+let propsSave = 0, propsValues = null, panelGen = 0;
+async function fillPanel() {
+  const it = current?.item, my = ++panelGen;
+  const values = it?.source == "we" ? await we.savedProps(it) : {};
+  if (my != panelGen) return;
+  propsValues = values;
+  const h = (tag, props = {}, ...kids) => { const e = Object.assign(document.createElement(tag), props); e.append(...kids); return e; };
+  const vol = h("input", { type: "range", min: 0, max: 100, value: int("volume", 50) }), out = h("output", { value: String(int("volume", 50)) });
+  vol.addEventListener("input", () => { out.value = vol.value; prefs.setIntPref(P + "volume", Number(vol.value)); });
+  const mute = h("input", { type: "checkbox", checked: bool("muted") });
+  mute.addEventListener("change", () => prefs.setBoolPref(P + "muted", mute.checked));
+  const close = h("button", { type: "button", className: "wp-close", textContent: "×", title: "Закрыть" });
+  close.addEventListener("click", () => togglePanel(false));
+  const kids = [h("header", {}, h("b", { textContent: transparent() ? "Прозрачная Home" : "Обои" }), close),
+    h("label", { className: "wp-prop" }, h("span", { textContent: "Громкость" }), h("span", { className: "wp-prop-range" }, vol, out)),
+    h("label", { className: "wp-prop wp-prop-bool" }, mute, h("span", { textContent: "Без звука" }))];
+  if (it?.source == "we" && it.type == "scene") kids.push(h("p", { className: "wp-prop-text", textContent: "Звук живой сцены играет сама программа Wallpaper Engine — громкость у неё одна на все обои, меняется в ней" }));
+  const box = h("div", { className: "wp-props" });
+  const n = it?.source == "we" && (it.kind == "web" || it.type == "scene") ? weProps.build(box, it, values, (k, v, live) => onProp(it, k, v, live)) : 0;
+  if (n) {
+    const reset = h("button", { type: "button", className: "wp-reset", textContent: "Сбросить свойства" });
+    reset.addEventListener("click", async () => {
+      for (const k of Object.keys(values)) delete values[k];
+      await we.saveProps(it, {});
+      pushProps(it, Object.keys(it.props));
+      fillPanel();
+    });
+    kids.push(h("h3", { textContent: it.title }), box, reset);
+  } else if (it?.source == "we") kids.push(h("p", { className: "wp-prop-text", textContent: it.kind == "video" ? "Свойства видео-обоев применяет только сама программа Wallpaper Engine" : "У этих обоев нет своих настроек" }));
+  panel.replaceChildren(...kids);
+}
+// свойство изменено: веб-обои — сразу (applyUserProperties), сцена в окне WE — по отпусканию (CLI только нашему окну); запись — через 300 мс
+function onProp(it, k, v, live) {
+  if (it.kind == "web" || !live) pushProps(it, [k]);
+  clearTimeout(propsSave);
+  const vals = { ...propsValues };
+  propsSave = setTimeout(() => we.saveProps(it, vals).catch(e => console.warn("Luminoctis обои: свойства не сохранены", e)), 300);
+}
+let sceneT = 0;
+function pushProps(it, keys) {
+  if (key(it) != key(current?.item)) return;
+  if (it.kind == "web") {
+    const all = we.withSaved(it.props, propsValues ?? {}), w = current.el.contentWindow;
+    try { w?.wrappedJSObject?.wallpaperPropertyListener?.applyUserProperties?.(Cu.cloneInto(Object.fromEntries(keys.map(k => [k, all[k]])), w)); }
+    catch (e) { console.warn("Luminoctis обои: applyUserProperties", e); }
+    current.el.lumiProps = all; // перезагрузка страницы обоев — уже с новыми значениями
+  } else if (it.type == "scene") { // окно WE берёт значения из файла — сначала записать
+    clearTimeout(sceneT);
+    sceneT = setTimeout(async () => { await we.saveProps(it, { ...propsValues }); win.lumiHomeLive?.applyProps(it.page); }, 50);
+  }
+}
+function togglePanel(on = !panel.classList.contains("open")) {
+  panel.classList.toggle("open", on);
+  bar.querySelector("[data-act=props]").classList.toggle("on", on);
+  if (on) fillPanel();
+}
+document.addEventListener("keydown", e => e.key == "Escape" && panel.classList.contains("open") && togglePanel(false));
+
 // ---------- старт ----------
-const ACTS = { next: ["⟳", "Следующие обои", () => next()], fav: ["♥", "", favorite], ban: ["✕", "Больше не показывать", ban], open: ["↗", "", openSource] };
+const ACTS = { next: ["⟳", "Следующие обои", () => next()], fav: ["♥", "", favorite], ban: ["✕", "Больше не показывать", ban], open: ["↗", "", openSource],
+  props: ["⚙", "Звук и настройки обоев", () => togglePanel()] };
 for (const [act, [icon, title, run]] of Object.entries(ACTS)) {
   const b = Object.assign(document.createElement("button"), { textContent: icon, title, type: "button" });
   b.dataset.act = act;
   b.addEventListener("click", () => run());
   bar.append(b);
 }
-root.append(stage, dim, edge, bar);
+root.append(stage, dim, edge, bar, panel);
 syncButtons();
 effects();
 
@@ -409,6 +502,7 @@ async function readData() {
 }
 export const ready = (async () => {
   await readData();
+  if (transparent()) return liveWant(); // прозрачная Home — свои обои не грузим
   let shown = await syncWE(true); // синхронизация с Wallpaper Engine — вместо смены
   if (!shown && state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current)))
     shown = await load(state.current).then(l => (show(l), preload(), true), () => false);
@@ -418,7 +512,9 @@ export const ready = (async () => {
 
 let soon = 0;
 const onPref = (_, __, name) => {
-  if (name.endsWith(".we.off")) reset(); // галочки в выборе — без смены текущих обоев
+  if (name.endsWith(".mode")) transparent() ? clearWall() : current ? (liveWant(), applyAccent(), syncButtons()) : next();
+  else if (/\.(volume|muted)$/.test(name)) applyVolume();
+  else if (name.endsWith(".we.off")) reset(); // галочки в выборе — без смены текущих обоев
   else if (name.endsWith(".we.sync") || name == we.CONFIG_PREF) syncWE(true);
   else if (/\.(src\.|query|category|sorting|folder|favoritesOnly)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
   else if (name.endsWith(".rotate") || name.endsWith(".interval")) schedule();
@@ -435,5 +531,5 @@ window.addEventListener("unload", () => {
 });
 
 // для проверок (dev/check-home-wallpaper.js) и будущих виджетов
-window.lumiWallpaper = { next, showItem, we, favorite, ban, openSource, sources, kinds, registerKind, accentOf, ready,
+window.lumiWallpaper = { next, showItem, we, weProps, togglePanel, panel, applyVolume, favorite, ban, openSource, sources, kinds, registerKind, accentOf, ready,
   get current() { return current; }, get state() { return state; }, get favs() { return favs; }, get bans() { return bans; }, reload: () => (reset(), readData()) };

@@ -58,3 +58,29 @@ html[lumi-live] {
   & body, & #lumi-wallpaper { background: transparent; }
   & .lumi-wp-stage, & .lumi-wp-edge > canvas { display: none; }
 }
+
+/* панель ⚙ (wallpaper.js): громкость и свойства обоев Wallpaper Engine (home/we-props.js) — под кнопками, прокручивается */
+.lumi-wp-panel {
+  position: absolute; top: 56px; left: 16px; z-index: 2; display: none; width: 300px; box-sizing: border-box;
+  max-height: calc(100% - var(--lumi-notes-h, 180px) - 72px); overflow: auto; padding: 10px 12px 12px; border-radius: 12px;
+  border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 16%, transparent);
+  background: color-mix(in srgb, var(--lumi-bg0, #16161e) 82%, transparent); backdrop-filter: blur(14px);
+  color: var(--lumi-fg, #c0caf5); font: 12.5px/1.35 system-ui, sans-serif;
+  &.open { display: block; }
+  & header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  & h3 { margin: 12px 0 6px; font-size: 12.5px; color: var(--lumi-accent, #7aa2f7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  & button { cursor: pointer; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 18%, transparent);
+    background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 80%, transparent); color: inherit; font: inherit; }
+  & .wp-close { width: 24px; height: 24px; padding: 0; }
+  & .wp-reset { margin-top: 10px; padding: 4px 10px; }
+  & button:focus-visible, & input:focus-visible, & select:focus-visible { outline: 2px solid var(--lumi-accent, #7aa2f7); }
+}
+.lumi-wp-panel .wp-prop { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 4px 0;
+  & > span:first-child { overflow-wrap: anywhere; }
+  & select, & input[type=text] { max-width: 150px; background: var(--lumi-bg1, #1a1b26); color: inherit; border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 18%, transparent); border-radius: 6px; font: inherit; }
+  & input[type=color] { width: 40px; height: 22px; padding: 0; border: 0; background: none; }
+  &[hidden] { display: none; }
+}
+.lumi-wp-panel .wp-prop-bool { grid-template-columns: auto 1fr; }
+.lumi-wp-panel .wp-prop-range { display: flex; align-items: center; gap: 6px; & input { width: 110px; accent-color: var(--lumi-accent, #7aa2f7); } & output { min-width: 2.5em; text-align: right; color: var(--lumi-muted, #a9b1d6); } }
+.lumi-wp-panel .wp-prop-text { margin: 6px 0; color: var(--lumi-muted, #a9b1d6); &[hidden] { display: none; } }

@@ -516,14 +516,15 @@ zen-library {
     &[selected] { z-index: 1; }
   }
   :is(.lumi-tab, #lumi-newtab-button) {
-    /* трапеция — две половины, скошенные в разные стороны: рамка идёт по косым краям; половины заходят друг на друга на 3px, без шва.
-     * clip-path не годится: срезает рамку на косых краях и сужает область клика (Фиттс от y=0) */
-    &::before { right: calc(50% - 3px); border-right-width: 0;
-      border-radius: var(--lumi-tab-radius) 0 0 var(--lumi-tab-radius); transform: skewX(calc(-1 * var(--lumi-slant))); }
-    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; box-sizing: border-box;
-      top: var(--lumi-pill-top); height: var(--lumi-pill-h); left: calc(50% - 3px); right: 0;
-      background: var(--pill-bg); border: 1px solid var(--pill-line); border-left-width: 0;
-      border-radius: 0 var(--lumi-tab-radius) var(--lumi-tab-radius) 0; transform: skewX(var(--lumi-slant)); }
+    /* трапеция без наложений (полупрозрачный фон в прозрачном режиме не темнеет): ::before — рамка-кольцо (evenodd), ::after — заливка внутри.
+     * clip-path только у псевдоэлементов, сама вкладка кликается как прямоугольник (Фиттс от y=0). --d — выступ низа = h/2·tan(10°) */
+    --d: calc(var(--lumi-pill-h) * 0.0882);
+    &::before, &::after { inset: var(--lumi-pill-top) calc(-1 * var(--d)) auto; border: 0; border-radius: 0; }
+    &::before { background: var(--pill-line);
+      clip-path: polygon(evenodd, calc(2 * var(--d)) 0, calc(100% - 2 * var(--d)) 0, 100% 100%, 0 100%,
+        calc(2 * var(--d) + 1px) 1px, calc(100% - 2 * var(--d) - 1px) 1px, calc(100% - 1px) calc(100% - 1px), 1px calc(100% - 1px)); }
+    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; height: var(--lumi-pill-h); background: var(--pill-bg);
+      clip-path: polygon(calc(2 * var(--d) + 1px) 1px, calc(100% - 2 * var(--d) - 1px) 1px, calc(100% - 1px) calc(100% - 1px), 1px calc(100% - 1px)); }
   }
 }
 #lumi-tab-dropline {

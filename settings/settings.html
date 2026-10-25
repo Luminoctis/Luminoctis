@@ -182,9 +182,11 @@
     <label class="row"><div class="text"><b>Секунды</b></div><input type="checkbox" data-pref="luminoctis.home.clock.seconds"></label>
     <label class="row"><div class="text"><b>Дата</b><span>День недели и число под часами</span></div><input type="checkbox" data-pref="luminoctis.home.clock.date" data-default="true"></label>
 
-    <h2>Обои <span class="hint">· кнопки ⟳ ♥ ✕ ↗ — в левом верхнем углу Home при наведении</span></h2>
+    <h2>Обои <span class="hint">· кнопки ⟳ ♥ ✕ ↗ ⚙ — в левом верхнем углу Home при наведении</span></h2>
     <div class="row stack">
-      <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки. Нет сети — тёмный градиент</span></div>
+      <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки. Нет сети — тёмный градиент.
+        «Прозрачный» — без своих обоев: Home насквозь, виден рабочий стол (и живые обои Wallpaper Engine на нём, если окна свёрнуты). Нужна прозрачность окна от Windows</span></div>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper">Обои</button><button data-value="transparent">Прозрачный (рабочий стол)</button></div>
       <div class="checks">
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan">Konachan (аниме)</label>
@@ -200,7 +202,7 @@
       <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random">Случайные</button><button data-value="toplist">Лучшие</button></div>
     </div>
     <div class="row stack">
-      <div class="text"><b>Своя папка</b><span>Картинки, GIF и видео mp4/webm (без звука, по кругу)</span></div>
+      <div class="text"><b>Своя папка</b><span>Картинки, GIF и видео mp4/webm (по кругу; звук — ряд «Звук обоев»)</span></div>
       <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана"><button id="wp-pick">Выбрать…</button></div>
     </div>
     <!-- Wallpaper Engine (home/we.js) -->
@@ -211,6 +213,11 @@
     </div>
     <label class="row"><div class="text"><b>Как в Wallpaper Engine</b><span id="we-sync-hint">Home показывает те же обои, что Wallpaper Engine на рабочем столе, и меняет их вслед за ним</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.sync"></label>
     <label class="row"><div class="text"><b>Живые сцены через Wallpaper Engine</b><span id="we-live-hint">Сцену на Home играет сама программа Wallpaper Engine в своём окне под браузером — как на рабочем столе. Выключено или программы нет — статичный кадр сцены. Над живой сценой интерфейс только тонируется (без размытия), «Размытие» обоев к ней не применяется</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.live" data-default="true"></label>
+    <div class="row stack">
+      <div class="text"><b>Звук обоев</b><span>Видео и веб-обои на Home. Звук живой сцены играет сама программа Wallpaper Engine — у неё громкость одна на все обои (и на рабочем столе), поэтому здесь не меняется. Свойства обоев Wallpaper Engine (цвета, скорость и т. п.) — кнопка ⚙ в левом верхнем углу Home</span></div>
+      <label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.volume" data-default="50"><output></output></label>
+      <label class="slider"><input type="checkbox" data-pref="luminoctis.home.wallpaper.muted">Без звука</label>
+    </div>
     <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — их копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
     <div class="row stack">
       <div class="text"><b>Смена обоев</b></div>

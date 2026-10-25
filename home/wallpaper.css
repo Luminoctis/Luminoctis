@@ -14,7 +14,8 @@
   /* нарастание — от края видимой части (--wp-vx/vy: верх страницы Zen прячет под адресной строкой) */
   mask-image: linear-gradient(to right, #000 var(--wp-vx, 0px), transparent calc(var(--wp-vx, 0px) + var(--wp-ramp-l, 0px))),
     linear-gradient(to bottom, #000 var(--wp-vy, 0px), transparent calc(var(--wp-vy, 0px) + var(--wp-ramp-t, 0px)));
-  &::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--lumi-bg0, #16161e) var(--wp-ui-tint, 30%), transparent); }
+  &::after { content: ""; position: absolute; inset: 0; background: color-mix(in srgb, var(--lumi-bg0, #16161e) var(--wp-ui-tint, 0%), transparent); }
+  &[hidden] { display: none; }
   & > canvas { /* холст окна (запас 80px, как в chrome.css раздел 15), сдвинутый на место вкладки */
     position: absolute; left: calc(-1 * var(--wp-x, 0px) - 80px); top: calc(-1 * var(--wp-y, 0px) - 80px);
     width: calc(var(--wp-w, 100%) + 160px); height: calc(var(--wp-h, 100%) + 160px); filter: blur(var(--wp-ui-blur, 24px));
@@ -57,10 +58,11 @@
 /* живая сцена Wallpaper Engine (js/lumi-home-live.uc.js ставит [lumi-live]): сцену играет окно WE под окном браузера, страница насквозь —
  * свои слои скрыты, остаются затемнение, край (размытый статичный кадр сцены + тон, как под интерфейсом) и кнопки.
  * Размытие самих обоев к живой сцене не применяется */
-html[lumi-live] {
-  & body, & #lumi-wallpaper { background: transparent; }
-  & .lumi-wp-stage { display: none; }
-}
+html:is([lumi-live], [lumi-through]) { & body, & #lumi-wallpaper { background: transparent; } }
+html[lumi-live] .lumi-wp-stage { display: none; }
+/* «Прозрачность обоев» (--wp-alpha, home/wallpaper.js): сквозь обои виден рабочий стол */
+.lumi-wp-stage, .lumi-wp-edge { opacity: var(--wp-alpha, 1); }
+.lumi-wp-dim { opacity: calc(var(--wp-dim, .25) * var(--wp-alpha, 1)); }
 
 /* панель ⚙ (wallpaper.js): громкость и свойства обоев Wallpaper Engine (home/we-props.js) — под кнопками, прокручивается */
 .lumi-wp-panel {

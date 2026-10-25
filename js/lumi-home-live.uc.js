@@ -55,6 +55,7 @@
         setEx: f("SetWindowLongW", I, H, I, I),
         comp: f("SetWindowCompositionAttribute", I, H, DATA.ptr),
         visible: f("IsWindowVisible", I, H),
+        alpha: f("SetLayeredWindowAttributes", I, H, UI, ctypes.uint8_t, UI),
       };
     } catch (e) { console.warn("Luminoctis живые сцены: нет Win32", e); U = null; }
     return U;
@@ -115,6 +116,7 @@
     U.show(hwnd, 0); // SW_HIDE: новый стиль окна применяется к панели задач только после скрытия
     U.setEx(hwnd, -20, (U.getEx(hwnd, -20) | 0x80 | 0x08000000) & ~0x40000); // TOOLWINDOW | NOACTIVATE, без APPWINDOW
     shown = dir;
+    applyAlpha();
     place(true);
     if (Object.keys(await we.savedProps(it)).length) await applyProps(dir); // свои значения свойств этой сцены
     await sleep(500); // первый кадр сцены
@@ -136,6 +138,15 @@
     const it = await we.item(dir), arg = it && we.propsArg(it.props, { ...we.defaults(it.props), ...(await we.savedProps(it)) });
     return !!arg && run(["-control", "applyProperties", "-properties", arg, "-location", NAME]);
   }
+  // прозрачность обоев на Home (настройка «Прозрачность обоев»): окно WE полупрозрачное — под ним виден рабочий стол; 1 — как есть
+  let weAlpha = 255;
+  function applyAlpha() {
+    if (!alive()) return;
+    const ex = U.getEx(hwnd, -20);
+    if (weAlpha >= 255) { if (ex & 0x80000) U.setEx(hwnd, -20, ex & ~0x80000); return; }
+    U.setEx(hwnd, -20, ex | 0x80000); // WS_EX_LAYERED
+    U.alpha(hwnd, 0, weAlpha, 2); // LWA_ALPHA
+  }
   function hide() {
     if (alive()) U.show(hwnd, 0);
     last = "";
@@ -150,18 +161,25 @@
   }
 
   // ---------- окно браузера: насквозь / обычное ----------
-  const homeTab = () => (gBrowser.selectedTab?.hasAttribute("lumi-home") ? gBrowser.selectedTab : null);
+  // Home «видна»: выбрана она сама или выбран закреп-окошко (lumi-rail.uc.js showPin) — Home остаётся под ним, режим насквозь не выключаем
+  const homeTab = () => {
+    const sel = gBrowser.selectedTab;
+    if (sel?.hasAttribute("lumi-home")) return sel;
+    if (!document.getElementById(sel?.linkedPanel)?.classList.contains("lumi-pin-window")) return null;
+    return gBrowser.tabs.find(t => t.hasAttribute("lumi-home") && document.getElementById(t.linkedPanel)?.classList.contains("deck-selected")) ?? null;
+  };
   function setThrough(tab) {
-    if (tab == through) return;
-    const old = through;
+    const old = tab == through ? null : through, fresh = tab != through;
     through = tab;
     document.documentElement.toggleAttribute("lumi-home-live", !!tab);
     for (const [t, on] of [[old, false], [tab, true]]) {
       if (!t?.linkedBrowser) continue;
       on ? t.linkedBrowser.setAttribute("transparent", "true") : t.linkedBrowser.removeAttribute("transparent");
-      t.linkedBrowser.contentDocument?.documentElement?.toggleAttribute("lumi-live", on);
+      const root = t.linkedBrowser.contentDocument?.documentElement; // lumi-through — страница насквозь, lumi-live — ещё и сцену играет окно WE
+      root?.toggleAttribute("lumi-through", on);
+      root?.toggleAttribute("lumi-live", on && !!want && want != DESKTOP);
     }
-    if (api()) accent(!!tab);
+    if (fresh && api()) accent(!!tab);
   }
 
   let chain = Promise.resolve();
@@ -189,6 +207,7 @@
   window.lumiHomeLive = {
     name: NAME,
     DESKTOP,
+    setAlpha(a) { const v = Math.round(Math.min(1, Math.max(0.1, a)) * 255); if (v != weAlpha) { weAlpha = v; if (api()) applyAlpha(); } },
     applyProps,
     want(dir) { if (dir != want) { want = dir || null; failed = null; update(); } return want; },
     args,

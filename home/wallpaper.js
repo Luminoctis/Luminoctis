@@ -140,8 +140,15 @@ function show(layer) {
 }
 // живая сцена WE в своём окне под браузером (js/lumi-home-live.uc.js); здесь остаётся её статичный кадр — пока окно WE не готово или его нет
 // прозрачная Home — то же «насквозь», без окна WE (lumiHomeLive.DESKTOP)
-const liveWant = () => win.lumiHomeLive?.want(transparent() ? win.lumiHomeLive.DESKTOP
-  : current?.item.source == "we" && current.item.type == "scene" ? current.item.page : null);
+// Прозрачный режим окна (настройка «Внешний вид»): интерфейс — стекло; «Прозрачность обоев» на Home (luminoctis.look.homeTransparency) —
+// сквозь сами обои виден рабочий стол. Вне прозрачного режима оба не действуют — интерфейс и обои непрозрачные.
+const glass = () => prefs.getStringPref("luminoctis.look.window", "") == "transparent";
+const wallAlpha = () => glass() ? 1 - Math.min(Math.max(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0), 90) / 100 : 1;
+const liveWant = () => {
+  const scene = current?.item.source == "we" && current.item.type == "scene" ? current.item.page : null;
+  win.lumiHomeLive?.setAlpha(wallAlpha());
+  return win.lumiHomeLive?.want(transparent() || (!scene && wallAlpha() < 1) ? win.lumiHomeLive.DESKTOP : scene);
+};
 // показать выбранные обои сейчас (выбор Wallpaper Engine в настройках)
 export async function showItem(item) {
   show(await load(item));
@@ -370,16 +377,17 @@ function effects() {
   // размытие у краёв окна светлеет — только при размытии чуть увеличиваем, ровно на запас под него
   zoom = blur ? 1 + (4 * blur) / Math.max(Math.min(geo.W, geo.H), 1) : 1;
   root.style.setProperty("--wp-zoom", zoom);
-  const ui = clamp(int("ui.blur", 24), 0, 60), tint = 100 - clamp(int("ui.transparency", 70), 0, 100);
+  const ui = clamp(int("ui.blur", 24), 0, 60), alpha = wallAlpha();
   root.style.setProperty("--wp-ui-blur", Math.hypot(ui, blur).toFixed(1) + "px");
-  root.style.setProperty("--wp-ui-tint", tint + "%");
+  root.style.setProperty("--wp-alpha", alpha);
+  edge.hidden = !glass(); // обои под интерфейсом — только в прозрачном режиме (chrome.css раздел 15)
+  liveWant();
   root.style.setProperty("--wp-ramp", clamp(ui * 3, 32, 120) + "px");
   const box = wall();
   if (box) { // окно: размытие интерфейса поверх размытия самих обоев (гауссовы складываются по корню из суммы квадратов)
     box.style.setProperty("--lumi-home-blur", Math.hypot(ui, blur).toFixed(1) + "px");
-    box.style.setProperty("--lumi-home-tint", tint + "%");
+    box.style.opacity = alpha;
   }
-  win.document.documentElement.style.setProperty("--lumi-home-tint", tint + "%"); // таблетки вкладок и поле адреса над живой сценой (chrome.css раздел 15)
   paint();
 }
 document.addEventListener("visibilitychange", () => { // видео не играет, пока Home не видна
@@ -535,7 +543,10 @@ const onPref = (_, __, name) => {
 };
 prefs.addObserver(P, onPref);
 prefs.addObserver(ACCENT, onPref);
+const onLook = () => effects(); // режим окна и прозрачность обоев (настройки «Внешний вид»)
+prefs.addObserver("luminoctis.look.", onLook);
 window.addEventListener("unload", () => {
+  prefs.removeObserver("luminoctis.look.", onLook);
   prefs.removeObserver(P, onPref);
   prefs.removeObserver(ACCENT, onPref);
   clearInterval(timer);

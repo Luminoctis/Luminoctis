@@ -52,8 +52,12 @@
     <div id="glass-options">
       <p id="glass-off" class="note" hidden>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
       <div class="row stack">
-        <div class="text"><b>Прозрачность</b><span>Сколько рабочего стола видно сквозь панели, %</span></div>
+        <div class="text"><b>Прозрачность интерфейса</b><span>Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Home</span></div>
         <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.transparency" data-default="45"><output></output></label>
+      </div>
+      <div class="row stack">
+        <div class="text"><b>Прозрачность обоев на Home</b><span>Главное окно вкладки Home: сквозь обои (в том числе живые сцены Wallpaper Engine) виден рабочий стол, %. 0 — обои непрозрачные</span></div>
+        <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
       </div>
       <div class="row stack">
         <div class="text"><b>Подложка окна</b><span>Размытие делает сама Windows, его силу менять нельзя: Acrylic — размытые окна и обои за браузером, Mica — только обои, спокойнее</span></div>
@@ -230,8 +234,7 @@
       <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
     </div>
     <div class="row stack">
-      <div class="text"><b>Интерфейс над обоями</b><span>На Home обои лежат под всем окном: рейка, вкладки и адресная строка — на размытых обоях, у края страницы размытие нарастает плавно</span></div>
-      <label class="slider">Прозрачность<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.ui.transparency" data-default="70"><output></output></label>
+      <div class="text"><b>Интерфейс над обоями</b><span>Только в прозрачном режиме окна («Внешний вид»): на Home обои лежат под всем окном, рейка, вкладки и адресная строка — на размытых обоях. Прозрачность задаётся там же</span></div>
       <label class="slider">Размытие<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
     </div>
     <label class="row"><div class="text"><b>Цвет мода из обоев</b><span>Акцент палитры берётся из текущих обоев Home; выключите — вернётся цвет палитры</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>

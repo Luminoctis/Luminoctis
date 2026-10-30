@@ -43,7 +43,8 @@ const override = () => Services.prefs.getBoolPref(FROM_WALL, false) && Services.
 // Режим окна (settings → «Внешний вид»): luminoctis.look.window = "transparent" — фоны интерфейса полупрозрачные,
 // сквозь них видна подложка Windows (Acrylic/Mica, её даёт Zen: widget.windows.mica). Сайты не трогаются.
 const LOOK = "luminoctis.look.";
-export const GLASS = { see: [LOOK + "transparency", 45], blur: [LOOK + "blur", 24] }; // [pref, по умолчанию]
+export const GLASS = { see: [LOOK + "transparency", 45] }; // [pref, по умолчанию]
+Services.prefs.clearUserPref(LOOK + "blur"); // ползунок размытия панелей убран (2026-10-30): сайт под ними всё равно не размывается
 const int = ([pref, def], max) => Math.min(max, Math.max(0, Services.prefs.getIntPref(pref, def)));
 const isGlass = () => Services.prefs.getStringPref(LOOK + "window", "") == "transparent";
 // чем выше слой, тем плотнее: текст на поверхностях и выбранном остаётся читаемым
@@ -56,7 +57,6 @@ const paint = doc => {
   for (const t of TOKENS) root.style.setProperty(`--lumi-${t}`,
     glass && t in LIFT ? `color-mix(in srgb, ${c[t]} ${Math.min(100, solid + LIFT[t])}%, transparent)` : c[t]);
   root.style.setProperty("--lumi-solid", c.bg0); // непрозрачный bg0: текст на акценте, подложка сайтов
-  root.style.setProperty("--lumi-glass-blur", int(GLASS.blur, 60) + "px");
   root.toggleAttribute("lumi-glass", glass);
 };
 let queued = null; // «Сбросить палитру» меняет много настроек — перекрашиваем один раз

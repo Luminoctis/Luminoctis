@@ -26,11 +26,13 @@
     return U;
   }
   const own = () => U.ctypes.voidptr_t(U.ctypes.UInt64(window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle));
-  // окно браузера насквозь прозрачное (state 2 — ACCENT_ENABLE_TRANSPARENTGRADIENT, цвет 0) / обычное (0 — ACCENT_DISABLED)
+  // окно браузера насквозь прозрачное (state 2 — ACCENT_ENABLE_TRANSPARENTGRADIENT, цвет 0) / обычное (0 — ACCENT_DISABLED);
+  // luminoctis.home.through.blur — размытие Windows за окном (BLUR_STATE)
+  const BLUR = "luminoctis.home.through.blur", BLUR_STATE = 3, BLUR_COLOR = 0;
   let accentSet = 0;
   function accent(on) {
-    const a = new U.ACCENT(), d = new U.DATA();
-    Object.assign(a, { state: on ? 2 : 0, flags: on ? 2 : 0, color: 0, anim: 0 });
+    const a = new U.ACCENT(), d = new U.DATA(), blur = on && Services.prefs.getBoolPref(BLUR, false);
+    Object.assign(a, { state: blur ? BLUR_STATE : on ? 2 : 0, flags: on ? 2 : 0, color: blur ? BLUR_COLOR : 0, anim: 0 });
     d.attr = 19; // WCA_ACCENT_POLICY
     d.data = a.address();
     d.size = U.ACCENT.size;
@@ -72,6 +74,7 @@
     win: () => api() && { accent: accentSet, browserHwnd: window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle },
   };
 
+  Services.prefs.addObserver(BLUR, () => { if (through && api()) accent(true); }); // применяется сразу
   window.addEventListener("TabSelect", update);
   window.addEventListener("sizemodechange", update);
   mica.addEventListener("change", update);

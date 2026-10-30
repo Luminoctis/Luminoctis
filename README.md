@@ -134,7 +134,7 @@ Zen Browser mod Luminoctis by Laith.
     (0–60px: настройки, карточка вкладки, выехавшие рейка/полоса/адрес, мини-окно закрепа). Всё сразу, без перезапуска.
     Подложку рисует Windows 11 (у Zen включена по умолчанию: `widget.windows.mica`); нужна аппаратная отрисовка, при выключенных
     «Эффектах прозрачности» Windows окно не прозрачное. Настройки: `luminoctis.look.window` (`opaque`/`transparent`),
-    `luminoctis.look.transparency` (45), `luminoctis.look.blur` (24), `widget.windows.mica.toplevel-backdrop` (2 Acrylic / 1 Mica);
+    `luminoctis.look.transparency` (45), `widget.windows.mica.toplevel-backdrop` (2 Acrylic / 1 Mica);
   - *Цветовая палитра* — 8 готовых: Tokyo Night (по умолчанию), Tokyo Night Storm, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark,
     Rosé Pine, One Dark. Клик по палитре — сразу во всех окнах и в самой панели. Ниже — 17 цветов палитры (фон окна, рейка и вкладки,
     поверхности, выбранное; текст, приглушённый, тусклый; акцент; 9 именованных — точки контейнеров, ссылки, «закрыть»).

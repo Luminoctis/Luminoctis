@@ -119,13 +119,9 @@
       height: var(--zen-toolbar-height-with-bookmarks) !important;
       overflow: inherit !important;
       /* фон панели Zen (.zen-toolbar-background) здесь не создаётся — без своего фона раскрытая панель лежала над сайтом прозрачной */
-      background: var(--lumi-solid); /* непрозрачный и в прозрачном режиме: размытие под ней сайт не размывает (раздел 14) */
+      background: var(--lumi-bg0); /* как у окна: в прозрачном режиме стекло, сайт виден сквозь неё без размытия */
       & #urlbar { opacity: 1 !important; pointer-events: auto !important; }
       & #zen-appcontent-navbar-container { opacity: 1 !important; }
-    }
-    /* сайт не сдвигается вниз: полоса ложится поверх, как в родном режиме */
-    & .browserSidebarContainer:is(.deck-selected, [zen-split="true"]) .browserContainer {
-      margin-top: calc(-1 * var(--zen-toolbar-height-with-bookmarks) + var(--zen-element-separation)) !important;
     }
   }
 }
@@ -695,15 +691,15 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
     & #lumi-hot-top { display: block; }
     & #zen-appcontent-wrapper { position: relative; }
     & #lumi-tabstrip {
-      position: absolute; inset: 0 0 auto 0; z-index: 6; background: var(--lumi-solid); /* над сайтом — непрозрачная (раздел 14) */
+      position: absolute; inset: 0 0 auto 0; z-index: 6; background: var(--lumi-bg0); /* цвет окна: в прозрачном режиме стекло */
       translate: 0 -100%; transition: translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1);
     }
     &[lumi-show-tabstrip] #lumi-tabstrip { translate: 0 0; box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4); }
   }
-  /* адресная строка тоже прячется: она выезжает под выехавшей полосой, а не под ней (полоса ложится поверх и не мешает) */
-  @media -moz-pref("zen.view.compact.hide-toolbar") {
-    :root[lumi-show-tabstrip]:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper { translate: 0 36px; }
-  }
+  /* выехавшая полоса сдвигает адресную строку вниз (поверх сайта, со своим фоном) — и когда строка спрятана и выезжает под полосой, и когда она на месте */
+  :root:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper { transition: translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1), background-color 160ms; }
+  :root[lumi-show-tabstrip]:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper { translate: 0 36px; background: var(--lumi-bg0); }
+  :where(#zen-appcontent-navbar-wrapper) { position: relative; z-index: 5; } /* низкая специфичность: у спрятанной строки (absolute) остаётся своё */
 }
 /* у панели адреса Zen свой transition (height) и он бьёт наш без !important: сдвиг под полосу (translate) и от рейки (margin-left)
  * шёл рывком — при прятании строка прыгала на 36px вверх поверх уходящей полосы. Фон гаснет вместе с высотой */
@@ -711,6 +707,15 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   :root:not([inDOMFullscreen="true"]) #zen-appcontent-navbar-wrapper {
     transition: height var(--zen-hidden-toolbar-transition), background-color var(--zen-hidden-toolbar-transition),
       translate 160ms cubic-bezier(0.2, 0.8, 0.2, 1), margin-left 180ms cubic-bezier(0.2, 0.8, 0.2, 1) !important;
+  }
+}
+/* спрятанная адресная строка (родной compact Zen) у Zen занимала 8px сверху — у верхнего края окна оставалась полоса. Теперь панель
+ * лежит поверх сайта (absolute): сайт вплотную к верху окна, а её 8px остаются невидимой зоной показа (Zen раскрывает её по mouseover) */
+@media -moz-pref("zen.view.compact.hide-toolbar") {
+  :root[zen-compact-mode="true"]:not([zen-single-toolbar="true"]):not([customizing]):not([inDOMFullscreen="true"]) {
+    & #zen-appcontent-wrapper { position: relative; }
+    & #zen-appcontent-navbar-wrapper { position: absolute; inset: 0 0 auto 0; z-index: 5; }
+    & .browserSidebarContainer:is(.deck-selected, [zen-split="true"]) .browserContainer { margin-top: 0 !important; }
   }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -741,7 +746,6 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 :root[lumi-glass] {
   --lumi-line: color-mix(in srgb, var(--lumi-fg) 14%, transparent);
   --lumi-glass-edge: color-mix(in srgb, var(--lumi-accent) 32%, transparent); /* рамки — тонкие цветные полупрозрачные линии */
-  --lumi-glass-blur-filter: blur(var(--lumi-glass-blur)) saturate(1.4);
   /* фон окна — один слой bg0 (#zen-main-app-wrapper); свой затемняющий слой Zen под Mica (чёрный 40%) и серый фон неактивного окна убраны */
   & #zen-browser-background::before, & #zen-browser-background::after { background: transparent !important; }
   & #zen-main-app-wrapper:-moz-window-inactive { background: var(--zen-themed-toolbar-bg-transparent) !important; } /* zen.view.grey-out-inactive-windows */
@@ -754,18 +758,12 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & .lumi-tab:not([selected]) { --pill-line: var(--lumi-line); }
   & #urlbar:not([focused], [breakout-extend]) > .urlbar-background { outline: 1px solid var(--lumi-line) !important; outline-offset: -1px !important; }
 
-  /* панели поверх сайта размывают его под собой (подложка Windows сюда не достаёт — она только под окном) */
-  & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame, zen-library),
-  & #lumi-players[open] .lumi-player,
-  & #urlbar[breakout-extend] .urlbar-background { backdrop-filter: var(--lumi-glass-blur-filter) !important; }
   & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame) { border-color: var(--lumi-glass-edge); }
   /* backdrop-filter в Firefox размывает только интерфейс, а сайт (<browser> другого процесса) — нет: сквозь полупрозрачные панели над сайтом
    * читался текст страницы. Под цветом палитры у них непрозрачная подложка --lumi-solid */
   & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame),
   & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
-  @media -moz-pref("luminoctis.compact.sidebar") { & #lumi-rail { backdrop-filter: var(--lumi-glass-blur-filter); background: linear-gradient(var(--lumi-bg1), var(--lumi-bg1)) var(--lumi-solid); } }
-  @media -moz-pref("luminoctis.compact.tabstrip") { & #lumi-tabstrip { backdrop-filter: var(--lumi-glass-blur-filter); } }
-  @media -moz-pref("zen.view.compact.hide-toolbar") { & #zen-appcontent-navbar-wrapper { backdrop-filter: var(--lumi-glass-blur-filter); } }
+  /* рейка, полоса вкладок и адресная строка в Compacting лежат на сайте с тем же стеклом, что и на месте (--lumi-bg0/bg1) — подложки нет */
 }
 /* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
  * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
@@ -777,10 +775,6 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
     }
   }
   @media not (-moz-windows-mica-popups) { --panel-background-color: var(--lumi-solid) !important; }
-}
-@media (prefers-reduced-transparency: reduce) {
-  /* «Эффекты прозрачности» Windows выключены — палитра всё равно полупрозрачная, но без размытия поверх сайта */
-  :root[lumi-glass] { --lumi-glass-blur-filter: none; }
 }
 
 /* ---------- 15. Обои Luminoctis Home под всем окном (js/lumi-home.uc.js, home/wallpaper.js) ----------

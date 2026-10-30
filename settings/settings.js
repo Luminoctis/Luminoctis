@@ -69,6 +69,14 @@ for (const seg of document.querySelectorAll("div[data-pref]")) {
   read();
 }
 
+// «Размыть то, что за окном» — только в режиме «Рабочий стол» (без обоев)
+{
+  const MODE = "luminoctis.home.wallpaper.mode", show = () => ($("#through-blur-row").hidden = Services.prefs.getStringPref(MODE, "wallpaper") != "transparent");
+  Services.prefs.addObserver(MODE, show);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(MODE, show));
+  show();
+}
+
 // прозрачность окна даёт Windows (Zen: widget.windows.mica); если её нет — предупреждаем
 $("#glass-off").hidden = win.matchMedia("(-moz-windows-mica)").matches;
 

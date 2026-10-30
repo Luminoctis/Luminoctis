@@ -77,6 +77,14 @@
   const toggle = () => (isHome(gBrowser.selectedTab) ? back() : open());
   window.lumiHome = { toggle, open, back, isHome, find, URL };
 
+  // «Обычная страница новой вкладки» (zen.urlbar.replace-newtab выключен): Ctrl+T и «+» без адреса ведут на Home, а не создают вкладку.
+  // Включён — родной плавающий поиск Zen. Вызовы с адресом (ссылки, закладки) и Ctrl+T из самой Home не трогаем.
+  const openTab = BrowserCommands.openTab;
+  BrowserCommands.openTab = function (opts = {}) {
+    if (opts.url || Services.prefs.getBoolPref("zen.urlbar.replace-newtab", true)) return openTab.call(this, opts);
+    if (!isHome(gBrowser.selectedTab)) open();
+  };
+
   const discard = gBrowser.discardBrowser;
   gBrowser.discardBrowser = function (tab, force) {
     if (!isHome(tab)) return discard.call(this, tab, force);

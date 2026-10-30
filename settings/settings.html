@@ -71,10 +71,6 @@
         <div class="seg" data-pref="widget.windows.mica.toplevel-backdrop" data-default="2" data-int><button data-value="2">Acrylic</button><button data-value="1">Mica</button></div>
       </div>
       <div class="row stack">
-        <div class="text"><b>Размытие выезжающих панелей</b><span>Настройки, карточка вкладки, выехавшие рейка и полоса, мини-окно закрепа и выехавшая адресная строка, px</span></div>
-        <label class="slider"><input type="range" min="0" max="60" step="2" data-int-pref="luminoctis.look.blur" data-default="24"><output></output></label>
-      </div>
-      <div class="row stack">
         <div class="text"><b>На Home</b><span>Прозрачность обоев: сквозь них виден рабочий стол, 0 — обои непрозрачные. Размытие обоев под рейкой, вкладками и адресной строкой</span></div>
         <label class="slider">Прозрачность обоев<input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
         <label class="slider">Размытие под панелями<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
@@ -129,7 +125,7 @@
 
     <h2>Новая вкладка и адресная строка</h2>
     <label class="row">
-      <div class="text"><b>Обычная страница новой вкладки</b><span>Ctrl+T и «+» открывают страницу новой вкладки, а не плавающий поиск Zen посреди окна</span></div>
+      <div class="text"><b>Ctrl+T и «+» открывают Home</b><span>а не плавающий поиск Zen посреди окна</span></div>
       <input type="checkbox" data-pref="zen.urlbar.replace-newtab" data-inverted>
     </label>
     <label class="row">
@@ -204,6 +200,7 @@
       <label class="slider">Затемнение<input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
       <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
     </div>
+    <label class="row" id="through-blur-row" hidden><div class="text"><b>Размыть то, что за окном</b><span>Режим «Рабочий стол»: Windows размывает рабочий стол и окна позади (силу не регулировать)</span></div><input type="checkbox" data-pref="luminoctis.home.through.blur"></label>
 
     <!-- Звук обоев -->
     <h2>Звук</h2>

@@ -211,9 +211,10 @@ kbd {
 .clock-styles .lumi-clock-analog .lumi-clock-dial { width: 1.8em; height: 1.8em; }
 .clock-styles .lumi-clock-stacked { --clock-size: 22px; }
 #wp-folder { flex: 1; min-width: 0; }
-/* Прозрачность окна (раздел «Оформление»): ползунки стекла видны только в прозрачном режиме */
+/* Окно браузера (раздел «Оформление»): body[data-mode] ставит settings.js. Прозрачность — в «Прозрачном» и «Обоях», остальное по режиму */
 #glass-options { display: flex; flex-direction: column; gap: 8px; }
-@media not (-moz-pref("luminoctis.look.window", "transparent")) { #glass-options { display: none; } }
+body[data-mode="opaque"] #glass-options, body:not([data-mode="transparent"]) .only-transparent, body:not([data-mode="wallpaper"]) .only-wallpaper { display: none; }
+.seg button:disabled { opacity: .4; cursor: default; }
 .note { margin: 0; padding: 9px 12px; border-radius: 10px; font-size: 11.5px; line-height: 1.4;
   color: var(--lumi-yellow); background: color-mix(in srgb, var(--lumi-yellow) 12%, transparent); }
 .row[hidden] { display: none; }

@@ -40,15 +40,37 @@ const docs = new Set();
 // цвет акцента из обоев Home (home/wallpaper.js пишет accentOverride; действует, пока включён luminoctis.home.accentFromWallpaper)
 const FROM_WALL = "luminoctis.home.accentFromWallpaper";
 const override = () => Services.prefs.getBoolPref(FROM_WALL, false) && Services.prefs.getStringPref(`${PREF}.accentOverride`, "").toLowerCase();
-// Режим окна (settings → «Внешний вид»): luminoctis.look.window = "transparent" — фоны интерфейса полупрозрачные,
-// сквозь них видна подложка Windows (Acrylic/Mica, её даёт Zen: widget.windows.mica). Сайты не трогаются.
+// Режим окна (settings → «Оформление»): luminoctis.look.window = opaque | transparent | wallpaper. transparent — фоны интерфейса полупрозрачные,
+// сквозь них видна подложка Windows; wallpaper — сквозь них обои Home на всех вкладках (js/lumi-home.uc.js). Сайты не трогаются.
+// Вид подложки в прозрачном режиме — luminoctis.look.blur-kind: none | blur (accent policy окна — js/lumi-home-live.uc.js) | acrylic | mica (родная подложка Zen).
 const LOOK = "luminoctis.look.";
 export const GLASS = { see: [LOOK + "transparency", 45] }; // [pref, по умолчанию]
 Services.prefs.clearUserPref(LOOK + "blur"); // ползунок размытия панелей убран (2026-10-30): сайт под ними всё равно не размывается
 // отдельная прозрачность выехавших панелей Compacting (рейка, полоса вкладок, адресная строка), только в прозрачном режиме окна
 const COMPACT = "luminoctis.compact.transparency";
 const int = ([pref, def], max) => Math.min(max, Math.max(0, Services.prefs.getIntPref(pref, def)));
-const isGlass = () => Services.prefs.getStringPref(LOOK + "window", "") == "transparent";
+const WIN = LOOK + "window", KIND = LOOK + "blur-kind", HOME_MODE = "luminoctis.home.wallpaper.mode", MICA = "widget.windows.mica.toplevel-backdrop";
+const pr = Services.prefs;
+export const windowMode = () => { const m = pr.getStringPref(WIN, ""); return m == "transparent" || m == "wallpaper" ? m : "opaque"; };
+export const blurKind = () => { const k = pr.getStringPref(KIND, "acrylic"); return ["none", "blur", "mica"].includes(k) ? k : "acrylic"; };
+const isGlass = () => windowMode() != "opaque";
+// разовая миграция (2026-10-30): «Размыть то, что за окном» → blur-kind=blur (если окно прозрачное), Mica в старом переключателе → blur-kind=mica
+if (!pr.getBoolPref(LOOK + "modes-migrated", false)) {
+  pr.setBoolPref(LOOK + "modes-migrated", true);
+  if (!pr.prefHasUserValue(KIND)) {
+    if (pr.getBoolPref("luminoctis.home.through.blur", false) && pr.getStringPref(WIN, "") == "transparent") pr.setStringPref(KIND, "blur");
+    else if (pr.prefHasUserValue(MICA) && pr.getIntPref(MICA, 2) == 1) pr.setStringPref(KIND, "mica");
+  }
+  pr.clearUserPref("luminoctis.home.through.blur");
+}
+// «Обои» возможны, только пока у Home режим обоев; Home переключили — окно откатывается на «Прозрачный». Родная подложка Zen: acrylic = 2, mica = 1
+// (для none/blur — 2, как проверено глазами: под accent policy окна)
+function sync() {
+  if (windowMode() == "wallpaper" && pr.getStringPref(HOME_MODE, "wallpaper") != "wallpaper") pr.setStringPref(WIN, "transparent");
+  const back = blurKind() == "mica" ? 1 : 2;
+  if (pr.getIntPref(MICA, 2) != back) pr.setIntPref(MICA, back);
+}
+sync();
 // чем выше слой, тем плотнее: текст на поверхностях и выбранном остаётся читаемым
 const LIFT = { bg0: 0, bg1: 0, surface: 15, raised: 25 };
 const glassDocs = new WeakSet(); // окна и панель настроек; Home и заглушка фокуса — страницы во вкладке, остаются непрозрачными
@@ -62,12 +84,14 @@ const paint = doc => {
   for (const [v, t] of [["compact-bg", "bg0"], ["compact-bg1", "bg1"]]) root.style.setProperty(`--lumi-${v}`, cs == 100 ? c[t] : `color-mix(in srgb, ${c[t]} ${cs}%, transparent)`);
   root.style.setProperty("--lumi-solid", c.bg0); // непрозрачный bg0: текст на акценте, подложка сайтов
   root.toggleAttribute("lumi-glass", glass);
+  root.toggleAttribute("lumi-wallpaper", glass && windowMode() == "wallpaper");
 };
 let queued = null; // «Сбросить палитру» меняет много настроек — перекрашиваем один раз
 const repaint = () => queued ||= Promise.resolve().then(() => { queued = null; docs.forEach(paint); });
 Services.prefs.addObserver(PREF, repaint);
 Services.prefs.addObserver(FROM_WALL, repaint);
-Services.prefs.addObserver(LOOK, repaint);
+Services.prefs.addObserver(LOOK, () => { sync(); repaint(); });
+Services.prefs.addObserver(HOME_MODE, sync);
 Services.prefs.addObserver(COMPACT, repaint);
 // glass: документ — интерфейс браузера (окно, панель настроек) и становится прозрачным в прозрачном режиме
 export function watch(doc, { glass = false } = {}) {

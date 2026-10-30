@@ -54,26 +54,29 @@
       <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Трапеции</button>
     </div>
 
-    <!-- прозрачность и стекло — всё здесь; ползунки видны только в прозрачном режиме (#glass-options, settings.css) -->
-    <h2>Прозрачность окна <span class="hint">· сайты не меняются</span></h2>
+    <!-- режим окна и всё про прозрачность — здесь; строки по режиму показывает settings.css по body[data-mode] (opaque | transparent | wallpaper) -->
+    <h2>Окно браузера <span class="hint">· сайты не меняются</span></h2>
     <div class="row stack">
-      <div class="text"><b>Окно браузера</b><span>Прозрачное — сквозь рейку, вкладки, панель адреса, меню и панели видно рабочий стол с размытием Windows; цвета — из палитры</span></div>
-      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque">Непрозрачное</button><button data-value="transparent">Прозрачное</button></div>
+      <div class="text"><b>Режим окна</b><span>Непрозрачный — сплошные цвета палитры. Прозрачный — сквозь рейку, вкладки, панель адреса, меню и панели виден рабочий стол. Обои — сквозь них видны обои Home, на всех вкладках</span></div>
+      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque">Непрозрачный</button><button data-value="transparent">Прозрачный</button><button data-value="wallpaper" id="mode-wallpaper">Обои</button></div>
     </div>
     <div id="glass-options">
       <p id="glass-off" class="note" hidden>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
       <div class="row stack">
-        <div class="text"><b>Прозрачность панелей</b><span>Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Home</span></div>
+        <div class="text"><b>Прозрачность</b><span>Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Home</span></div>
         <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.transparency" data-default="45"><output></output></label>
       </div>
-      <div class="row stack">
-        <div class="text"><b>Размытие Windows</b><span>Силу размытия задаёт сама Windows. Acrylic — размыты окна и обои за браузером, Mica — только обои, спокойнее</span></div>
-        <div class="seg" data-pref="widget.windows.mica.toplevel-backdrop" data-default="2" data-int><button data-value="2">Acrylic</button><button data-value="1">Mica</button></div>
+      <div class="row stack only-transparent">
+        <div class="text"><b>Размытие</b><span>Что за окном: «Нет» — всё чёткое; «Размытие» — размытие Windows; «Acrylic» и «Mica» — родная подложка Zen (Acrylic размывает окна и обои за браузером, Mica — только обои, спокойнее). Силу размытия задаёт сама Windows</span></div>
+        <div class="seg" data-pref="luminoctis.look.blur-kind" data-default="acrylic"><button data-value="none">Нет</button><button data-value="blur">Размытие</button><button data-value="acrylic">Acrylic</button><button data-value="mica">Mica</button></div>
       </div>
-      <div class="row stack">
-        <div class="text"><b>На Home</b><span>Прозрачность обоев: сквозь них виден рабочий стол, 0 — обои непрозрачные. Размытие обоев под рейкой, вкладками и адресной строкой</span></div>
+      <div class="row stack only-wallpaper">
+        <div class="text"><b>Размытие обоев</b><span>Насколько размыты обои под рейкой, вкладками и адресной строкой</span></div>
+        <label class="slider"><input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
+      </div>
+      <div class="row stack only-transparent">
+        <div class="text"><b>На Home</b><span>Прозрачность обоев: сквозь них виден рабочий стол, 0 — обои непрозрачные</span></div>
         <label class="slider">Прозрачность обоев<input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
-        <label class="slider">Размытие под панелями<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
       </div>
     </div>
 
@@ -204,7 +207,6 @@
       <label class="slider">Затемнение<input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
       <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
     </div>
-    <label class="row" id="through-blur-row" hidden><div class="text"><b>Размыть то, что за окном</b><span>Режим «Рабочий стол»: Windows размывает рабочий стол и окна позади (силу не регулировать)</span></div><input type="checkbox" data-pref="luminoctis.home.through.blur"></label>
 
     <!-- Звук обоев -->
     <h2>Звук</h2>

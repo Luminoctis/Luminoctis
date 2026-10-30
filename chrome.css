@@ -779,6 +779,10 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #tabbrowser-tabpanels > .browserSidebarContainer { background-color: var(--lumi-solid) !important; }
 
   & #lumi-rail { border-color: var(--lumi-glass-edge); }
+  /* одинаковая прозрачность везде (прозрачный режим и «Обои»): у рейки и невыбранных вкладок своей заливки нет — один слой фона окна;
+   * выбранная вкладка и наведение остаются видны. Выехавшая рейка Compacting — свой ползунок (раздел 12) */
+  & .lumi-tab:not([selected], :hover), & #lumi-newtab-button:not(:hover) { --pill-bg: transparent; }
+  @media not -moz-pref("luminoctis.compact.sidebar") { & #lumi-rail { background: transparent; } }
   & .lumi-pin:not([selected]) { border-color: var(--lumi-line); }
   & .lumi-tab:not([selected]) { --pill-line: var(--lumi-line); }
   & #urlbar:not([focused], [breakout-extend]) > .urlbar-background { outline: 1px solid var(--lumi-line) !important; outline-offset: -1px !important; }

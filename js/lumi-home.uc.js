@@ -40,12 +40,16 @@
     SessionStore.setCustomTabValue(tab, KEY, "1");
     gBrowser._tabAttrModified(tab, [KEY]); // полоса вкладок пересобирается и убирает её
   }
-  function create() {
+  function create(background = false) {
     // не inBackground: иначе Zen показывает тост «New background tab opened!» (open() всё равно сразу её выбирает)
-    const tab = gBrowser.addTrustedTab(URL, { inBackground: false, skipAnimation: true });
+    const tab = gBrowser.addTrustedTab(URL, { inBackground: background, skipAnimation: true });
     mark(tab);
     return tab;
   }
+  // режим окна «Обои» (luminoctis.look.window): обои Home — под интерфейсом на всех вкладках; кадр рисует страница Home, поэтому она должна жить
+  // (в фоне): не выгружаем её и поднимаем при старте / включении режима
+  const wallMode = () => Services.prefs.getStringPref("luminoctis.look.window", "") == "wallpaper";
+  const ensure = () => { if (wallMode() && !find()) create(true); };
 
   function open() {
     if (!isHome(gBrowser.selectedTab)) prev = gBrowser.selectedTab; // новая Home выбирается ещё до метки — TabSelect её не узнает
@@ -67,7 +71,7 @@
   // подсветка «L» и обои под всем окном ([lumi-home-wall] на корне — chrome.css раздел 15); кадр в #lumi-home-wall рисует сама Home (home/wallpaper.js)
   function lit(on) {
     document.getElementById("lumi-logo")?.toggleAttribute("lumi-home-open", on);
-    document.documentElement.toggleAttribute("lumi-home-wall", on || underPin());
+    document.documentElement.toggleAttribute("lumi-home-wall", on || underPin() || wallMode());
   }
   // выбран закреп-окошко (lumi-rail.uc.js), а под ним видна Home — обои под интерфейсом остаются (как «насквозь» в lumi-home-live.uc.js)
   const panelOf = t => t && document.getElementById(t.linkedPanel);
@@ -88,7 +92,7 @@
   const discard = gBrowser.discardBrowser;
   gBrowser.discardBrowser = function (tab, force) {
     if (!isHome(tab)) return discard.call(this, tab, force);
-    if (tab.selected || tab.closing) return false;
+    if (tab.selected || tab.closing || wallMode()) return false;
     this.removeTab(tab, { animate: false, skipSessionStore: true });
     return true;
   };
@@ -110,6 +114,9 @@
       sync();
       requestAnimationFrame(sync); // класс окошка закрепа ставится после TabSelect
     });
-    SessionStore.promiseAllWindowsRestored.then(() => { find(); sync(); }).catch(console.error);
+    SessionStore.promiseAllWindowsRestored.then(() => { find(); ensure(); sync(); }).catch(console.error);
+    const onWin = () => { ensure(); sync(); };
+    Services.prefs.addObserver("luminoctis.look.window", onWin);
+    window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.look.window", onWin), { once: true });
   });
 })();

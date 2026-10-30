@@ -132,8 +132,10 @@ function show(layer) {
 // прозрачная Home — «насквозь», виден рабочий стол (js/lumi-home-live.uc.js, lumiHomeLive.DESKTOP)
 // Прозрачный режим окна (настройка «Внешний вид»): интерфейс — стекло; «Прозрачность обоев» на Home (luminoctis.look.homeTransparency) —
 // сквозь сами обои виден рабочий стол. Вне прозрачного режима оба не действуют — интерфейс и обои непрозрачные.
-const glass = () => prefs.getStringPref("luminoctis.look.window", "") == "transparent";
-const wallAlpha = () => glass() ? 1 - Math.min(Math.max(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0), 90) / 100 : 1;
+const winMode = () => prefs.getStringPref("luminoctis.look.window", "");
+const glass = () => winMode() == "transparent" || winMode() == "wallpaper";
+const windowWall = () => winMode() == "wallpaper"; // режим окна «Обои»: кадр в окне виден на всех вкладках, Home может быть в фоне
+const wallAlpha = () => winMode() == "transparent" ? 1 - Math.min(Math.max(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0), 90) / 100 : 1;
 const liveWant = () => win.lumiHomeLive?.want(transparent() || wallAlpha() < 1 ? win.lumiHomeLive.DESKTOP : null);
 // прозрачная Home: свои обои убираются (видео и веб-обои не играют впустую)
 function clearWall() {
@@ -272,6 +274,14 @@ let geo = { x: 0, y: 0, W: innerWidth, H: innerHeight, k: 1 }, zoom = 1, fade = 
 function place() { // позиция вкладки в окне; true — изменилась
   const b = window.browsingContext.embedderElement;
   if (!b?.isConnected) return false;
+  if (document.hidden) { // Home в фоне (режим окна «Обои»): прямоугольника вкладки нет, меняется только размер окна
+    const W = win.innerWidth, H = win.innerHeight, k = win.devicePixelRatio / devicePixelRatio;
+    if (W == geo.W && H == geo.H && k == geo.k) return false;
+    geo = { ...geo, W, H, k };
+    root.style.setProperty("--wp-w", W * k + "px");
+    root.style.setProperty("--wp-h", H * k + "px");
+    return true;
+  }
   const r = b.getBoundingClientRect(), k = win.devicePixelRatio / devicePixelRatio; // px окна → px страницы (масштаб страницы)
   // видимая часть вкладки: Zen в compact-режиме сдвигает страницу вверх под адресную строку (margin-top < 0), её верх обрезает контейнер
   const c = b.closest(".browserSidebarContainer")?.getBoundingClientRect() ?? r;
@@ -306,7 +316,7 @@ function drawCover(g, src, W, H, pad) {
 const PAD = 80;
 function paint() {
   const c = edgeCanvas;
-  if (document.hidden) return;
+  if (document.hidden && !windowWall()) return;
   const { W, H } = geo, dpr = win.devicePixelRatio, cw = Math.round((W + 2 * PAD) * dpr), ch = Math.round((H + 2 * PAD) * dpr);
   if (c.width != cw || c.height != ch) Object.assign(c, { width: cw, height: ch });
   const g = c.getContext("2d");
@@ -372,10 +382,12 @@ function effects() {
 }
 document.addEventListener("visibilitychange", () => { // видео не играет, пока Home не видна
   const v = current?.el;
-  if (v?.play) document.hidden ? v.pause() : v.play().catch(() => {});
+  if (v?.play) document.hidden && !windowWall() ? v.pause() : v.play().catch(() => {});
   if (!document.hidden) kick();
 });
 addEventListener("resize", effects);
+// Home в фоне (режим окна «Обои»): rAF не идёт — размер окна и смену слоёв сверяем таймером (фоновые страницы получают его раз в ~секунду)
+const bgTimer = setInterval(() => { if (document.hidden && windowWall()) { if (place()) effects(); else if (fade) paint(); } }, 300);
 
 // ---------- смена по расписанию ----------
 let timer = 0;
@@ -469,6 +481,7 @@ window.addEventListener("unload", () => {
   prefs.removeObserver(P, onPref);
   prefs.removeObserver(ACCENT, onPref);
   clearInterval(timer);
+  clearInterval(bgTimer);
   win.lumiHomeLive?.want(null);
 });
 

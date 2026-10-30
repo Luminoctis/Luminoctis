@@ -69,11 +69,17 @@ for (const seg of document.querySelectorAll("div[data-pref]")) {
   read();
 }
 
-// «Размыть то, что за окном» — только в режиме «Рабочий стол» (без обоев)
+// режим окна: body[data-mode] прячет лишние строки (settings.css); «Обои» доступны, только пока у Home режим обоев (lumi-palette откатывает сам)
 {
-  const MODE = "luminoctis.home.wallpaper.mode", show = () => ($("#through-blur-row").hidden = Services.prefs.getStringPref(MODE, "wallpaper") != "transparent");
-  Services.prefs.addObserver(MODE, show);
-  window.addEventListener("unload", () => Services.prefs.removeObserver(MODE, show));
+  const WIN = "luminoctis.look.window", MODE = "luminoctis.home.wallpaper.mode", btn = $("#mode-wallpaper"), pr = Services.prefs;
+  const show = () => {
+    const m = pr.getStringPref(WIN, "");
+    document.body.dataset.mode = m == "transparent" || m == "wallpaper" ? m : "opaque";
+    const ok = pr.getStringPref(MODE, "wallpaper") == "wallpaper";
+    btn.disabled = !ok;
+    btn.title = ok ? "" : "Нужен режим Home «Обои»";
+  };
+  for (const n of [WIN, MODE]) { pr.addObserver(n, show); window.addEventListener("unload", () => pr.removeObserver(n, show)); }
   show();
 }
 
@@ -547,7 +553,7 @@ renderPalette();
   }
   // ползунок прозрачности выехавших панелей действует только в прозрачном режиме окна
   watchPref("luminoctis.look.window", () => {
-    const on = Services.prefs.getStringPref("luminoctis.look.window", "") == "transparent";
+    const on = ["transparent", "wallpaper"].includes(Services.prefs.getStringPref("luminoctis.look.window", ""));
     $("#compact-transparency").classList.toggle("off", !on);
     $("#compact-transparency input").disabled = !on;
   });

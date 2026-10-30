@@ -75,7 +75,7 @@
         <label class="slider"><input type="range" min="0" max="60" step="2" data-int-pref="luminoctis.look.blur" data-default="24"><output></output></label>
       </div>
       <div class="row stack">
-        <div class="text"><b>На Home</b><span>Прозрачность обоев: сквозь них (и живые сцены Wallpaper Engine) виден рабочий стол, 0 — обои непрозрачные. Размытие обоев под рейкой, вкладками и адресной строкой</span></div>
+        <div class="text"><b>На Home</b><span>Прозрачность обоев: сквозь них виден рабочий стол, 0 — обои непрозрачные. Размытие обоев под рейкой, вкладками и адресной строкой</span></div>
         <label class="slider">Прозрачность обоев<input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
         <label class="slider">Размытие под панелями<input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
       </div>
@@ -173,14 +173,13 @@
     <h2>Обои <span class="hint">· кнопки ⟳ ♥ ✕ ↗ ⚙ — в левом верхнем углу Home при наведении</span></h2>
     <div class="row stack">
       <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки; нет сети — тёмный градиент.
-        «Рабочий стол» — без своих обоев: Home насквозь, виден рабочий стол (и живые обои Wallpaper Engine на нём, если окна свёрнуты). Нужна прозрачность окна от Windows</span></div>
+        «Рабочий стол» — без своих обоев: Home насквозь, виден рабочий стол. Нужна прозрачность окна от Windows</span></div>
       <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper">Обои</button><button data-value="transparent">Рабочий стол</button></div>
       <div class="checks">
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan">Konachan (аниме)</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing">Bing — картинка дня</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local">Своя папка</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.we">Wallpaper Engine</label>
       </div>
     </div>
     <div class="row stack">
@@ -206,27 +205,12 @@
       <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
     </div>
 
-    <!-- Wallpaper Engine (home/we.js) -->
-    <h2>Wallpaper Engine <span class="hint">· обои из мастерской Steam</span></h2>
-    <div class="row stack">
-      <div class="text"><b>Обои мастерской</b><span>Видео, веб-обои и сцены живые (сцены — через программу Wallpaper Engine, см. ниже). Клик по картинке — поставить сейчас, галочка — брать в смену. Пусто — папка Steam ищется сама</span></div>
-      <div class="key"><input id="we-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.we.folder"><button id="we-pick">Выбрать…</button></div>
-      <div id="we-items" class="we-items"></div>
-    </div>
-    <label class="row"><div class="text"><b>Как в Wallpaper Engine</b><span id="we-sync-hint">Home показывает те же обои, что Wallpaper Engine на рабочем столе, и меняет их вслед за ним</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.sync"></label>
-    <label class="row"><div class="text"><b>Живые сцены</b><span id="we-live-hint">Сцену на Home играет сама программа Wallpaper Engine в своём окне под браузером — как на рабочем столе. Выключено или программы нет — статичный кадр сцены. Над живой сценой интерфейс только тонируется (без размытия), «Размытие» обоев к ней не применяется</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.we.live" data-default="true"></label>
-
-    <!-- Звук и эквалайзер (home/equalizer.js, home/eq-actor.sys.mjs) -->
+    <!-- Звук обоев -->
     <h2>Звук</h2>
     <div class="row stack">
-      <div class="text"><b>Звук обоев</b><span>Видео и веб-обои на Home. Звук живой сцены играет сама программа Wallpaper Engine — у неё громкость одна на все обои (и на рабочем столе), поэтому здесь не меняется. Свойства обоев Wallpaper Engine (цвета, скорость и т. п.) — кнопка ⚙ в левом верхнем углу Home</span></div>
+      <div class="text"><b>Звук обоев</b><span>Видео-обои из своей папки. Кнопка ⚙ в левом верхнем углу Home — то же самое</span></div>
       <label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.volume" data-default="50"><output></output></label>
       <label class="slider"><input type="checkbox" data-pref="luminoctis.home.wallpaper.muted">Без звука</label>
-    </div>
-    <label class="row"><div class="text"><b>Эквалайзер от звука вкладок</b><span>Полоски на Home и звук для веб-обоев Wallpaper Engine из играющих вкладок. Выключено по умолчанию: звук страницы начинает идти через анализатор — если на каком-то сайте звук пропадёт, выключите</span></div><input type="checkbox" data-pref="luminoctis.home.eq.enabled"></label>
-    <div class="row stack">
-      <div class="text"><b>Вид эквалайзера</b></div>
-      <div class="seg" data-pref="luminoctis.home.eq.style" data-default="bars"><button data-value="bars">Полоски над досками</button><button data-value="ring">Кольцо вокруг часов</button><button data-value="off">Не показывать</button></div>
     </div>
 
     <!-- LumiNotes и LumiTime (home/notes*.js, home/time*.js, js/lumi-time.sys.mjs) -->

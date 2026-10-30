@@ -46,25 +46,13 @@
 }
 @media (prefers-reduced-motion: reduce) { .lumi-wp-layer { transition: none; } }
 
-/* Wallpaper Engine (home/we.js): веб-обои — iframe без прав браузера; сцена — превью с подписью */
-.lumi-wp-scene { position: absolute; inset: 0; & > img { width: 100%; height: 100%; object-fit: cover; display: block; } }
-.lumi-wp-hint {
-  position: absolute; left: calc((100% + var(--wp-x, 0px) - var(--lumi-time-w, 320px)) / 2); /* сцена — во всё окно, подпись — по центру вкладки */ translate: -50% 0; white-space: nowrap; bottom: calc(var(--lumi-notes-h, 180px) + 8px); padding: 3px 9px; border-radius: 8px;
-  background: color-mix(in srgb, var(--lumi-bg0, #16161e) 75%, transparent); color: var(--lumi-fg, #c0caf5); font-size: 11.5px;
-}
-/* эквалайзер (home/equalizer.js): холст поверх обоев, клики проходят насквозь */
-.lumi-eq { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
-
-/* живая сцена Wallpaper Engine (js/lumi-home-live.uc.js ставит [lumi-live]): сцену играет окно WE под окном браузера, страница насквозь —
- * свои слои скрыты, остаются затемнение, край (размытый статичный кадр сцены + тон, как под интерфейсом) и кнопки.
- * Размытие самих обоев к живой сцене не применяется */
-html:is([lumi-live], [lumi-through]) { & body, & #lumi-wallpaper { background: transparent; } }
-html[lumi-live] .lumi-wp-stage { display: none; }
+/* прозрачная Home (js/lumi-home-live.uc.js ставит [lumi-through]): страница насквозь — виден рабочий стол */
+html[lumi-through] { & body, & #lumi-wallpaper { background: transparent; } }
 /* «Прозрачность обоев» (--wp-alpha, home/wallpaper.js): сквозь обои виден рабочий стол */
 .lumi-wp-stage, .lumi-wp-edge > canvas { opacity: var(--wp-alpha, 1); } /* тон края (::after) — нет: в окне он тоже не гаснет */
 .lumi-wp-dim { opacity: calc(var(--wp-dim, .25) * var(--wp-alpha, 1)); }
 
-/* панель ⚙ (wallpaper.js): громкость и свойства обоев Wallpaper Engine (home/we-props.js) — под кнопками, прокручивается */
+/* панель ⚙ (wallpaper.js): громкость обоев — под кнопками, прокручивается */
 .lumi-wp-panel {
   position: absolute; top: 56px; left: 16px; z-index: 2; display: none; width: 300px; box-sizing: border-box;
   max-height: calc(100% - var(--lumi-notes-h, 180px) - 72px); overflow: auto; padding: 10px 12px 12px; border-radius: 12px;
@@ -73,19 +61,11 @@ html[lumi-live] .lumi-wp-stage { display: none; }
   color: var(--lumi-fg, #c0caf5); font: 12.5px/1.35 system-ui, sans-serif;
   &.open { display: block; }
   & header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-  & h3 { margin: 12px 0 6px; font-size: 12.5px; color: var(--lumi-accent, #7aa2f7); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   & button { cursor: pointer; border-radius: 8px; border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 18%, transparent);
     background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 80%, transparent); color: inherit; font: inherit; }
   & .wp-close { width: 24px; height: 24px; padding: 0; }
-  & .wp-reset { margin-top: 10px; padding: 4px 10px; }
   & button:focus-visible, & input:focus-visible, & select:focus-visible { outline: 2px solid var(--lumi-accent, #7aa2f7); }
 }
-.lumi-wp-panel .wp-prop { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 4px 0;
-  & > span:first-child { overflow-wrap: anywhere; }
-  & select, & input[type=text] { max-width: 150px; background: var(--lumi-bg1, #1a1b26); color: inherit; border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 18%, transparent); border-radius: 6px; font: inherit; }
-  & input[type=color] { width: 40px; height: 22px; padding: 0; border: 0; background: none; }
-  &[hidden] { display: none; }
-}
+.lumi-wp-panel .wp-prop { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; padding: 4px 0; }
 .lumi-wp-panel .wp-prop-bool { grid-template-columns: auto 1fr; }
 .lumi-wp-panel .wp-prop-range { display: flex; align-items: center; gap: 6px; & input { width: 110px; accent-color: var(--lumi-accent, #7aa2f7); } & output { min-width: 2.5em; text-align: right; color: var(--lumi-muted, #a9b1d6); } }
-.lumi-wp-panel .wp-prop-text { margin: 6px 0; color: var(--lumi-muted, #a9b1d6); &[hidden] { display: none; } }

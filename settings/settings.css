@@ -210,17 +210,7 @@ kbd {
   & select { margin-left: auto; } }
 .clock-styles .lumi-clock-analog .lumi-clock-dial { width: 1.8em; height: 1.8em; }
 .clock-styles .lumi-clock-stacked { --clock-size: 22px; }
-#wp-folder, #we-folder { flex: 1; min-width: 0; }
-/* Wallpaper Engine: выбор обоев (settings.js, home/we.js) */
-.we-items { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 340px; overflow-y: auto;
-  &:empty { display: none; } & > p { grid-column: 1 / -1; margin: 0; font-size: 12px; color: var(--lumi-dim); } }
-.we-item { display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 11.5px;
-  & .we-show { position: relative; padding: 0; height: auto; aspect-ratio: 16 / 10; border-radius: 9px; overflow: hidden; border: 1px solid transparent; background: var(--lumi-bg1); cursor: pointer;
-    &:hover { border-color: var(--lumi-accent); } & img { width: 100%; height: 100%; object-fit: cover; display: block; } }
-  & .we-type { position: absolute; right: 4px; top: 4px; padding: 1px 6px; border-radius: 6px; font-size: 10px;
-    background: color-mix(in srgb, var(--lumi-bg0) 75%, transparent); color: var(--lumi-fg); }
-  & label { display: flex; align-items: center; gap: 6px; & input { width: 14px; height: 14px; } & span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } }
-}
+#wp-folder { flex: 1; min-width: 0; }
 /* Прозрачность окна (раздел «Оформление»): ползунки стекла видны только в прозрачном режиме */
 #glass-options { display: flex; flex-direction: column; gap: 8px; }
 @media not (-moz-pref("luminoctis.look.window", "transparent")) { #glass-options { display: none; } }

@@ -14,6 +14,15 @@
   const KEY = "lumi-home";
   let prev = null; // вкладка, с которой пришли на Home
 
+  // Разовая чистка: Wallpaper Engine и эквалайзер вырезаны (2026-10-30) — убираем их prefs; был включён только источник «we» — вернуть дефолт (Wallhaven)
+  if (!Services.prefs.getBoolPref("luminoctis.home.we-cut", false)) {
+    const P = "luminoctis.home.wallpaper.", pr = Services.prefs;
+    Services.prefs.setBoolPref("luminoctis.home.we-cut", true); // сразу: другие окна не повторят
+    const others = pr.getChildList(P + "src.").some(n => n != P + "src.we" && pr.getBoolPref(n, false));
+    if (pr.getBoolPref(P + "src.we", false) && !others) pr.clearUserPref(P + "src.wallhaven");
+    for (const n of [...pr.getChildList(P + "we."), ...pr.getChildList("luminoctis.home.eq."), P + "src.we"]) pr.clearUserPref(n);
+  }
+
   const isHome = tab => !!tab?.hasAttribute(KEY);
   const urlOf = tab => tab.linkedBrowser?.currentURI?.spec;
   // Home этого окна: помеченная, иначе восстановленная сессией (значение или адрес); лишние закрываем

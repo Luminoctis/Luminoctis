@@ -7,7 +7,7 @@
 // Пока выбрана Home, want задан и Windows рисует окно с прозрачностью (-moz-windows-mica):
 //  окно браузера: SetWindowCompositionAttribute(ACCENT_ENABLE_TRANSPARENTGRADIENT, цвет 0) — прозрачный CSS становится дырой
 //  в окне; [lumi-home-live] на корне (chrome.css раздел 15), transparent у <browser> Home, [lumi-through] на странице.
-// «Размыть то, что за окном»: luminoctis.home.through.blur (+ скрытый blur-accent 3/4/5, по умолчанию 4).
+// «Размыть то, что за окном»: luminoctis.home.through.blur — ACCENT_ENABLE_BLURBEHIND (3), flags 0.
 // Ушли с Home / свернули окно — обычный вид (ACCENT_DISABLED — снова Mica/Acrylic).
 (() => {
   const mica = matchMedia("(-moz-windows-mica)"); // без него Windows не рисует прозрачные пиксели окна
@@ -29,15 +29,13 @@
   const own = () => U.ctypes.voidptr_t(U.ctypes.UInt64(window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle));
   // окно браузера насквозь прозрачное (state 2 — ACCENT_ENABLE_TRANSPARENTGRADIENT, цвет 0) / обычное (0 — ACCENT_DISABLED);
   // luminoctis.home.through.blur — размытие Windows за окном. Только размытие, без тона: затемнял именно accent Windows (CSS от корня до <browser> прозрачный).
-  // Скрытый luminoctis.home.through.blur-accent: 4 (по умолчанию) — ACCENT_ENABLE_ACRYLICBLURBEHIND, цвет AABBGGRR с alpha 1 (при alpha 0 acrylic бывает
-  // непрозрачным), почти нулевой тон; 3 — ACCENT_ENABLE_BLURBEHIND, flags 0; 5 — ACCENT_ENABLE_HOSTBACKDROP. Если за окном тёмно — переключить.
-  const BLUR = "luminoctis.home.through.blur", BLUR_ACCENT = BLUR + "-accent";
-  const BLURS = { 3: { flags: 0, color: 0 }, 4: { flags: 2, color: 0x01ffffff }, 5: { flags: 2, color: 0x01ffffff } };
+  // Проверено на экране (Win11 26300): 3 с flags 0 — чистое размытие (Windows чуть притемняет); flags 2 — чёрное при любом цвете,
+  // 4 (acrylic) — белёсое, 5 (hostbackdrop) — без размытия.
+  const BLUR = "luminoctis.home.through.blur";
   let accentSet = 0;
   function accent(on) {
     const a = new U.ACCENT(), d = new U.DATA(), blur = on && Services.prefs.getBoolPref(BLUR, false);
-    const bs = Services.prefs.getIntPref(BLUR_ACCENT, 4), b = BLURS[bs] ?? BLURS[4];
-    Object.assign(a, blur ? { state: bs in BLURS ? bs : 4, ...b, anim: 0 } : { state: on ? 2 : 0, flags: on ? 2 : 0, color: 0, anim: 0 });
+    Object.assign(a, blur ? { state: 3, flags: 0, color: 0, anim: 0 } : { state: on ? 2 : 0, flags: on ? 2 : 0, color: 0, anim: 0 });
     d.attr = 19; // WCA_ACCENT_POLICY
     d.data = a.address();
     d.size = U.ACCENT.size;
@@ -79,7 +77,7 @@
     win: () => api() && { accent: accentSet, browserHwnd: window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle },
   };
 
-  for (const p of [BLUR, BLUR_ACCENT]) Services.prefs.addObserver(p, () => { if (through && api()) accent(true); }); // применяется сразу
+  Services.prefs.addObserver(BLUR, () => { if (through && api()) accent(true); }); // применяется сразу
   window.addEventListener("TabSelect", update);
   window.addEventListener("sizemodechange", update);
   mica.addEventListener("change", update);

@@ -247,8 +247,25 @@
   const pinButtons = new WeakMap(); // вкладка закрепа -> плитка в рейке
   const panelOf = tab => tab?.linkedBrowser?.closest(".browserSidebarContainer");
 
+  // Закрытие окошка — обратное появлению (chrome.css, lumi-pin-in/lumi-fade-in): then() вызывается после анимации и всё снимает.
+  // При «уменьшить анимацию» — сразу. smooth только у действий пользователя; программные hidePin() (выгрузка, открепление) — мгновенные.
+  let leaving = false;
+  async function leave(then, withPanel = true) {
+    if (!shown?.mini || leaving || matchMedia("(prefers-reduced-motion: reduce)").matches) return then();
+    leaving = true;
+    const cur = shown;
+    const fade = (el, ms, easing, shift) => el.animate(
+      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }], { duration: ms, easing, fill: "forwards" });
+    const anims = [fade(backdrop, 160, "ease-in"), fade(frame, 200, "cubic-bezier(0.4, 0, 1, 1)", true)];
+    if (withPanel && panelOf(cur.pin)) anims.push(fade(panelOf(cur.pin), 200, "cubic-bezier(0.4, 0, 1, 1)", true));
+    await Promise.allSettled(anims.map(a => a.finished));
+    leaving = false;
+    if (shown === cur) then(); // иначе за это время выбрали другую вкладку — release уже был
+    anims.forEach(a => a.cancel());
+  }
+
   function showPin(pin) {
-    if (shown?.mini && shown.pin === pin) return;
+    if (leaving || (shown?.mini && shown.pin === pin)) return;
     const old = shown?.mini ? shown.pin : null; // окошко другого закрепа: прежняя вкладка под ним остаётся та же
     const prev = old ? shown.prev : gBrowser.selectedTab === pin ? gBrowser._findTabToBlurTo(pin) : gBrowser.selectedTab;
     if (!old) release();
@@ -272,17 +289,25 @@
     gBrowser.selectedBrowser.focus(); // клавиатура — сразу сайту закрепа, а не плитке рейки
   }
   // Спрятать закреп (окошком или во весь экран): снова выбрана вкладка, что была до него
-  function hidePin() {
+  function hidePin(smooth) {
+    if (smooth === true && shown?.mini) return leave(() => hidePin());
     const pin = shown?.pin ?? gBrowser.selectedTab, prev = shown?.prev;
     const to = prev?.isConnected && !prev.closing && prev !== pin ? prev : gBrowser._findTabToBlurTo(pin);
     if (to) gBrowser.selectedTab = to;
     release();
     gBrowser.selectedBrowser.focus();
   }
-  function expandPin() {
+  function expandNow() {
     const { pin, prev } = shown;
     release();
     shown = { pin, prev, mini: false };
+  }
+  const expandPin = () => shown?.mini && leave(expandNow, false);
+  // Средний клик по закрепу: сразу обычная вкладка, без окошка
+  function openPinAsTab(pin) {
+    if (leaving) return;
+    if (!(shown?.pin === pin && !shown.mini)) showPin(pin);
+    if (shown?.mini) expandNow();
   }
   // окошко → обычный вид: панели закрепа и прежней вкладки — как у всех вкладок
   function release() {
@@ -313,7 +338,7 @@
   function initPinWindow() {
     // в #tabbrowser-tabbox: панели вкладок — его слои, иначе окошко не встало бы над затемнением
     backdrop = h("div", "", { id: "lumi-pin-backdrop", hidden: true });
-    backdrop.addEventListener("click", hidePin);
+    backdrop.addEventListener("click", () => hidePin(true));
     frame = h("div", "", { id: "lumi-pin-frame", hidden: true });
     frame.setAttribute("role", "dialog");
     const full = labeled(h("button", "lumi-pin-full"), "Открыть во вкладке");
@@ -350,7 +375,7 @@
     document.getElementById("mainCommandSet").addEventListener("command", event => {
       if (event.target.id != "cmd_close" || !isPin(gBrowser.selectedTab)) return;
       event.stopPropagation();
-      hidePin();
+      hidePin(true);
     }, true);
   }
 
@@ -474,7 +499,34 @@
       if (from < 0 && !pinTab(tab)) return releaseGap(false);
       movePin(tab, from >= 0 && from < to ? to - 1 : to);
     });
+    // Вкладку из полосы — на кнопку пространства: переезжает туда, пространство открывается (как «Переместить в пространство» в меню вкладки Zen)
+    const wsOf = event => {
+      const btn = event.target.closest?.("#zen-workspaces-button toolbarbutton[zen-workspace-id]");
+      const tab = btn && droppable(event.dataTransfer);
+      return tab && !isPin(tab) && tab.getAttribute("zen-workspace-id") != btn.getAttribute("zen-workspace-id") ? { btn, tab } : null;
+    };
+    const clearTargets = () => document.querySelectorAll("[lumi-drop-target]").forEach(b => b.removeAttribute("lumi-drop-target"));
+    rail.addEventListener("dragover", event => {
+      const hit = wsOf(event);
+      clearTargets();
+      if (!hit) return;
+      event.preventDefault();
+      event.dataTransfer.dropEffect = "move";
+      hit.btn.setAttribute("lumi-drop-target", "");
+    });
+    rail.addEventListener("dragleave", event => rail.contains(event.relatedTarget) || clearTargets());
+    rail.addEventListener("drop", async event => {
+      const hit = wsOf(event);
+      clearTargets();
+      if (!hit) return;
+      event.preventDefault();
+      const id = hit.btn.getAttribute("zen-workspace-id");
+      gZenWorkspaces.moveTabToWorkspace(hit.tab, id);
+      gZenWorkspaces.lastSelectedWorkspaceTabs[id] = hit.tab; // в пространстве выбрана именно она
+      await gZenWorkspaces.changeWorkspace(gZenWorkspaces.getWorkspaceFromId(id));
+    });
     box.addEventListener("dragend", () => {
+      clearTargets();
       dragged = null;
       line.hidden = true;
       if (!gapPending) releaseGap(false);
@@ -490,7 +542,8 @@
       btn = h("div", "lumi-pin", { tabIndex: 0, draggable: true, tab });
       btn.setAttribute("role", "button");
       btn.append(h("img", "", { alt: "" }));
-      btn.addEventListener("click", () => (shown?.pin === tab ? hidePin() : showPin(tab)));
+      btn.addEventListener("click", () => (shown?.pin === tab ? hidePin(true) : showPin(tab)));
+      btn.addEventListener("auxclick", event => event.button == 1 && openPinAsTab(tab));
       btn.addEventListener("keydown", event => {
         if (event.key != "Enter" && event.key != " ") return;
         event.preventDefault();

@@ -253,6 +253,8 @@
     &[active="true"] { border: 1px solid var(--lumi-accent); background: var(--lumi-raised) !important; color: var(--lumi-accent); }
     &:hover:not([active="true"]) { background: var(--lumi-surface) !important; }
     &:hover { box-shadow: var(--lumi-rail-glow) !important; }
+    /* над кнопкой тащат вкладку из полосы — сюда она переедет (js/lumi-rail.uc.js) */
+    &[lumi-drop-target] { box-shadow: var(--lumi-rail-glow) !important; border-color: var(--lumi-accent); background: var(--lumi-raised) !important; color: var(--lumi-accent); }
     /* точка контейнера в правом нижнем углу. Zen рисует свой ::after (точку по центру) при нехватке места
      * и при наведении; userChrome — пользовательский уровень, он уступает стилям Zen, поэтому всё с !important */
     &::after { display: none !important; }

@@ -101,6 +101,30 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       schedule();
     }, () => (ghosts.delete(item), rowAnim?.cancel()));
   };
+  // Появление: новая вкладка разворачивается из нуля и въезжает сверху. fresh — только что открытые (TabOpen); если их
+  // сразу много (восстановление сессии, «открыть все») — не анимируем.
+  const fresh = new Set();
+  let burst = 0, burstTimer;
+  window.addEventListener("TabOpen", event => {
+    clearTimeout(burstTimer);
+    burstTimer = setTimeout(() => (burst = 0), 300);
+    if (++burst <= 3) fresh.add(event.target);
+    else fresh.clear();
+  });
+  const grow = (item, tab, rowFrom) => {
+    const { width } = item.getBoundingClientRect();
+    if (!width) return;
+    const shrink = { flexGrow: 0, flexShrink: 0, minWidth: 0, paddingInline: "0px" };
+    const margin = getComputedStyle(item).marginLeft;
+    const timing = { duration: 220, easing: "cubic-bezier(0.2, 0.8, 0.2, 1)", fill: "both" };
+    const rowTo = getComputedStyle(row).flexBasis;
+    const rowAnim = rowFrom?.endsWith("px") && rowTo.endsWith("px") ? row.animate([{ flexBasis: rowFrom }, { flexBasis: rowTo }], timing) : null;
+    const done = () => (item.getAnimations().forEach(a => a.cancel()), rowAnim?.cancel());
+    item.animate([
+      { ...shrink, flexBasis: "0px", maxWidth: "0px", marginLeft: "0px", opacity: 0, transform: "translateY(-24px)" },
+      { ...shrink, flexBasis: `${width}px`, maxWidth: `${width}px`, marginLeft: margin, opacity: 1, transform: "none" },
+    ], timing).finished.then(done, done);
+  };
   // перетаскивание вкладок (ниже): расступившиеся остаются сдвинутыми после броска, пока render не пересоберёт ряд
   let dragged = null, dragFrom = -1, gapPending = false;
   const liveItems = () => [...row.children].filter(el => !el.hasAttribute("closing"));
@@ -116,6 +140,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     tabs.forEach(tab => update(itemFor(tab), tab));
     const wanted = tabs.map(itemFor);
     for (const ghost of [...ghosts].sort((a, b) => a.lumiSlot - b.lumiSlot)) wanted.splice(Math.min(ghost.lumiSlot, wanted.length), 0, ghost);
+    // «+» сразу за вкладками: ряд растёт вместе с новой вкладкой (прежняя ширина — до смены --lumi-tabs-w)
+    const rowFrom = fresh.size && Services.prefs.getStringPref("luminoctis.tabs.newtab-position", "end") == "after-tabs" ? getComputedStyle(row).flexBasis : null;
     const now = [...row.children];
     if (wanted.length != now.length || wanted.some((el, i) => el !== now[i])) row.replaceChildren(...wanted);
     // полная ширина вкладок (без сжатия) — для «+» сразу за вкладками (chrome.css, раздел 9): 210px, квадратики 28px, зазоры 6px.
@@ -125,6 +151,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     strip.style.setProperty("--lumi-tabs-w", `${full}px`);
     strip.style.setProperty("--lumi-tabs-shrink", full ? (tabs.filter(tab => !tab.pinned).length * 210) / full : 1);
     if (gapPending) releaseGap(true);
+    if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !now.includes(items.get(tab))) grow(items.get(tab), tab, rowFrom);
+    fresh.clear();
     // к выбранной — только когда выбор сменился: иначе любая фоновая вкладка (загрузка, заголовок) сбивала прокрутку пользователя
     const selected = items.get(gBrowser.selectedTab);
     if (selected?.isConnected && selected !== shownSelected) row.ensureElementIsVisible(selected);

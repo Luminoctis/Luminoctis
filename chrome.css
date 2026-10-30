@@ -672,6 +672,25 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 }
 #lumi-hot-left { top: 0; bottom: 0; left: 0; width: 5px; }
 #lumi-hot-top { top: 0; left: 0; right: 0; height: 5px; }
+/* подсветка края: тонкая линия акцента там, где спрятана панель; ярче при наведении на горячую зону, гаснет, пока панель выехала */
+:is(#lumi-hot-left, #lumi-hot-top)::after {
+  content: ""; position: absolute; pointer-events: none; opacity: 0.5; transition: opacity 200ms ease-out;
+  background: var(--lumi-accent); box-shadow: 0 0 6px var(--lumi-accent);
+}
+#lumi-hot-left::after { inset: 0 auto 0 0; width: 2px; mask-image: linear-gradient(to bottom, transparent, #000 20%, #000 80%, transparent); }
+#lumi-hot-top::after { inset: 0 0 auto 0; height: 2px; mask-image: linear-gradient(to right, transparent, #000 20%, #000 80%, transparent); }
+:is(#lumi-hot-left, #lumi-hot-top):hover::after { opacity: 0.9; }
+:root[lumi-show-sidebar] #lumi-hot-left::after, :root[lumi-show-tabstrip] #lumi-hot-top::after { opacity: 0; }
+/* только адресная строка спрятана (полоса вкладок на месте): линия у верха сайта, под полосой */
+@media -moz-pref("zen.view.compact.hide-toolbar") and (not -moz-pref("luminoctis.compact.tabstrip")) {
+  :root[zen-compact-mode="true"]:not([inDOMFullscreen="true"]) #zen-appcontent-wrapper::before {
+    content: ""; position: absolute; inset: 0 0 auto 0; height: 2px; z-index: 4; pointer-events: none; opacity: 0.5;
+    background: var(--lumi-accent); box-shadow: 0 0 6px var(--lumi-accent);
+    mask-image: linear-gradient(to right, transparent, #000 20%, #000 80%, transparent); transition: opacity 200ms ease-out;
+  }
+  :root:has(#zen-appcontent-navbar-wrapper:hover) #zen-appcontent-wrapper::before { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) { :is(#lumi-hot-left, #lumi-hot-top)::after, #zen-appcontent-wrapper::before { transition: none !important; } }
 @media -moz-pref("luminoctis.compact.sidebar") {
   :root:not([inDOMFullscreen="true"]) {
     & #lumi-hot-left { display: block; }

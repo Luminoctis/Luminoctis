@@ -545,6 +545,12 @@ renderPalette();
     input.addEventListener("input", () => Services.prefs.setIntPref(pref, Number(input.value)));
     watchPref(pref, () => { input.value = String(Services.prefs.getIntPref(pref, Number(input.dataset.default))); if (out) out.value = input.value; });
   }
+  // ползунок прозрачности выехавших панелей действует только в прозрачном режиме окна
+  watchPref("luminoctis.look.window", () => {
+    const on = Services.prefs.getStringPref("luminoctis.look.window", "") == "transparent";
+    $("#compact-transparency").classList.toggle("off", !on);
+    $("#compact-transparency input").disabled = !on;
+  });
   // строки: поиск, папка (пусто — сброс)
   for (const input of document.querySelectorAll("[data-str-pref]")) {
     const pref = input.dataset.strPref;

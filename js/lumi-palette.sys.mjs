@@ -45,6 +45,8 @@ const override = () => Services.prefs.getBoolPref(FROM_WALL, false) && Services.
 const LOOK = "luminoctis.look.";
 export const GLASS = { see: [LOOK + "transparency", 45] }; // [pref, по умолчанию]
 Services.prefs.clearUserPref(LOOK + "blur"); // ползунок размытия панелей убран (2026-10-30): сайт под ними всё равно не размывается
+// отдельная прозрачность выехавших панелей Compacting (рейка, полоса вкладок, адресная строка), только в прозрачном режиме окна
+const COMPACT = "luminoctis.compact.transparency";
 const int = ([pref, def], max) => Math.min(max, Math.max(0, Services.prefs.getIntPref(pref, def)));
 const isGlass = () => Services.prefs.getStringPref(LOOK + "window", "") == "transparent";
 // чем выше слой, тем плотнее: текст на поверхностях и выбранном остаётся читаемым
@@ -56,6 +58,8 @@ const paint = doc => {
   const glass = glassDocs.has(doc) && isGlass(), solid = 100 - int(GLASS.see, 90);
   for (const t of TOKENS) root.style.setProperty(`--lumi-${t}`,
     glass && t in LIFT ? `color-mix(in srgb, ${c[t]} ${Math.min(100, solid + LIFT[t])}%, transparent)` : c[t]);
+  const cs = glass ? 100 - Math.min(90, Math.max(0, Services.prefs.getIntPref(COMPACT, 45))) : 100; // в непрозрачном режиме — сплошные
+  for (const [v, t] of [["compact-bg", "bg0"], ["compact-bg1", "bg1"]]) root.style.setProperty(`--lumi-${v}`, cs == 100 ? c[t] : `color-mix(in srgb, ${c[t]} ${cs}%, transparent)`);
   root.style.setProperty("--lumi-solid", c.bg0); // непрозрачный bg0: текст на акценте, подложка сайтов
   root.toggleAttribute("lumi-glass", glass);
 };
@@ -64,6 +68,7 @@ const repaint = () => queued ||= Promise.resolve().then(() => { queued = null; d
 Services.prefs.addObserver(PREF, repaint);
 Services.prefs.addObserver(FROM_WALL, repaint);
 Services.prefs.addObserver(LOOK, repaint);
+Services.prefs.addObserver(COMPACT, repaint);
 // glass: документ — интерфейс браузера (окно, панель настроек) и становится прозрачным в прозрачном режиме
 export function watch(doc, { glass = false } = {}) {
   docs.add(doc);

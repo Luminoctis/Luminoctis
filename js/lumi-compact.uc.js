@@ -51,4 +51,30 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
     }
     zones.push(zone);
   }
+
+  // Прозрачный режим окна ([lumi-glass]): сквозь выехавшую панель видно то, что за окном, а не сайт. Для этого область сайтов
+  // (#tabbrowser-tabpanels — она же Split view и закреп-окошко) режется clip-path ровно под панелями: рейка слева, полоса вкладок / адресная строка сверху.
+  // Сайт не двигается и не перерисовывается. Размер реза считаем по живым прямоугольникам панелей на каждом кадре, пока идёт их
+  // анимация (transitionrun / атрибуты) — клип едет синхронно с выездом, любое сочетание панелей и reduced-motion обходятся одинаково.
+  // chrome.css, раздел 14: clip-path: var(--lumi-cut); вне стекла и в fullscreen переменная не действует.
+  const nav = document.getElementById("zen-appcontent-navbar-wrapper"), panels = document.getElementById("tabbrowser-tabpanels");
+  let cutUntil = 0, running = false, last = "";
+  const cut = () => {
+    let l = 0, t = 0;
+    if (root.hasAttribute("lumi-glass") && root.getAttribute("inDOMFullscreen") !== "true") {
+      const tp = panels.getBoundingClientRect(), n = nav.getBoundingClientRect();
+      l = rail.getBoundingClientRect().right - tp.left;
+      t = Math.max(strip.getBoundingClientRect().bottom, n.height > 20 ? n.bottom : 0) - tp.top; // свёрнутая строка (8px) — лишь невидимая зона показа
+    }
+    const value = l >= 1 || t >= 1 ? `inset(${Math.max(t, 0)}px 0 0 ${Math.max(l, 0)}px)` : "";
+    if (value != last) { last = value; value ? panels.style.setProperty("--lumi-cut", value) : panels.style.removeProperty("--lumi-cut"); }
+  };
+  const frame = () => { cut(); if (Date.now() < cutUntil) requestAnimationFrame(frame); else running = false; };
+  const kick = () => { cutUntil = Date.now() + 450; if (!running) { running = true; requestAnimationFrame(frame); } };
+  new MutationObserver(kick).observe(root, { attributes: true });
+  new MutationObserver(kick).observe(nav, { attributes: true, attributeFilter: ["zen-has-hover", "zen-has-implicit-hover", "style"] });
+  for (const el of [rail, strip, nav]) el.addEventListener("transitionrun", kick);
+  for (const name of ["luminoctis.compact.sidebar", "luminoctis.compact.tabstrip", "zen.view.compact.hide-toolbar"]) Services.prefs.addObserver(name, kick);
+  window.addEventListener("resize", kick);
+  kick();
 });

@@ -794,6 +794,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
   /* рейка, полоса вкладок и адресная строка в Compacting лежат на сайте с тем же стеклом, что и на месте (--lumi-bg0/bg1) — подложки нет */
 }
+/* Compacting в стекле: пока панель выехала, сайт под ней не рисуется (js/lumi-compact.uc.js ставит --lumi-cut = inset() по живым прямоугольникам
+ * панелей), сквозь неё видно то, что за окном (рабочий стол / в «Обоях» #lumi-home-wall). Без выехавших панелей и в непрозрачном режиме клипа нет */
+:root[lumi-glass]:not([inDOMFullscreen="true"]) #tabbrowser-tabpanels { clip-path: var(--lumi-cut, none); }
 /* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
  * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
 :root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {

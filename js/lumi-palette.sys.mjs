@@ -28,13 +28,47 @@ export const PRESETS = {
   "one-dark": p("One Dark", "#21252b #282c34 #2c323c #3e4452 #abb2bf #828997 #5c6370 #61afef #61afef #56b6c2 #56b6c2 #98c379 #e5c07b #d19a66 #e06c75 #c678dd #c678dd"),
 };
 const PREF = "luminoctis.palette", HEX = /^#[0-9a-f]{6}$/;
-export const presetId = () => { const id = Services.prefs.getStringPref(PREF, ""); return PRESETS[id] ? id : "tokyo-night"; };
+// Свои темы (2026-10-30): luminoctis.look.themes = JSON [{id, name, colors:{токен:"#hex"}}], выбираются как "custom:<id>".
+// Правки цветов сохраняются прямо в тему; встроенные темы не меняются (их правки — luminoctis.palette.<id>.<токен>, как раньше).
+export const THEMES = "luminoctis.look.themes";
+export const customThemes = () => {
+  try {
+    const a = JSON.parse(Services.prefs.getStringPref(THEMES, "[]"));
+    return Array.isArray(a) ? a.filter(x => x && typeof x.id == "string" && typeof x.name == "string" && x.colors && typeof x.colors == "object") : [];
+  } catch { return []; } // битый JSON — как будто своих тем нет
+};
+export const isCustom = id => typeof id == "string" && id.startsWith("custom:");
+const theme = id => customThemes().find(x => "custom:" + x.id == id);
+const saveThemes = list => Services.prefs.setStringPref(THEMES, JSON.stringify(list));
+export const presetId = () => { const id = Services.prefs.getStringPref(PREF, ""); return PRESETS[id] || theme(id) ? id : "tokyo-night"; };
 const own = (id, t) => Services.prefs.getStringPref(`${PREF}.${id}.${t}`, "").toLowerCase();
 // правки хранятся у каждой палитры свои: смена палитры их не теряет
 export function colors(id = presetId()) {
+  const th = theme(id), base = PRESETS["tokyo-night"].colors;
+  if (th) return Object.fromEntries(TOKENS.map((t, i) => [t, HEX.test(th.colors[t]) ? th.colors[t] : base[i]]));
   return Object.fromEntries(TOKENS.map((t, i) => [t, HEX.test(own(id, t)) ? own(id, t) : PRESETS[id].colors[i]])); // кривое значение из about:config не ломает цвета
 }
-export const edited = (id = presetId()) => TOKENS.filter(t => HEX.test(own(id, t)));
+export const edited = (id = presetId()) => theme(id) ? [] : TOKENS.filter(t => HEX.test(own(id, t)));
+// новая своя тема = копия текущих цветов (с правками); сразу выбирается
+export function createTheme(name) {
+  const id = Math.random().toString(36).slice(2, 10);
+  saveThemes([...customThemes(), { id, name: name.trim() || defaultThemeName(), colors: colors() }]);
+  choose("custom:" + id);
+  return "custom:" + id;
+}
+export const defaultThemeName = () => {
+  const names = new Set(customThemes().map(x => x.name));
+  let n = 1;
+  while (names.has(n == 1 ? "Моя тема" : "Моя тема " + n)) n++;
+  return n == 1 ? "Моя тема" : "Моя тема " + n;
+};
+export function renameTheme(id, name) {
+  if (name.trim()) saveThemes(customThemes().map(x => "custom:" + x.id == id ? { ...x, name: name.trim() } : x));
+}
+export function deleteTheme(id) {
+  saveThemes(customThemes().filter(x => "custom:" + x.id != id));
+  if (Services.prefs.getStringPref(PREF, "") == id) choose("tokyo-night");
+}
 
 const docs = new Set();
 // цвет акцента из обоев Home (home/wallpaper.js пишет accentOverride; действует, пока включён luminoctis.home.accentFromWallpaper)
@@ -102,13 +136,14 @@ export function watch(doc, { glass = false } = {}) {
 }
 
 export const choose = id => Services.prefs.setStringPref(PREF, id);
-export const resetColor = t => Services.prefs.clearUserPref(`${PREF}.${presetId()}.${t}`);
+export const resetColor = t => { if (!isCustom(presetId())) Services.prefs.clearUserPref(`${PREF}.${presetId()}.${t}`); };
 export function setColor(t, hex) {
   const id = presetId();
+  if (isCustom(id)) { saveThemes(customThemes().map(x => "custom:" + x.id == id ? { ...x, colors: { ...x.colors, [t]: hex } } : x)); return; }
   if (hex == PRESETS[id].colors[TOKENS.indexOf(t)]) resetColor(t); // вернули цвет палитры — правки больше нет
   else Services.prefs.setStringPref(`${PREF}.${id}.${t}`, hex);
 }
-export const resetPalette = () => Services.prefs.getChildList(`${PREF}.${presetId()}.`).forEach(n => Services.prefs.clearUserPref(n));
+export const resetPalette = () => isCustom(presetId()) || Services.prefs.getChildList(`${PREF}.${presetId()}.`).forEach(n => Services.prefs.clearUserPref(n));
 
 // Окно «Библиотека» Firefox (places.xhtml, Ctrl+Shift+O) — отдельное, скрипты fx-autoconfig до него не доходят (ждут второй DOMContentLoaded).
 // Красим его отсюда; стили — chrome.css раздел 16. windowsmica — подложка Windows, как у главного окна: без неё в прозрачном режиме под фоном чёрное.

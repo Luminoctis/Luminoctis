@@ -108,6 +108,14 @@ kbd {
   &.on { border-color: var(--lumi-accent); }
   &:hover:not(.on) { border-color: var(--line); }
 }
+/* своя тема: ✎ и 🗑 появляются при наведении; имя правится прямо в строке */
+.preset.mine {
+  cursor: pointer;
+  & .small { width: 24px; height: 18px; min-height: 0; padding: 0; border: none; background: transparent; color: var(--lumi-muted); font-size: 12px; line-height: 1; opacity: 0; flex-shrink: 0; }
+  &:is(:hover, :focus-within) .small { opacity: 1; }
+  & .small:hover { color: var(--lumi-fg); background: var(--lumi-bg1); }
+}
+.preset .name-in { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border-radius: 7px; }
 .swatches { display: flex; gap: 3px; & i { width: 14px; height: 14px; border-radius: 4px; outline: 1px solid var(--line); outline-offset: -1px; } }
 .badge { padding: 1px 7px; border-radius: 6px; font-size: 10px; color: var(--lumi-accent); background: color-mix(in srgb, var(--lumi-accent) 14%, transparent); }
 .group { margin-top: 6px; font-size: 11px; color: var(--lumi-dim); }

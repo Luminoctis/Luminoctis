@@ -365,18 +365,62 @@ const chips = c => el("span", { className: "swatches" }, ...SAMPLE.map(t => {
   i.style.background = c[t];
   return i;
 }));
+// своя тема: строка-div (внутри кнопки кнопок не бывает) с ✎ и 🗑; имя / подтверждение удаления — прямо в строке
+let pending = null; // { mode: "create" } | { mode: "rename"|"delete", id }
+const small = (text, title, fn) => {
+  const b = el("button", { className: "small", textContent: text, title });
+  b.addEventListener("click", event => { event.stopPropagation(); fn(); });
+  return b;
+};
+function nameInput(value, commit) {
+  const input = el("input", { className: "name-in", type: "text", value, maxLength: 40, spellcheck: false });
+  const done = ok => { pending = null; if (ok) commit(input.value); else renderPresets(); };
+  input.addEventListener("keydown", event => {
+    event.stopPropagation();
+    if (event.key == "Enter") done(true);
+    else if (event.key == "Escape") { event.preventDefault(); done(false); }
+  });
+  input.addEventListener("click", event => event.stopPropagation());
+  input.addEventListener("blur", () => { if (pending) done(true); });
+  requestAnimationFrame(() => { input.focus(); input.select(); });
+  return input;
+}
 function renderPresets() {
-  const id = palette.presetId();
-  $("#presets").replaceChildren(...Object.entries(palette.PRESETS).map(([key, { name }]) => {
-    const row = el("button", { className: "preset" + (key == id ? " on" : "") }, el("span", { className: "name", textContent: name }));
+  const id = palette.presetId(), items = [];
+  const builtin = Object.entries(palette.PRESETS).map(([key, { name }]) => ({ key, name }));
+  const custom = palette.customThemes().map(t => ({ key: "custom:" + t.id, name: t.name, custom: true }));
+  for (const { key, name, custom: mine } of [...builtin, ...custom]) {
+    const row = el(mine ? "div" : "button", { className: "preset" + (key == id ? " on" : "") + (mine ? " mine" : "") });
+    const renaming = mine && pending?.mode == "rename" && pending.id == key;
+    row.append(renaming ? nameInput(name, v => palette.renameTheme(key, v)) : el("span", { className: "name", textContent: name }));
     if (palette.edited(key).length) row.append(el("span", { className: "badge", textContent: "изменена" }));
+    if (mine && !renaming) row.append(small("✎", "Переименовать", () => { pending = { mode: "rename", id: key }; renderPresets(); }),
+      small("🗑", "Удалить тему", () => { pending = { mode: "delete", id: key }; renderPresets(); }));
     row.append(chips(palette.colors(key)));
     row.dataset.preset = key;
     row.setAttribute("aria-pressed", key == id);
+    if (mine) { row.tabIndex = 0; row.setAttribute("role", "button"); }
     row.addEventListener("click", () => palette.choose(key));
-    return row;
-  }));
+    items.push(row);
+    if (mine && pending?.mode == "delete" && pending.id == key) {
+      const yes = el("button", { className: "danger", textContent: "Удалить" }), no = el("button", { textContent: "Отмена" });
+      yes.addEventListener("click", () => { pending = null; palette.deleteTheme(key); });
+      no.addEventListener("click", () => { pending = null; renderPresets(); });
+      items.push(el("div", { className: "confirm" }, el("span", { textContent: `Удалить тему «${name}»?` }), yes, no));
+    }
+  }
+  if (pending?.mode == "create") {
+    items.push(el("div", { className: "preset on creating" }, nameInput(palette.defaultThemeName(), v => palette.createTheme(v)), el("span", { className: "badge", textContent: "Enter" })));
+  }
+  $("#presets").replaceChildren(...items);
+  const edits = !palette.isCustom(id) && palette.edited().length > 0;
+  $("#theme-create").hidden = !!pending?.mode && pending.mode == "create";
+  $("#theme-create").textContent = edits ? "Сохранить правки как свою тему" : "+ Создать тему";
+  $("#theme-create").title = "Копия текущих цветов станет вашей темой";
+  $("#theme-save-hint").hidden = !edits;
 }
+$("#theme-create").addEventListener("click", () => { pending = { mode: "create" }; renderPresets(); });
+$("#theme-save-hint").addEventListener("click", () => { pending = { mode: "create" }; renderPresets(); $("#presets").scrollIntoView({ block: "center" }); });
 
 // пересчёт цветов: HSV (квадрат и полоса оттенка) ↔ RGB ↔ hex
 const hsv2rgb = (h, s, v) => [5, 3, 1].map(n => { const k = (n + h / 60) % 6; return Math.round(255 * (v - v * s * Math.max(0, Math.min(k, 4 - k, 1)))); });
@@ -518,7 +562,11 @@ const onPalette = () => {
   Promise.resolve().then(() => { paletteQueued = false; renderPalette(); });
 };
 Services.prefs.addObserver("luminoctis.palette", onPalette);
-window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.palette", onPalette));
+Services.prefs.addObserver(palette.THEMES, onPalette);
+window.addEventListener("unload", () => {
+  Services.prefs.removeObserver("luminoctis.palette", onPalette);
+  Services.prefs.removeObserver(palette.THEMES, onPalette);
+});
 renderPalette();
 
 // ---------- Luminoctis Home: папка данных (home/store.js; пусто — Documents\Luminoctis Home) ----------

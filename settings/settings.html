@@ -44,6 +44,7 @@
   <section id="look" role="tabpanel">
     <h2>Палитра</h2>
     <div id="presets" class="list"></div>
+    <button id="theme-create" class="dashed">+ Создать тему</button>
     <label class="row"><div class="text"><b>Акцент из обоев Home</b><span>Цвет акцента берётся из текущих обоев Home; выключите — вернётся цвет палитры</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
 
     <h2>Форма вкладок</h2>
@@ -80,8 +81,9 @@
       </div>
     </div>
 
-    <h2>Цвета палитры <span class="hint">· клик — изменить; правки свои у каждой палитры</span></h2>
+    <h2>Цвета палитры <span class="hint">· клик — изменить; у своей темы правки сохраняются в неё</span></h2>
     <div id="colors" class="list"></div>
+    <button id="theme-save-hint" class="dashed" hidden>Сохранить как свою тему — правки останутся и при смене темы</button>
     <button id="palette-reset" class="dashed">Сбросить палитру</button>
   </section>
 

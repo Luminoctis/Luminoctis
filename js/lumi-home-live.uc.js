@@ -74,7 +74,7 @@
   function setThrough(tab) {
     const old = tab == through ? null : through;
     through = tab;
-    document.documentElement.toggleAttribute("lumi-home-live", !!tab);
+    tab ? document.documentElement.setAttribute("lumi-home-live", "") : document.documentElement.removeAttribute("lumi-home-live");
     for (const [t, on] of [[old, false], [tab, true]]) {
       if (!t?.linkedBrowser) continue;
       on ? t.linkedBrowser.setAttribute("transparent", "true") : t.linkedBrowser.removeAttribute("transparent");
@@ -99,7 +99,7 @@
     const tab = homeTab(from);
     setThrough(tab && want && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);
     site = !through && !tab && siteWant(); // Home (и непрозрачная) рисует себя сама
-    if (!through) document.documentElement.toggleAttribute("lumi-home-live", site);
+    if (!through) site ? document.documentElement.setAttribute("lumi-home-live", "site") : document.documentElement.removeAttribute("lumi-home-live"); // "site" — дыра под обычным сайтом (chrome.css раздел 15)
     if (site) holeRect();
     applyAccent();
   }

@@ -54,9 +54,12 @@
   // ---------- окно браузера: насквозь / обычное ----------
   let want = null, through = null;
   // Home «видна»: выбрана она сама или выбран закреп-окошко (lumi-rail.uc.js showPin) — Home остаётся под ним, режим насквозь не выключаем
-  const homeTab = () => {
+  // from — вкладка, с которой только что ушли (TabSelect): в этот момент у закрепа ещё нет класса окошка, а у Home — deck-selected (их ставит рейка позже),
+  // без подсказки режим «насквозь» на кадр гас и больше не включался
+  const homeTab = from => {
     const sel = gBrowser.selectedTab;
     if (sel?.hasAttribute("lumi-home")) return sel;
+    if (from?.hasAttribute("lumi-home") && !from.closing && sel?.hasAttribute("zen-essential")) return from;
     if (!document.getElementById(sel?.linkedPanel)?.classList.contains("lumi-pin-window")) return null;
     return gBrowser.tabs.find(t => t.hasAttribute("lumi-home") && document.getElementById(t.linkedPanel)?.classList.contains("deck-selected")) ?? null;
   };
@@ -70,8 +73,8 @@
       t.linkedBrowser.contentDocument?.documentElement?.toggleAttribute("lumi-through", on);
     }
   }
-  function update() {
-    const tab = homeTab();
+  function update(from) {
+    const tab = homeTab(from);
     setThrough(tab && want && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);
     applyAccent();
   }
@@ -83,11 +86,12 @@
     win: () => api() && { accent: accentSet, browserHwnd: window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle },
   };
 
-  Services.prefs.addObserver(KIND, update); // применяются сразу
-  Services.prefs.addObserver(WIN, update);
-  window.addEventListener("unload", () => { Services.prefs.removeObserver(KIND, update); Services.prefs.removeObserver(WIN, update); }, { once: true });
-  UC_API.Windows.waitWindowLoading(window).then(update); // окно уже «Прозрачное» при запуске
-  window.addEventListener("TabSelect", update);
-  window.addEventListener("sizemodechange", update);
-  mica.addEventListener("change", update);
+  const onPref = () => update();
+  Services.prefs.addObserver(KIND, onPref); // применяются сразу
+  Services.prefs.addObserver(WIN, onPref);
+  window.addEventListener("unload", () => { Services.prefs.removeObserver(KIND, onPref); Services.prefs.removeObserver(WIN, onPref); }, { once: true });
+  UC_API.Windows.waitWindowLoading(window).then(() => update()); // окно уже «Прозрачное» при запуске
+  window.addEventListener("TabSelect", e => { update(e.detail?.previousTab); requestAnimationFrame(() => update()); });
+  window.addEventListener("sizemodechange", () => update());
+  mica.addEventListener("change", () => update());
 })();

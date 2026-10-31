@@ -26,6 +26,7 @@
     for (const n of [...pr.getChildList(P + "we."), ...pr.getChildList("luminoctis.home.eq."), P + "src.we"]) pr.clearUserPref(n);
   }
 
+  const isEmpty = tab => !!tab?.hasAttribute("zen-empty-tab"); // серая пустая вкладка Zen: выбрана в пространстве без вкладок
   const isHome = tab => !!tab?.hasAttribute(KEY);
   const urlOf = tab => tab.linkedBrowser?.currentURI?.spec;
   // Home этого окна: помеченная, иначе восстановленная сессией (значение или адрес); лишние закрываем
@@ -55,7 +56,7 @@
   const ensure = () => { if (wallMode() && !find()) create(true); };
 
   function open() {
-    if (!isHome(gBrowser.selectedTab)) prev = gBrowser.selectedTab; // новая Home выбирается ещё до метки — TabSelect её не узнает
+    if (!isHome(gBrowser.selectedTab) && !isEmpty(gBrowser.selectedTab)) prev = gBrowser.selectedTab; // новая Home выбирается ещё до метки — TabSelect её не узнает
     const home = find() ?? create();
     const ws = gZenWorkspaces.activeWorkspace;
     if (ws && home.getAttribute("zen-workspace-id") != ws) gZenWorkspaces.moveTabToWorkspace(home, ws);
@@ -65,22 +66,23 @@
   }
   // назад: прежняя вкладка, если она ещё есть в этом пространстве; иначе — последняя использованная обычная
   function back() {
-    const ok = t => t && !t.closing && gBrowser.visibleTabs.includes(t) && !isHome(t);
+    const ok = t => t && !t.closing && gBrowser.visibleTabs.includes(t) && !isHome(t) && !isEmpty(t);
     const to = ok(prev) ? prev
       : gBrowser.visibleTabs.filter(t => ok(t) && !t.hasAttribute("zen-essential"))
-        .reduce((best, t) => (!best || t.lastAccessed > best.lastAccessed ? t : best), null) ?? gZenWorkspaces._emptyTab;
-    if (to) gBrowser.selectedTab = to;
+        .reduce((best, t) => (!best || t.lastAccessed > best.lastAccessed ? t : best), null);
+    if (to) gBrowser.selectedTab = to; // вернуться некуда (пространство пусто) — остаёмся на Home, а не на серой заглушке
   }
   // подсветка «L» и обои под всем окном ([lumi-home-wall] на корне — chrome.css раздел 15); кадр в #lumi-home-wall рисует сама Home (home/wallpaper.js)
-  function lit(on) {
+  function lit(on, from) {
     document.getElementById("lumi-logo")?.toggleAttribute("lumi-home-open", on);
-    document.documentElement.toggleAttribute("lumi-home-wall", on || underPin() || wallMode());
+    document.documentElement.toggleAttribute("lumi-home-wall", on || underPin(from) || wallMode());
   }
   // выбран закреп-окошко (lumi-rail.uc.js), а под ним видна Home — обои под интерфейсом остаются (как «насквозь» в lumi-home-live.uc.js)
   const panelOf = t => t && document.getElementById(t.linkedPanel);
   // в момент TabSelect класса окошка ещё нет — закреп (zen-essential) узнаём сразу, иначе на кадр мигает рабочий стол; rAF-повтор в TabSelect уточнит
-  const underPin = () => !!(gBrowser.selectedTab?.hasAttribute("zen-essential") || panelOf(gBrowser.selectedTab)?.classList.contains("lumi-pin-window")) &&
-    !!panelOf(gBrowser.tabs.find(isHome))?.classList.contains("deck-selected");
+  // from — вкладка, с которой только что ушли (TabSelect): панель Home в этот момент ещё без deck-selected (рейка вернёт его в микрозадаче) — без подсказки обои мигнули бы
+  const underPin = from => !!(gBrowser.selectedTab?.hasAttribute("zen-essential") || panelOf(gBrowser.selectedTab)?.classList.contains("lumi-pin-window")) &&
+    (isHome(from) || !!panelOf(gBrowser.tabs.find(isHome))?.classList.contains("deck-selected"));
   const neverUnload = () => wallMode() || Services.prefs.getBoolPref("luminoctis.home.never-unload", false);
   const toggle = () => (isHome(gBrowser.selectedTab) ? back() : open());
   window.lumiHome = { toggle, open, back, isHome, find, URL, settle: () => settle() }; // settle — старт (для проверок)
@@ -98,6 +100,7 @@
   // Zen сам выбирает при старте пустую вкладку или (continue-where-left-off) прошлую — она бы загрузилась — и открывает над ней поиск (open-on-startup).
   // Пока он выбирает, обе настройки временно выключены (старые значения лежат в pref luminoctis.home.startup-saved, возвращает окно, которое их выключило); когда Zen закончил — выбираем Home
   // и выгружаем всё, что успело загрузиться (вкладки сессии уже pending: browser.sessionstore.restore_on_demand).
+  let armed = false; // пустое пространство → Home включается после старта (settle сам выбирает Home)
   const arg = window.arguments?.[0];
   const startsOnHome = !PrivateBrowsingUtils.isWindowPrivate(window) && window.toolbar.visible &&
     (!arg || (typeof arg == "string" && (typeof isInitialPage != "function" || isInitialPage(arg.split("|")[0]))));
@@ -122,7 +125,7 @@
       pr.setStringPref(SAVED, JSON.stringify(ZEN.map(n => [n, pr.prefHasUserValue(n), pr.getBoolPref(n, false)])));
       for (const n of ZEN) pr.setBoolPref(n, false);
     }
-    Promise.race([gZenWorkspaces.promiseInitialized, new Promise(r => setTimeout(r, 20000))]).then(() => UC_API.Windows.waitWindowLoading(window)).then(settle)
+    Promise.race([gZenWorkspaces.promiseInitialized, new Promise(r => setTimeout(r, 20000))]).then(() => UC_API.Windows.waitWindowLoading(window)).then(settle).then(() => { armed = true; })
       .catch(console.error).finally(() => { if (owner) restore(); });
   }
 
@@ -145,13 +148,24 @@
     wall.append(document.createElementNS(HTML, "canvas"));
     const bg = document.getElementById("zen-browser-background"); // под рейкой и интерфейсом, над фоном окна
     if (bg) bg.after(wall); else document.getElementById("browser")?.prepend(wall);
-    const sync = () => lit(isHome(gBrowser.selectedTab));
+    const sync = from => lit(isHome(gBrowser.selectedTab), from);
     window.addEventListener("TabSelect", event => {
-      if (isHome(event.target) && !isHome(event.detail?.previousTab)) prev = event.detail?.previousTab ?? null;
-      sync();
-      requestAnimationFrame(sync); // класс окошка закрепа ставится после TabSelect
+      if (isHome(event.target) && !isHome(event.detail?.previousTab) && !isEmpty(event.detail?.previousTab)) prev = event.detail?.previousTab ?? null;
+      sync(event.detail?.previousTab);
+      requestAnimationFrame(() => sync()); // класс окошка закрепа ставится после TabSelect
     });
-    if (!startsOnHome) SessionStore.promiseAllWindowsRestored.then(() => { find(); ensure(); sync(); }).catch(console.error);
+    // Пустое пространство (переключились в него или закрыли последнюю вкладку): Zen выбирает серую пустую вкладку — вместо неё Home.
+    // Отложено: пока Zen заканчивает переключение / закрытие, выбранная вкладка и активное пространство ещё не устоялись.
+    if (!PrivateBrowsingUtils.isWindowPrivate(window) && window.toolbar.visible) {
+      let timer;
+      window.addEventListener("TabSelect", () => {
+        clearTimeout(timer);
+        timer = setTimeout(() => { if (armed && isEmpty(gBrowser.selectedTab)) open(); }, 80);
+      });
+    }
+    // Home прошлой сессии восстанавливается позже старта (уже создана новая) — find() оставит одну, иначе старая висит в полосе как «Luminoctis Home»
+    window.addEventListener("SSTabRestoring", event => { if (SessionStore.getCustomTabValue(event.target, KEY) == "1") find(); });
+    if (!startsOnHome) SessionStore.promiseAllWindowsRestored.then(() => { armed = true; find(); ensure(); sync(); }).catch(console.error);
     const onWin = () => { ensure(); sync(); };
     Services.prefs.addObserver("luminoctis.look.window", onWin);
     window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.look.window", onWin), { once: true });

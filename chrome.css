@@ -307,9 +307,11 @@
 }
 #lumi-pin-backdrop {
   position: absolute; inset: -100vh -100vw; z-index: 10; /* за края tabbox — на всё окно, кроме рейки (она слоем выше) */
-  background: rgba(0, 0, 0, 0.35);
+  /* затемнение — цвет темы (bg0 с подмешанным чёрным), не плоский чёрный; в стекле легче, чтобы рабочий стол/обои под Home не пропадали */
+  background: color-mix(in srgb, color-mix(in srgb, var(--lumi-solid) 70%, #000) 50%, transparent);
   -moz-window-dragging: no-drag;
 }
+:root[lumi-glass] #lumi-pin-backdrop { background: color-mix(in srgb, color-mix(in srgb, var(--lumi-solid) 70%, #000) 30%, transparent); }
 #lumi-pin-frame {
   position: absolute; z-index: 11;
   inset: var(--lumi-pin-y) auto var(--lumi-pin-y) var(--lumi-pin-x); width: var(--lumi-pin-w);
@@ -342,7 +344,7 @@
   & .browserContainer { margin: 0 !important; } /* родной сдвиг сайта под выехавшую адресную строку — не в окошке */
 }
 :is(#lumi-pin-backdrop, #lumi-pin-frame)[hidden] { display: none; }
-#lumi-pin-backdrop { animation: lumi-fade-in 160ms ease-out; }
+#lumi-pin-backdrop { animation: lumi-fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); } /* то же время и кривая, что у окошка */
 :is(#lumi-pin-frame, .lumi-pin-window) { animation: lumi-pin-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes lumi-fade-in { from { opacity: 0; } }
 @keyframes lumi-pin-in { from { opacity: 0; translate: -12px 0; } }
@@ -834,7 +836,12 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #zen-browser-background::before, & #zen-browser-background::after { background: transparent !important; }
   /* вне вкладки (--lumi-home-x/y ставит страница), у края вкладки обои продолжает сама страница (.lumi-wp-edge) */
   & #lumi-home-wall {
-    mask-image: linear-gradient(to right, #000 var(--lumi-home-x, 0px), transparent 0), linear-gradient(to bottom, #000 var(--lumi-home-y, 0px), transparent 0);
+    /* третий слой — «клин» вне скруглённого левого верхнего угла вкладки (--lumi-radius): страница там не рисуется, без него в клине была дыра насквозь */
+    mask-image: linear-gradient(to right, #000 var(--lumi-home-x, 0px), transparent 0), linear-gradient(to bottom, #000 var(--lumi-home-y, 0px), transparent 0),
+      radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius));
+    mask-size: 100% 100%, 100% 100%, var(--lumi-radius) var(--lumi-radius);
+    mask-position: 0 0, 0 0, var(--lumi-home-x, 0px) var(--lumi-home-y, 0px);
+    mask-repeat: no-repeat;
   }
   &:not([lumi-glass]) #lumi-home-wall { display: block; background: var(--lumi-solid); }
   &:not([lumi-glass]) #lumi-home-wall > canvas { display: none; }
@@ -857,6 +864,10 @@ zen-library {
   & .zen-library-filter-chip[active] { background: var(--lumi-raised) !important; box-shadow: inset 0 0 0 1px var(--lumi-accent) !important; }
   & .zen-library-row:hover { background: var(--lumi-raised) !important; }
   & :is(.zen-library-row-subtitle, .zen-library-group h3, .zen-library-empty) { color: var(--lumi-muted) !important; opacity: 1 !important; }
+  /* плитки пространств («Spaces»): фон даёт Zen (.zen-toolbar-background = чёрный rgb(19,19,19)) — своей палитрой; в стекле surface сам полупрозрачный */
+  & .zen-library-space-background { background: var(--lumi-surface) !important; }
+  & .zen-library-space-background::before, & .zen-library-space-background::after { background: transparent !important; } /* ::after — тёмный слой Zen поверх */
+  & .zen-library-space { color: var(--lumi-fg) !important; }
   & .zen-library-search-results[scrolled] { border-top-color: var(--lumi-line) !important; }
   & .zen-library-media-opt-in { background: var(--lumi-surface) !important; box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45), 0 0 0 1px color-mix(in srgb, var(--lumi-accent) 55%, transparent) !important; }
 }

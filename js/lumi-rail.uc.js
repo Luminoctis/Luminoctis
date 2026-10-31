@@ -257,7 +257,7 @@
     const cur = shown;
     const fade = (el, ms, easing, shift) => el.animate(
       [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }], { duration: ms, easing, fill: "forwards" });
-    const anims = [fade(backdrop, 160, "ease-in"), fade(frame, 200, "cubic-bezier(0.4, 0, 1, 1)", true)];
+    const anims = [fade(backdrop, 200, "cubic-bezier(0.4, 0, 1, 1)"), fade(frame, 200, "cubic-bezier(0.4, 0, 1, 1)", true)];
     if (withPanel && panelOf(cur.pin)) anims.push(fade(panelOf(cur.pin), 200, "cubic-bezier(0.4, 0, 1, 1)", true));
     await Promise.allSettled(anims.map(a => a.finished));
     leaving = false;

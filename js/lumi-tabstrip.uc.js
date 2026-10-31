@@ -51,13 +51,15 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     }
     return item;
   };
-  // Кнопка вкладки: «−» (выгрузить) у загруженной невыбранной, «×» (закрыть) у выгруженной, выбранной и той, что Zen выгрузить не умеет
+  // Кнопка вкладки: «−» (выгрузить; выбранную — после перехода на Home) у загруженной, «×» (закрыть) у выгруженной и той, что Zen выгрузить не умеет
   // (about:-страницы, кроме about:blank; нет процесса)
   const unloadable = tab => {
-    if (tab.hasAttribute("pending") || tab.selected) return false;
+    if (tab.hasAttribute("pending")) return false;
     const b = tab.linkedBrowser, uri = b?.currentURI;
     return !!b?.isRemoteBrowser && !!uri && (!uri.schemeIs("about") || uri.spec == "about:blank");
   };
+  // выбранную сперва уводим на Home (иначе Zen выберет соседа), потом выгружаем
+  const unloadTab = tab => luminoctis.unload(tab); // с выбранной вкладки уводит на Home (js/lumi-rail.uc.js)
   const update = (item, tab, hoverCard) => {
     const icon = gBrowser.getIcon(tab), img = item.icon;
     if (img.getAttribute("src") != icon) icon ? img.setAttribute("src", icon) : img.removeAttribute("src");
@@ -328,7 +330,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const tab = event.target.closest(".lumi-fr")?.tab, { classList } = event.target;
     if (!tab || event.button != 0) return;
     if (classList.contains("lumi-fr-close")) gBrowser.removeTab(tab, { animate: true }); // список остаётся, строка уходит с обновлением
-    else if (classList.contains("lumi-fr-unload")) luminoctis.unload(tab);
+    else if (classList.contains("lumi-fr-unload")) unloadTab(tab);
     else if (classList.contains("lumi-fr-audio")) tab.toggleMuteAudio();
     else {
       gBrowser.selectedTab = tab;
@@ -431,7 +433,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const tab = tabOf(event);
     if (!tab || event.button != 0) return;
     if (event.target.classList.contains("lumi-tab-close")) {
-      if (unloadable(tab)) luminoctis.unload(tab);
+      if (unloadable(tab)) unloadTab(tab);
       else gBrowser.removeTab(tab, { animate: true });
     } else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
     else gBrowser.selectedTab = tab;

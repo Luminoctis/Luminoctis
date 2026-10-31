@@ -195,10 +195,13 @@
     if (tab.selected) hidePin();
     gBrowser.explicitUnloadTabs([tab]);
   }
-  // Выгрузить вкладку полосы или закреп. Выбранную вкладку родная выгрузка сама сначала сменяет соседней.
+  // Выгрузить вкладку полосы или закреп. С выбранной вкладки уходим на Home (иначе родная выгрузка выбрала бы соседнюю).
   function unload(tab) {
     if (isPin(tab)) unloadPin(tab);
-    else if (!tab.hasAttribute("pending")) gBrowser.explicitUnloadTabs([tab]);
+    else if (!tab.hasAttribute("pending")) {
+      if (tab.selected) window.lumiHome?.open();
+      gBrowser.explicitUnloadTabs([tab]);
+    }
   }
   // Шорткат «Выгрузить вкладку или закреп» (luminoctis.keys.unload, по умолчанию Shift+ПКМ; меняется в настройках — читаем при каждом нажатии).
   // Ловим до своих обработчиков элемента (клик, меню): сочетание их заменяет. tabOf(event) — вкладка под мышью.

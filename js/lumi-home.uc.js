@@ -96,6 +96,18 @@
     if (!isHome(gBrowser.selectedTab)) open();
   };
 
+  // Home — «витрина», а не страница сайта: в адресной строке пусто и подсказка, как на новой вкладке (адрес из списка начальных страниц Firefox),
+  // а загрузка «в текущую вкладку» из интерфейса (Enter в адресной строке, закладка) идёт в новую — иначе сайт открылся бы поверх Home и вкладка осталась бы скрытой.
+  if (typeof gInitialPages != "undefined" && !gInitialPages.includes(URL)) gInitialPages.push(URL);
+  for (const name of ["openTrustedLinkIn", "openWebLinkIn", "openLinkIn"]) {
+    const orig = window[name];
+    if (typeof orig == "function") window[name] = function (url, where, ...rest) {
+      const fromHome = where == "current" && isHome(gBrowser.selectedTab);
+      if (fromHome) gURLBar.userTypedValue = null; // набранное не должно остаться в адресной строке Home
+      return orig.call(this, url, fromHome ? "tab" : where, ...rest);
+    };
+  }
+
   // ---------- Старт: всегда Home ----------
   // Стартовое окно: обычное (не приватное, не всплывающее), без вкладки/ссылки в аргументах (перетащенная вкладка, ссылка из другой программы — не трогаем).
   // Zen сам выбирает при старте пустую вкладку или (continue-where-left-off) прошлую — она бы загрузилась — и открывает над ней поиск (open-on-startup).
@@ -144,6 +156,9 @@
     gZenWorkspaces._shouldChangeToTab = function (tab) {
       return shouldChange.call(this, tab) && !isHome(tab);
     };
+    // Ctrl+Tab не листает Home (она вызывается только «L»)
+    const tl = Object.getOwnPropertyDescriptor(ctrlTab, "tabList");
+    if (tl?.get && tl.configurable) Object.defineProperty(ctrlTab, "tabList", { configurable: true, get() { return tl.get.call(this).filter(t => !isHome(t)); } });
     const HTML = "http://www.w3.org/1999/xhtml", wall = document.createElementNS(HTML, "div");
     wall.id = "lumi-home-wall";
     wall.append(document.createElementNS(HTML, "canvas"));

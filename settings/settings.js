@@ -25,6 +25,31 @@ const palette = ChromeUtils.importESModule(JS("lumi-palette.sys.mjs"));
 palette.watch(document, { glass: true });
 const keys = ChromeUtils.importESModule(JS("lumi-keys.sys.mjs"));
 
+// ---------- стекло: сквозь панель видно то, что за окном ----------
+// Панель лежит над сайтом (<browser> другого процесса), который не размыть и не сделать прозрачным. В прозрачном режиме и в «Обоях»
+// область сайтов (#tabbrowser-tabpanels) маскируется дыркой ровно под панелью (chrome.css, раздел 14, [lumi-hole]) —
+// как вырез сайта под выехавшей рейкой в Compacting. Размер дырки считаем по живому прямоугольнику панели, пока идёт её анимация.
+{
+  const box = window.frameElement?.parentNode, panels = win.document.getElementById("tabbrowser-tabpanels"), root = win.document.documentElement;
+  let until = 0, running = false;
+  const hole = () => {
+    const on = box && !box.hidden && root.hasAttribute("lumi-glass") && root.getAttribute("inDOMFullscreen") != "true";
+    const r = box?.getBoundingClientRect(), p = panels.getBoundingClientRect();
+    panels.toggleAttribute("lumi-hole", !!on);
+    if (on) for (const [v, n] of [["x", r.left - p.left], ["y", r.top - p.top], ["w", r.width], ["h", r.height]]) panels.style.setProperty(`--lumi-hole-${v}`, n + "px");
+  };
+  const frame = () => { hole(); if (Date.now() < until) win.requestAnimationFrame(frame); else running = false; };
+  const kick = () => { until = Date.now() + 450; if (!running) { running = true; win.requestAnimationFrame(frame); } };
+  if (box && panels) {
+    const mo = new win.MutationObserver(kick);
+    mo.observe(box, { attributes: true });
+    mo.observe(root, { attributes: true, attributeFilter: ["lumi-glass", "inDOMFullscreen"] });
+    win.addEventListener("resize", kick);
+    window.addEventListener("unload", () => { mo.disconnect(); win.removeEventListener("resize", kick); panels.removeAttribute("lumi-hole"); }, { once: true });
+    kick();
+  }
+}
+
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
 const RENAMED = { tabs: "panels" }; // старые разделы (запомненные в luminoctis.settings.tab, ссылки) → новые

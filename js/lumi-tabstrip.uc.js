@@ -51,6 +51,13 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     }
     return item;
   };
+  // Кнопка вкладки: «−» (выгрузить) у загруженной невыбранной, «×» (закрыть) у выгруженной, выбранной и той, что Zen выгрузить не умеет
+  // (about:-страницы, кроме about:blank; нет процесса)
+  const unloadable = tab => {
+    if (tab.hasAttribute("pending") || tab.selected) return false;
+    const b = tab.linkedBrowser, uri = b?.currentURI;
+    return !!b?.isRemoteBrowser && !!uri && (!uri.schemeIs("about") || uri.spec == "about:blank");
+  };
   const update = (item, tab, hoverCard) => {
     const icon = gBrowser.getIcon(tab), img = item.icon;
     if (img.getAttribute("src") != icon) icon ? img.setAttribute("src", icon) : img.removeAttribute("src");
@@ -59,6 +66,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (hoverCard) item.removeAttribute("title");
     else item.title = tab.label;
     item.toggleAttribute("selected", tab.selected);
+    item.toggleAttribute("unloadable", unloadable(tab));
     item.toggleAttribute("square", tab.pinned); // закреплённые вкладки пространства — квадратики
     for (const attr of ["pending", "soundplaying", "muted", "busy"]) {
       item.toggleAttribute(attr, tab.hasAttribute(attr));
@@ -296,7 +304,22 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (folderPanel.chip?.folder.isConnected) fillPanel();
     else folderPanel.hidePopup();
   };
+  // Закрытие с анимацией: любое закрытие (клик мимо, по фишке, выбор строки) откладывается на время ухода, потом — настоящее
+  const hideFolder = () => {
+    // во время popuphiding state уже «hiding» (после preventDefault вернётся в «open») — пускаем и его
+    if ((folderPanel.state != "open" && folderPanel.state != "hiding") || folderPanel.hasAttribute("closing")) return;
+    if (calm()) return void (folderPanel.forceHide = true, folderPanel.hidePopup());
+    folderPanel.setAttribute("closing", "");
+    setTimeout(() => { folderPanel.forceHide = true; folderPanel.hidePopup(); }, 150);
+  };
+  folderPanel.addEventListener("popuphiding", event => {
+    if (event.target !== folderPanel || folderPanel.forceHide || calm() || !folderPanel.chip?.folder.isConnected) return;
+    event.preventDefault(); // не закрываем сразу — сначала уходящая анимация
+    hideFolder();
+  });
   folderPanel.addEventListener("popupshowing", () => {
+    folderPanel.forceHide = false;
+    folderPanel.removeAttribute("closing");
     fillPanel();
     folderPanel.chip.toggleAttribute("open", true);
   });
@@ -309,14 +332,19 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     else if (classList.contains("lumi-fr-audio")) tab.toggleMuteAudio();
     else {
       gBrowser.selectedTab = tab;
-      folderPanel.hidePopup();
+      hideFolder();
     }
   });
   fList.addEventListener("auxclick", event => {
     const tab = event.target.closest(".lumi-fr")?.tab;
     if (tab && event.button == 1) gBrowser.removeTab(tab, { animate: true });
   });
+  let lastHidden = { chip: null, time: 0 };
+  folderPanel.addEventListener("popuphidden", event => event.target === folderPanel && (lastHidden = { chip: folderPanel.chip, time: performance.now() }));
   const openFolder = chip => {
+    // второй клик по той же фишке закрывает список (клик мимо уже закрыл его — не открываем заново)
+    if (folderPanel.chip === chip && folderPanel.state != "closed" && folderPanel.state != "hiding") return hideFolder();
+    if (lastHidden.chip === chip && performance.now() - lastHidden.time < 300) return;
     folderPanel.chip = chip;
     folderPanel.openPopup(chip, "after_start", 0, 0, false, false);
   };
@@ -402,8 +430,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (chip) return event.button == 0 && openFolder(chip);
     const tab = tabOf(event);
     if (!tab || event.button != 0) return;
-    if (event.target.classList.contains("lumi-tab-close")) gBrowser.removeTab(tab, { animate: true });
-    else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
+    if (event.target.classList.contains("lumi-tab-close")) {
+      if (unloadable(tab)) luminoctis.unload(tab);
+      else gBrowser.removeTab(tab, { animate: true });
+    } else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
     else gBrowser.selectedTab = tab;
   });
   row.addEventListener("auxclick", event => {

@@ -226,8 +226,10 @@
   font-family: var(--lumi-mono) !important; font-size: 19px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
   transition: box-shadow 0.2s;
   &:hover, &[lumi-home-open] { box-shadow: var(--lumi-rail-glow); } /* lumi-home-open — открыта Home (js/lumi-home.uc.js) */
-  /* невидимая зона клика до самого угла окна: мышь в левом верхнем углу — «L» под ней */
-  &::after { content: ""; position: absolute; inset: -9px -4px 0 -4px; }
+  /* невидимая зона клика до самого угла окна (закон Фитса): мышь в левом верхнем углу — «L» под ней; запас больше дробного сдвига рейки (DPI).
+   * no-drag: рейка — зона перетаскивания окна, а двойной щелчок там разворачивает окно */
+  &, &::after { -moz-window-dragging: no-drag; }
+  &::after { content: ""; position: absolute; inset: -24px -4px 0 -24px; }
 }
 
 /* Рабочие пространства — родные кнопки Zen столбиком 40×40, с точкой контейнера */
@@ -496,6 +498,8 @@ zen-library {
     &:hover { background-color: color-mix(in srgb, var(--lumi-fg) 15%, transparent); }
   }
   & .lumi-tab-close { background-image: url("chrome://global/skin/icons/close.svg"); opacity: 0.8; }
+  /* загруженная невыбранная, которую Zen умеет выгрузить ([unloadable]) — «−» (выгрузить из памяти), выгруженная и выбранная — «×» (закрыть); см. клик в js/lumi-tabstrip.uc.js */
+  &[unloadable] .lumi-tab-close { background-image: linear-gradient(currentColor, currentColor); background-size: 10px 1.5px; }
   & .lumi-tab-audio { display: none; background-image: url("chrome://global/skin/media/audio.svg"); }
   &[soundplaying] .lumi-tab-audio, &[muted] .lumi-tab-audio { display: block; }
   &[muted] .lumi-tab-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
@@ -584,6 +588,12 @@ zen-library {
   display: flex; flex-direction: column; gap: 2px; min-width: 280px; max-width: 380px; max-height: 60vh; overflow-y: auto;
   font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg);
 }
+/* список папки: появление и уход (~150мс), клик по фишке/мимо/по строке закрывает с уходом (js/lumi-tabstrip.uc.js: hideFolder) */
+@keyframes lumi-folder-in { from { opacity: 0; transform: translateY(-6px) scale(0.97); } }
+@keyframes lumi-folder-out { to { opacity: 0; transform: translateY(-6px) scale(0.97); } }
+#lumi-folder-list { transform-origin: top left; animation: lumi-folder-in 150ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+#lumi-folder-panel[closing] #lumi-folder-list { animation: lumi-folder-out 150ms ease-in forwards; }
+@media (prefers-reduced-motion: reduce) { #lumi-folder-list, #lumi-folder-panel[closing] #lumi-folder-list { animation: none; } }
 .lumi-fr {
   display: flex; align-items: center; gap: 8px; height: 32px; flex-shrink: 0; box-sizing: border-box;
   padding: 0 6px 0 calc(8px + var(--lumi-level, 0) * 14px); border-radius: 8px; color: var(--lumi-muted);
@@ -828,8 +838,12 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #zen-browser-background::before, & #zen-browser-background::after { background: transparent !important; }
   & #zen-main-app-wrapper:-moz-window-inactive { background: var(--zen-themed-toolbar-bg-transparent) !important; } /* zen.view.grey-out-inactive-windows */
 
-  /* сайты не трогаются: под страницей — непрозрачный фон (пока сайт грузится, рабочий стол не просвечивает) */
-  & #tabbrowser-tabpanels > .browserSidebarContainer { background-color: var(--lumi-solid) !important; }
+  /* сайты не трогаются: под страницей — непрозрачный фон (пока сайт грузится, рабочий стол не просвечивает).
+   * Кроме случая, когда включены прозрачные сайты (browser.tabs.allow_transparent_browser — её требуют расширение Zen Internet и мод Transparent Zen):
+   * тогда подложка нужна прозрачной, иначе страницы Zen Internet стоят на сплошном цвете и сквозь них не видно стекла окна */
+  @media not -moz-pref("browser.tabs.allow_transparent_browser") {
+    & #tabbrowser-tabpanels > .browserSidebarContainer { background-color: var(--lumi-solid) !important; }
+  }
 
   & #lumi-rail { border-color: var(--lumi-glass-edge); }
   /* одинаковая прозрачность везде (прозрачный режим и «Обои»): у рейки и невыбранных вкладок своей заливки нет — один слой фона окна;
@@ -843,8 +857,18 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame) { border-color: var(--lumi-glass-edge); }
   /* backdrop-filter в Firefox размывает только интерфейс, а сайт (<browser> другого процесса) — нет: сквозь полупрозрачные панели над сайтом
    * читался текст страницы. Под цветом палитры у них непрозрачная подложка --lumi-solid */
-  & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame),
+  & :is(#lumi-hovercard, #lumi-pin-frame),
   & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
+  /* панель настроек — настоящее стекло: свою заливку рисует страница (surface с ползунком прозрачности), рамка прозрачная, а сайт под ней вырезан
+   * маской (дырка по живому прямоугольнику панели; js: settings/settings.js, блок «стекло») — сквозь панель видно то же, что за окном */
+  & #lumi-settings { background: transparent; }
+  & #tabbrowser-tabpanels[lumi-hole] {
+    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
+    mask-size: 100% 100%, var(--lumi-hole-w) var(--lumi-hole-h);
+    mask-position: 0 0, var(--lumi-hole-x) var(--lumi-hole-y);
+    mask-repeat: no-repeat;
+    mask-composite: exclude;
+  }
   /* рейка, полоса вкладок и адресная строка в Compacting лежат на сайте с тем же стеклом, что и на месте (--lumi-bg0/bg1) — подложки нет */
 }
 /* Compacting в стекле: пока панель выехала, сайт под ней не рисуется (js/lumi-compact.uc.js ставит --lumi-cut = inset() по живым прямоугольникам
@@ -861,6 +885,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   }
   @media not (-moz-windows-mica-popups) { --panel-background-color: var(--lumi-solid) !important; }
 }
+
+/* Home не показываем в списке вкладок Библиотеки Zen (<zen-library>, копии вкладок сохраняют атрибут) */
+zen-library tab[lumi-home] { display: none !important; }
 
 /* ---------- 15. Обои Luminoctis Home под всем окном (js/lumi-home.uc.js, home/wallpaper.js) ----------
  * Пока выбрана Home, корень — [lumi-home-wall]. Вид зависит от режима окна (раздел 14):

@@ -33,7 +33,7 @@
   // none → state 2 (TRANSPARENTGRADIENT), flags 2; blur → state 3 (BLURBEHIND), flags 0; иначе 0. Цвет всегда 0.
   // Проверено на экране (Win11 26300): 3 с flags 0 — чистое размытие (Windows чуть притемняет); 3 с flags 2 — чёрное при любом цвете,
   // 4 (acrylic) — белёсое, 5 (hostbackdrop) — без размытия. Не менять.
-  const KIND = "luminoctis.look.blur-kind", WIN = "luminoctis.look.window";
+  const KIND = "luminoctis.look.blur-kind", WIN = "luminoctis.look.window", TRANSPARENT = "browser.tabs.allow_transparent_browser";
   const STATES = { none: { state: 2, flags: 2 }, blur: { state: 3, flags: 0 } };
   let accentSet = 0;
   function accent(kind) {
@@ -45,15 +45,22 @@
     accentSet = U.comp(own(), d.address()) != 0 ? a.state : -1; // GetWindowCompositionAttribute accent не отдаёт — запоминаем своё
     return accentSet >= 0;
   }
-  const wantKind = on => on && mica.matches && window.windowState != window.STATE_MINIMIZED ? Services.prefs.getStringPref(KIND, "acrylic") : "";
+  // Родная подложка Windows (Acrylic/Mica, DWMWA_SYSTEMBACKDROP_TYPE) у неактивного окна по замыслу ОС заменяется сплошным цветом — размытие пропадает.
+  // Accent policy «blur» от активности окна не зависит, поэтому у неактивного окна в видах acrylic/mica включаем его вместо родной подложки.
+  const inactive = () => Services.focus.activeWindow != window;
+  const wantKind = on => {
+    if (!on || !mica.matches || window.windowState == window.STATE_MINIMIZED) return "";
+    const k = Services.prefs.getStringPref(KIND, "acrylic");
+    return (k == "acrylic" || k == "mica") && inactive() ? "blur" : k;
+  };
   function applyAccent() {
     if (!api()) return;
-    const kind = wantKind(through || windowMode() == "transparent"), state = STATES[kind]?.state ?? 0;
+    const kind = wantKind(through || site || windowMode() == "transparent"), state = STATES[kind]?.state ?? 0;
     if (state != accentSet) accent(kind);
   }
 
   // ---------- окно браузера: насквозь / обычное ----------
-  let want = null, through = null;
+  let want = null, through = null, site = false;
   // Home «видна»: выбрана она сама или выбран закреп-окошко (lumi-rail.uc.js showPin) — Home остаётся под ним, режим насквозь не выключаем
   // from — вкладка, с которой только что ушли (TabSelect): в этот момент у закрепа ещё нет класса окошка, а у Home — deck-selected (их ставит рейка позже),
   // без подсказки режим «насквозь» на кадр гас и больше не включался
@@ -74,9 +81,26 @@
       t.linkedBrowser.contentDocument?.documentElement?.toggleAttribute("lumi-through", on);
     }
   }
+  // Прозрачные сайты (расширение Zen Internet, мод Transparent Zen; им нужен browser.tabs.allow_transparent_browser): в непрозрачном окне подложка сплошная,
+  // и прозрачные страницы стоят на ней. Область сайта становится «дырой» к подложке Windows — теми же слоями, что у Home насквозь
+  // (chrome.css раздел 15: [lumi-home-live], маска #lumi-home-wall); прямоугольник дыры — по #tabbrowser-tabpanels.
+  // В прозрачном режиме окна стекло видно и так (chrome.css раздел 14).
+  const panels = () => document.getElementById("tabbrowser-tabpanels");
+  function holeRect() {
+    const r = panels()?.getBoundingClientRect(), wall = document.getElementById("lumi-home-wall");
+    if (!r || !wall) return;
+    wall.style.setProperty("--lumi-home-x", r.left + "px");
+    wall.style.setProperty("--lumi-home-y", r.top + "px");
+  }
+  const siteWant = () => Services.prefs.getBoolPref(TRANSPARENT, false) && windowMode() == "opaque" && mica.matches &&
+    window.windowState != window.STATE_MINIMIZED && !!api() && !gBrowser.selectedTab?.hasAttribute("zen-essential") &&
+    !document.getElementById(gBrowser.selectedTab?.linkedPanel)?.classList.contains("lumi-pin-window");
   function update(from) {
     const tab = homeTab(from);
     setThrough(tab && want && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);
+    site = !through && !tab && siteWant(); // Home (и непрозрачная) рисует себя сама
+    if (!through) document.documentElement.toggleAttribute("lumi-home-live", site);
+    if (site) holeRect();
     applyAccent();
   }
 
@@ -90,9 +114,13 @@
   const onPref = () => update();
   Services.prefs.addObserver(KIND, onPref); // применяются сразу
   Services.prefs.addObserver(WIN, onPref);
-  window.addEventListener("unload", () => { Services.prefs.removeObserver(KIND, onPref); Services.prefs.removeObserver(WIN, onPref); }, { once: true });
+  Services.prefs.addObserver(TRANSPARENT, onPref);
+  window.addEventListener("unload", () => { for (const n of [KIND, WIN, TRANSPARENT]) Services.prefs.removeObserver(n, onPref); }, { once: true });
+  // область сайта меняется от Compacting, рейки и размера окна — дыра следует за ней
+  UC_API.Windows.waitWindowLoading(window).then(() => { const p = panels(); if (p) new ResizeObserver(() => { if (site) holeRect(); }).observe(p); });
   UC_API.Windows.waitWindowLoading(window).then(() => update()); // окно уже «Прозрачное» при запуске
   window.addEventListener("TabSelect", e => { update(e.detail?.previousTab); requestAnimationFrame(() => update()); });
   window.addEventListener("sizemodechange", () => update());
+  for (const ev of ["activate", "deactivate"]) window.addEventListener(ev, () => { accentSet = -2; update(); setTimeout(() => { accentSet = -2; update(); }, 150); }); // Windows может сбросить подложку при смене активности — ставим заново
   mica.addEventListener("change", () => update());
 })();

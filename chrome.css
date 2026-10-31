@@ -557,6 +557,25 @@ zen-library {
   position: absolute; top: var(--lumi-pill-top); width: 2px; height: var(--lumi-pill-h); margin-left: -1px;
   border-radius: 1px; background: var(--lumi-accent); pointer-events: none;
 }
+/* Папка Zen в полосе (js/lumi-tabstrip.uc.js): та же таблетка, что у вкладки, но уже (150px), значок папки, число вкладок, список — #lumi-folder-menu */
+.lumi-tab.lumi-folder {
+  flex-basis: 150px; max-width: 150px;
+  & .lumi-tab-icon { -moz-context-properties: fill; fill: currentColor; }
+  &[open]:not([selected]) { --pill-bg: var(--lumi-surface); }
+}
+.lumi-folder-count {
+  margin-right: 6px; padding: 1px 6px; border-radius: 9px; font-size: 11px;
+  background: color-mix(in srgb, var(--lumi-fg) 14%, transparent);
+}
+@container (max-width: 44px) { .lumi-folder-count { display: none !important; } }
+#lumi-folder-menu {
+  & menuitem { max-width: 340px; }
+  & menuitem[lumi-current] { color: var(--lumi-fg) !important; background-color: var(--lumi-raised) !important; font-weight: 600; }
+  & menuitem[pending] { opacity: 0.55; & .menu-icon { filter: grayscale(1); } }
+  & menuitem[lumi-level="1"] { padding-inline-start: 24px !important; }
+  & menuitem[lumi-level="2"] { padding-inline-start: 38px !important; }
+  & menuitem[disabled] { font-weight: 600; opacity: 1; }
+}
 
 /* «+» — квадратная таблетка 28×28, как вкладка-квадратик (та же форма и наведение); кликается от верхнего края.
  * Родная отрисовка кнопки Windows (appearance) снята: при наведении она рисовала высокий блок от края окна */

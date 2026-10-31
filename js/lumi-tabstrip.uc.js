@@ -68,7 +68,53 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // Essentials — это закрепы в рейке (js/lumi-rail.uc.js), в полосе их нет
   const dying = new WeakSet(); // вкладки, у которых уже прошёл TabClose: в списке ещё есть, в полосе — уже нет
   // Home (js/lumi-home.uc.js) открывается «L» на рейке, в полосе её нет
-  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !dying.has(tab));
+  // Папки Zen (zen-folder, gZenFolders) — не вкладки: вместо вложенных вкладок в полосе одна «фишка» с выпадающим списком (ниже).
+  // Корневая папка вкладки — самая верхняя zen-folder среди её групп (split-view-группа и подпапки тоже группы).
+  const folderOf = tab => {
+    let root = null;
+    for (let g = tab.group; g; g = g.group) if (g.tagName == "zen-folder") root = g;
+    return root;
+  };
+  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("zen-empty-tab") && !dying.has(tab) && !folderOf(tab));
+  // Вкладки полосы и папки пространства в порядке документа: фишка стоит там, где в списке Zen стоит папка
+  const stripEntries = () => {
+    const entries = stripTabs();
+    const space = gZenWorkspaces.activeWorkspace;
+    for (const folder of document.querySelectorAll("zen-folder")) {
+      if (folder.getAttribute("zen-workspace-id") != space || folder.group) continue;
+      const at = entries.findIndex(el => folder.compareDocumentPosition(el) & Node.DOCUMENT_POSITION_FOLLOWING);
+      entries.splice(at < 0 ? entries.length : at, 0, folder);
+    }
+    return entries;
+  };
+  // Обычные вкладки папки подряд, подпапки — заголовком с отступом; split-view-группа раскрывается в свои вкладки
+  const folderRows = (folder, level = 0) => folder.allItems.flatMap(item =>
+    item.isZenFolder ? [{ folder: item, level }, ...folderRows(item, level + 1)]
+      : item.hasAttribute("split-view-group") ? item.tabs.map(tab => ({ tab, level }))
+      : item.hasAttribute("zen-empty-tab") ? [] : [{ tab: item, level }]);
+  const chips = new WeakMap(); // zen-folder -> фишка полосы
+  const chipFor = folder => {
+    let chip = chips.get(folder);
+    if (!chip) {
+      chip = document.createElement("div");
+      chip.className = "lumi-tab lumi-folder";
+      chip.folder = folder;
+      chip.icon = Object.assign(document.createElement("img"), { className: "lumi-tab-icon", alt: "", src: "chrome://browser/skin/zen-icons/folder.svg" });
+      chip.labelEl = Object.assign(document.createElement("span"), { className: "lumi-tab-label" });
+      chip.countEl = Object.assign(document.createElement("span"), { className: "lumi-folder-count" });
+      chip.append(chip.icon, chip.labelEl, chip.countEl);
+      chips.set(folder, chip);
+    }
+    return chip;
+  };
+  const updateChip = chip => {
+    const { folder } = chip;
+    chip.labelEl.textContent = folder.label;
+    chip.countEl.textContent = folderRows(folder).filter(row => row.tab).length;
+    chip.title = folder.label;
+    chip.toggleAttribute("selected", folder.contains(gBrowser.selectedTab)); // выбранная вкладка папки в полосе не рисуется — «активна» фишка
+  };
+  const entryItem = entry => entry.isZenFolder ? chipFor(entry) : itemFor(entry);
   // Закрытие: вкладка улетает вверх и гаснет, потом освободившееся место схлопывается, соседи плавно занимают его.
   // Пока идёт анимация, элемент остаётся в ряду «призраком» (ghosts) на своём месте — render его не убирает.
   const ghosts = new Set();
@@ -137,10 +183,11 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   let queued = false, shownSelected = null;
   const render = () => {
     queued = false;
-    const tabs = stripTabs();
+    const entries = stripEntries(), tabs = entries.filter(el => !el.isZenFolder);
     const hoverCard = window.lumiHover?.enabled() ?? true;
     tabs.forEach(tab => update(itemFor(tab), tab, hoverCard));
-    const wanted = tabs.map(itemFor);
+    entries.filter(el => el.isZenFolder).forEach(folder => updateChip(chipFor(folder)));
+    const wanted = entries.map(entryItem);
     for (const ghost of [...ghosts].sort((a, b) => a.lumiSlot - b.lumiSlot)) wanted.splice(Math.min(ghost.lumiSlot, wanted.length), 0, ghost);
     // «+» сразу за вкладками: ряд растёт вместе с новой вкладкой (прежняя ширина — до смены --lumi-tabs-w)
     const rowFrom = fresh.size && Services.prefs.getStringPref("luminoctis.tabs.newtab-position", "end") == "after-tabs" ? getComputedStyle(row).flexBasis : null;
@@ -149,14 +196,16 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     // полная ширина вкладок (без сжатия) — для «+» сразу за вкладками (chrome.css, раздел 9): 210px, квадратики 28px, зазоры 6px.
     // «+» — как ещё одна вкладка: сжимается вместе с ними; --lumi-tabs-shrink уравнивает долю сжатия ряда и «+»
     // (зазоры не сжимаются, без поправки «+» вышла бы на пару пикселей шире вкладки)
-    const full = Math.max(0, tabs.reduce((w, tab) => w + (tab.pinned ? 28 : 210) + 6, -6));
+    // фишка папки — 150px (chrome.css), сжимается как обычная вкладка
+    const baseOf = el => el.isZenFolder ? 150 : el.pinned ? 28 : 210;
+    const full = Math.max(0, entries.reduce((w, el) => w + baseOf(el) + 6, -6));
     strip.style.setProperty("--lumi-tabs-w", `${full}px`);
-    strip.style.setProperty("--lumi-tabs-shrink", full ? (tabs.filter(tab => !tab.pinned).length * 210) / full : 1);
+    strip.style.setProperty("--lumi-tabs-shrink", full ? entries.filter(el => el.isZenFolder || !el.pinned).reduce((w, el) => w + baseOf(el), 0) / full : 1);
     if (gapPending) releaseGap(true);
     if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !now.includes(items.get(tab))) grow(items.get(tab), rowFrom);
     fresh.clear();
     // к выбранной — только когда выбор сменился: иначе любая фоновая вкладка (загрузка, заголовок) сбивала прокрутку пользователя
-    const selected = items.get(gBrowser.selectedTab);
+    const selected = items.get(gBrowser.selectedTab) ?? chips.get(folderOf(gBrowser.selectedTab));
     if (selected?.isConnected && selected !== shownSelected) row.ensureElementIsVisible(selected);
     shownSelected = selected;
   };
@@ -167,7 +216,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     }
   };
   for (const type of ["TabOpen", "TabClose", "TabSelect", "TabMove", "TabAttrModified", "TabPinned",
-    "TabUnpinned", "TabHide", "TabShow", "TabAddedToEssentials", "TabRemovedFromEssentials", "ZenWorkspacesUIUpdate"]) {
+    "TabUnpinned", "TabHide", "TabShow", "TabAddedToEssentials", "TabRemovedFromEssentials", "ZenWorkspacesUIUpdate",
+    // папки Zen: вложение/выход вкладок, создание/удаление, имя, подпапки, смена пространства папки
+    "TabGrouped", "TabUngrouped", "TabGroupCreate", "TabGroupRemoved", "TabGroupUpdate", "TabGroupCollapse", "TabGroupExpand",
+    "FolderGrouped", "FolderUngrouped", "ZenFolderRenamed", "ZenFolderChangedWorkspace"]) {
     window.addEventListener(type, schedule);
   }
   // Смена пространства не шлёт ни TabShow/TabHide (Zen меняет активный список, а не скрывает вкладки), ни TabSelect,
@@ -180,12 +232,60 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     fly(event.target);
     setTimeout(schedule, 0);
   });
+  // Zen убирает удалённую папку из документа с анимацией, уже после TabGroupRemoved — перерисовываем ещё раз после неё
+  window.addEventListener("TabGroupRemoved", () => setTimeout(schedule, 400));
   render();
 
   // ---------- действия: всё через родные API ----------
   const tabOf = event => event.target.closest?.(".lumi-tab")?.tab;
   luminoctis.unloadShortcut(row, tabOf); // «Выгрузить вкладку или закреп» (js/lumi-rail.uc.js) — до клика и меню ниже
+  // ---------- папки: выпадающий список и родное меню Zen ----------
+  const chipOf = event => event.target.closest?.(".lumi-folder");
+  const folderMenu = window.MozXULElement.parseXULToFragment(`<menupopup id="lumi-folder-menu"/>`).firstElementChild;
+  document.getElementById("mainPopupSet").append(folderMenu);
+  const menuItem = (label, props = {}) => Object.assign(document.createXULElement("menuitem"), { className: "menuitem-iconic", ...props }, { label });
+  folderMenu.addEventListener("popupshowing", () => {
+    const rows = folderRows(folderMenu.chip.folder);
+    const nodes = rows.map(({ tab, folder, level }) => {
+      const node = menuItem(tab ? tab.label : folder.label);
+      node.setAttribute("crop", "end");
+      node.setAttribute("lumi-level", level);
+      if (folder) node.disabled = true; // подпапка — заголовок с отступом
+      else {
+        node.tab = tab;
+        node.setAttribute("image", gBrowser.getIcon(tab) || "");
+        node.toggleAttribute("lumi-current", tab.selected);
+        node.toggleAttribute("pending", tab.hasAttribute("pending"));
+        if (tab.hasAttribute("soundplaying") || tab.hasAttribute("muted")) node.setAttribute("acceltext", tab.hasAttribute("muted") ? "без звука" : "звук");
+      }
+      return node;
+    });
+    folderMenu.replaceChildren(...(rows.some(row => row.tab) ? nodes : [menuItem("Пусто", { disabled: true })]));
+    folderMenu.chip.toggleAttribute("open", true);
+  });
+  folderMenu.addEventListener("popuphidden", event => event.target === folderMenu && folderMenu.chip?.removeAttribute("open"));
+  folderMenu.addEventListener("command", event => event.target.tab && (gBrowser.selectedTab = event.target.tab));
+  folderMenu.addEventListener("click", event => { // средняя кнопка — закрыть вкладку, список остаётся
+    const tab = event.target.tab;
+    if (!tab || event.button != 1) return;
+    gBrowser.removeTab(tab, { animate: true });
+    event.target.remove();
+  });
+  const openFolder = chip => {
+    folderMenu.chip = chip;
+    folderMenu.openPopup(chip, "after_start", 0, 0, false, false);
+  };
+  // ПКМ — родное меню Zen (zenFolderActions): оно узнаёт папку по метке спрятанного родного списка, поэтому открываем его
+  // из события, брошенного на эту метку
+  const openFolderActions = (chip, from) => {
+    const label = chip.folder.labelElement.parentElement;
+    label.addEventListener("contextmenu", event => document.getElementById("zenFolderActions").openPopupAtScreen(from.screenX, from.screenY, true, event), { once: true });
+    label.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true, cancelable: true }));
+  };
+
   row.addEventListener("click", event => {
+    const chip = chipOf(event);
+    if (chip) return event.button == 0 && openFolder(chip);
     const tab = tabOf(event);
     if (!tab || event.button != 0) return;
     if (event.target.classList.contains("lumi-tab-close")) gBrowser.removeTab(tab, { animate: true });
@@ -197,6 +297,11 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (tab && event.button == 1) gBrowser.removeTab(tab, { animate: true });
   });
   row.addEventListener("contextmenu", event => {
+    const chip = chipOf(event);
+    if (chip) {
+      event.preventDefault();
+      return openFolderActions(chip, event);
+    }
     if (!tabOf(event)) return;
     event.preventDefault();
     gBrowser.translateTabContextMenu(); // подписи меню Firefox подгружает по первому ПКМ над родным списком — он спрятан
@@ -245,11 +350,13 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   row.addEventListener("drop", event => {
     if (!dragged) return;
     event.preventDefault();
-    const visible = stripTabs();
+    const visible = stripEntries();
     const i = dropIndex(event.clientX);
-    // индекс в полосе -> индекс в gBrowser.tabs; moveTabTo сам не даёт смешать закреплённые и обычные
+    // индекс в полосе -> индекс в gBrowser.tabs; moveTabTo сам не даёт смешать закреплённые и обычные.
+    // У папки края — её первая и последняя вкладки (с пустой вкладкой Zen)
     const target = visible[i] ?? visible.at(-1);
-    let tabIndex = gBrowser.tabs.indexOf(target) + (visible[i] ? 0 : 1);
+    const edge = el => el.isZenFolder ? [...el.querySelectorAll("tab")].at(visible[i] ? 0 : -1) : el;
+    let tabIndex = gBrowser.tabs.indexOf(edge(target)) + (visible[i] ? 0 : 1);
     if (gBrowser.tabs.indexOf(dragged) < tabIndex) tabIndex--; // moveTabTo ждёт итоговый индекс
     gapPending = row.querySelector("[style*=translate]") != null; // расступившиеся стоят, пока ряд не пересоберётся (render)
     if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500); // порядок не изменился — пересборки не будет

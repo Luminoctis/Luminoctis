@@ -79,8 +79,6 @@
   window.lumiHomeLive = {
     DESKTOP,
     want(v) { if (v != want) { want = v || null; update(); } return want; },
-    update,
-    get state() { return { want, through: !!through }; },
     // для проверок: accent policy окна браузера (2 — чёткий рабочий стол, 3 — размытие Windows, 0 — нет)
     win: () => api() && { accent: accentSet, browserHwnd: window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle },
   };

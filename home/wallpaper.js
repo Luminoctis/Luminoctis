@@ -1,11 +1,12 @@
 // Обои Luminoctis Home (#lumi-wallpaper): два слоя с плавной сменой, следующая картинка загружается заранее.
-// Источники: Wallhaven, Konachan (safe), картинка дня Bing, своя папка (картинки/gif/mp4/webm), избранное.
+// Источники (wallpaper-sources.js): Wallhaven, Unsplash, Pexels, Reddit, Konachan/Yande.re/Safebooru (только safe), NASA APOD, Wikimedia,
+// Bing, своя папка, избранное. Нет ни одного источника (или пусто) — цветной градиент (pref color; пусто — цвет акцента).
 // Данные (home/store.js): wallpapers/state.json (текущие + очередь), favorites.json + favorites/<файлы>, bans.json.
 // Настройки: luminoctis.home.wallpaper.* (+ luminoctis.home.accentFromWallpaper — цвет акцента мода из обоев).
-// Новый вид обоев — registerKind(name, { create(src, item), ready(el) }).
 // Фон «Прозрачный» (mode = transparent): своих обоев нет, Home насквозь (js/lumi-home-live.uc.js) — виден рабочий стол.
 // Панель ⚙ (.lumi-wp-panel): громкость локальных видео-обоев (volume/muted).
 import * as store from "./store.js";
+import { sources, SOURCES, sourceOn, net } from "./wallpaper-sources.js";
 
 const P = "luminoctis.home.wallpaper.", ACCENT = "luminoctis.home.accentFromWallpaper", OVERRIDE = "luminoctis.palette.accentOverride";
 const prefs = Services.prefs;
@@ -16,50 +17,14 @@ const key = it => it && `${it.source}:${it.id}`;
 const transparent = () => str("mode", "wallpaper") == "transparent";
 
 // ---------- виды обоев: как элемент получается из адреса ----------
-export const kinds = {
+const kinds = {
   image: { create: src => Object.assign(new Image(), { src, decoding: "async", alt: "" }), ready: el => el.decode() },
   video: {
     create: src => Object.assign(document.createElement("video"), { src, muted: true, loop: true, autoplay: true, playsInline: true, preload: "auto" }),
     ready: el => new Promise((ok, fail) => { el.onloadeddata = ok; el.onerror = () => fail(new Error("видео не открылось")); }),
   },
 };
-export const registerKind = (name, impl) => (kinds[name] = impl);
-
-// ---------- источники: каждый возвращает список { source, id, kind, url|file, page, author } ----------
-const IMG = /\.(jpe?g|png|webp|gif|avif|bmp)$/i, VID = /\.(mp4|webm)$/i;
-async function json(url) {
-  const r = await fetch(url, { credentials: "omit" });
-  if (!r.ok) throw new Error(`${url}: ${r.status}`);
-  return r.json();
-}
-const words = () => str("query").trim();
-export const sources = {
-  async wallhaven() { // без ключа: только SFW (purity 100), лимит 45 запросов в минуту — берём страницу из 24 за раз
-    const q = new URLSearchParams({ q: words(), categories: { anime: "010", general: "100" }[str("category", "all")] ?? "110",
-      purity: "100", sorting: str("sorting", "random") == "toplist" ? "toplist" : "random", ratios: "landscape" });
-    const { data } = await json("https://wallhaven.cc/api/v1/search?" + q);
-    return data.map(w => ({ source: "wallhaven", id: w.id, kind: "image", url: w.path, page: w.url }));
-  },
-  async konachan() { // konachan.net — безопасное зеркало; rating:safe ещё и в запросе
-    const tags = ["rating:safe", ...words().split(/\s+/).filter(Boolean).slice(0, 4), str("sorting", "random") == "toplist" ? "order:score" : "order:random"];
-    const posts = await json(`https://konachan.net/post.json?limit=40&tags=${encodeURIComponent(tags.join(" "))}`);
-    return posts.filter(p => p.rating == "s" && p.width > p.height).map(p => ({ source: "konachan", id: String(p.id), kind: "image",
-      url: new URL(p.jpeg_url || p.file_url, "https://konachan.net").href, page: `https://konachan.net/post/show/${p.id}`, author: p.author }));
-  },
-  async bing() {
-    const { images } = await json("https://www.bing.com/HPImageArchive.aspx?format=js&idx=0&n=8&mkt=ru-RU");
-    return images.map(i => ({ source: "bing", id: i.startdate, kind: "image", url: `https://www.bing.com${i.urlbase}_UHD.jpg`,
-      page: i.copyrightlink, author: i.copyright }));
-  },
-  async local() {
-    const dir = str("folder").trim();
-    if (!dir) return [];
-    return (await IOUtils.getChildren(dir)).filter(f => IMG.test(f) || VID.test(f))
-      .map(f => ({ source: "local", id: PathUtils.filename(f), kind: VID.test(f) ? "video" : "image", file: f, page: f }));
-  },
-};
-export const SOURCES = Object.keys(sources);
-const sourceOn = s => bool("src." + s, s == "wallhaven");
+// источники (wallpaper-sources.js): каждый возвращает список { source, id, kind, url|file, page, author }
 
 // ---------- состояние ----------
 let state = { current: null, shownAt: 0, queue: [] };
@@ -69,10 +34,17 @@ const fromFav = f => ({ ...f, file: favFile(f) });
 const save = () => store.writeJSON(STATE, state).catch(e => console.error("Luminoctis обои:", e));
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
+let noSources = false; // нечего показывать по настройкам (ни одного источника / пустое избранное) — next() уберёт обои, останется цвет
 async function refill() {
-  let list;
-  if (bool("favoritesOnly")) list = (favs ?? []).map(fromFav);
-  else list = (await Promise.allSettled(SOURCES.filter(sourceOn).map(s => sources[s]()))).flatMap(r => {
+  const on = SOURCES.filter(sourceOn);
+  if (bool("favoritesOnly")) { // избранное — плейлист: по порядку, начиная с обоев после текущих (или вперемешку)
+    const all = (favs ?? []).map(fromFav), i = all.findIndex(f => key(f) == key(state.current));
+    const fresh = (bool("favShuffle") ? shuffle(all) : i < 0 ? all : [...all.slice(i + 1), ...all.slice(0, i + 1)]).filter(f => !bans.has(key(f)));
+    noSources = !fresh.length;
+    return void (state.queue = fresh);
+  }
+  noSources = !on.length;
+  const list = (await Promise.allSettled(on.map(s => sources[s]()))).flatMap(r => {
     if (r.status == "rejected") console.warn("Luminoctis обои: источник недоступен", r.reason);
     return r.value ?? [];
   });
@@ -89,6 +61,8 @@ const root = document.getElementById("lumi-wallpaper");
 const stage = Object.assign(document.createElement("div"), { className: "lumi-wp-stage" });
 const dim = Object.assign(document.createElement("div"), { className: "lumi-wp-dim" });
 const bar = Object.assign(document.createElement("nav"), { className: "lumi-wp-controls" });
+const hue = Object.assign(document.createElement("div"), { className: "lumi-wp-color" }); // цветной градиент под обоями (виден, если обоев нет)
+stage.append(hue);
 let current = null, pending = null; // показанный слой и обещание следующего
 
 async function load(item) {
@@ -163,6 +137,7 @@ export function next() {
         if (layer) drop(layer);
         if (!state.queue.length) break; // источники пусты или недоступны
       }
+      if (noSources && current) { clearWall(); state.current = null; save(); } // все источники выключены — вместо старой картинки цвет
       return false;
     } finally { busy = null; }
   })();
@@ -253,12 +228,37 @@ export function accentOf(el) {
 }
 function applyAccent() {
   if (!prefs.getBoolPref(ACCENT, false) || transparent()) return prefs.clearUserPref(OVERRIDE); // прозрачная — акцент палитры
-  const el = current?.el.matches("img, video") ? current.el : current?.el.querySelector("img"); // веб-обои — цвет не читаем
-  if (!el) return;
+  if (!current) return prefs.clearUserPref(OVERRIDE); // цветной фон — акцент палитры
   try {
-    const color = accentOf(el);
+    const color = accentOf(current.el);
     color ? prefs.setStringPref(OVERRIDE, color) : prefs.clearUserPref(OVERRIDE);
   } catch (e) { console.warn("Luminoctis обои: цвет не прочитан", e); }
+}
+
+// ---------- цветной фон: мягкий градиент из одного цвета (pref color; пусто — акцент палитры) ----------
+const rgbOf = c => { const m = /^#([0-9a-f]{6})$/i.exec(c?.trim()); return m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : null; };
+const mix = (a, b, t) => a.map((v, i) => Math.round(v + (b[i] - v) * t));
+function tones() { // [основа, сияние слева-сверху, сияние справа-снизу]
+  const cs = getComputedStyle(document.documentElement);
+  const bg = rgbOf(cs.getPropertyValue("--lumi-bg0")) ?? [22, 22, 30], base = rgbOf(str("color")) ?? rgbOf(cs.getPropertyValue("--lumi-accent")) ?? [122, 162, 247];
+  return [0.1, 0.5, 0.28].map(t => mix(bg, base, t));
+}
+function fillColor(g, W, H, pad) { // то же, что .lumi-wp-color в wallpaper.css (два эллипса farthest-corner до 62%)
+  const [c0, c1, c2] = tones();
+  g.fillStyle = `rgb(${c0})`;
+  g.fillRect(-pad, -pad, W + 2 * pad, H + 2 * pad);
+  for (const [px, py, c] of [[0.3, 0.2, c1], [0.8, 0.9, c2]]) {
+    const cx = W * px, cy = H * py;
+    g.save();
+    g.translate(cx, cy);
+    g.scale(Math.max(cx, W - cx) * Math.SQRT2, Math.max(cy, H - cy) * Math.SQRT2);
+    const gr = g.createRadialGradient(0, 0, 0, 0, 0, 1);
+    gr.addColorStop(0, `rgb(${c})`);
+    gr.addColorStop(0.62, `rgba(${c},0)`);
+    g.fillStyle = gr;
+    g.fillRect(-1, -1, 2, 2);
+    g.restore();
+  }
 }
 
 // ---------- обои на всё окно: сцена = прямоугольник окна браузера (cover относительно окна), сдвинутый на место вкладки ----------
@@ -299,13 +299,7 @@ function place() { // позиция вкладки в окне; true — изм
   return true;
 }
 const wall = () => win.document.getElementById("lumi-home-wall");
-// чем рисовать слой в окне: картинка/видео
-function frameOf(layer) {
-  const el = layer?.el;
-  if (!el) return null;
-  if (el.matches("img, video")) return el;
-  return null;
-}
+const frameOf = layer => layer?.el ?? null;
 function drawCover(g, src, W, H, pad) {
   const sw = src.naturalWidth || src.videoWidth || 0, sh = src.naturalHeight || src.videoHeight || 0;
   if (!sw || !sh) return;
@@ -324,8 +318,7 @@ function paint() {
   g.globalAlpha = 1;
   g.clearRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
   if (transparent()) return copyToWall(c); // прозрачная Home: под интерфейсом — рабочий стол, кадра нет
-  g.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--lumi-bg0") || "#16161e";
-  g.fillRect(-PAD, -PAD, W + 2 * PAD, H + 2 * PAD);
+  fillColor(g, W, H, PAD);
   const t = fade ? clamp((performance.now() - fade.at) / 800, 0, 1) : 1;
   if (fade && t < 1) { const o = frameOf(fade.old); if (o) drawCover(g, o, W, H, PAD); }
   const src = frameOf(current);
@@ -343,17 +336,18 @@ function copyToWall(c) { // окну — копия кадра
   g.clearRect(0, 0, wc.width, wc.height);
   g.drawImage(c, 0, 0);
 }
-// цикл: пока Home видна и идёт смена слоёв или играет видео; положение вкладки проверяется каждые 0.5 с
-let raf = 0, lastPaint = 0, lastPlace = 0;
-function loop(now) {
-  raf = 0;
-  if (document.hidden) return;
-  if (now - lastPlace > 500) { lastPlace = now; if (place() || !wall()?.style.getPropertyValue("--lumi-home-blur")) effects(); }
-  const live = fade || current?.el.matches?.("video");
-  if (live && now - lastPaint > 66) { lastPaint = now; paint(); }
-  raf = requestAnimationFrame(loop);
+// Перерисовка по событиям (размер/положение вкладки, окно, видимость, смена настроек). Таймер идёт, только пока что-то движется:
+// смена слоёв или видео на видимой Home.
+let tickTimer = 0;
+const animating = () => (!document.hidden || windowWall()) && (fade || (!document.hidden && current?.el.matches?.("video"))); // скрытая Home рисует только в режиме окна «Обои»
+function tick() {
+  tickTimer = 0;
+  if (!animating()) return;
+  paint();
+  tickTimer = setTimeout(tick, 66); // ~15 кадров/с
 }
-const kick = () => { effects(); raf ||= requestAnimationFrame(loop); };
+const kick = () => { effects(); if (animating() && !tickTimer) tickTimer = setTimeout(tick, 0); };
+const relayout = () => { if (place()) effects(); };
 
 // ---------- эффекты: затемнение, размытие обоев, интерфейс над обоями ----------
 function effects() {
@@ -371,6 +365,9 @@ function effects() {
   liveWant();
   root.style.setProperty("--wp-ramp", clamp(ui * 3, 32, 120) + "px");
   const box = wall();
+  hue.hidden = transparent();
+  const [c0, c1, c2] = tones();
+  for (const [n, c, a] of [["c0", c0, 1], ["c1", c1, 1], ["c1t", c1, 0], ["c2", c2, 1], ["c2t", c2, 0]]) root.style.setProperty("--wp-" + n, `rgba(${c},${a})`);
   if (box) { // окно: размытие интерфейса поверх размытия самих обоев (гауссовы складываются по корню из суммы квадратов)
     box.style.setProperty("--lumi-home-blur", Math.hypot(ui, blur).toFixed(1) + "px");
     box.querySelector("canvas").style.opacity = alpha; // только кадр: тон стекла (::after, chrome.css раздел 15) — как на других вкладках
@@ -379,15 +376,23 @@ function effects() {
   const solid = 100 - clamp(prefs.getIntPref("luminoctis.look.transparency", 45), 0, 90);
   root.style.setProperty("--wp-ui-tint", glass() ? `color-mix(in srgb, var(--lumi-bg0, #16161e) ${solid}%, transparent)` : "transparent");
   paint();
+  if (!box && wallTries++ < 20) setTimeout(effects, 500); // окно ещё не создало #lumi-home-wall
 }
+let wallTries = 0;
 document.addEventListener("visibilitychange", () => { // видео не играет, пока Home не видна
   const v = current?.el;
   if (v?.play) document.hidden && !windowWall() ? v.pause() : v.play().catch(() => {});
   if (!document.hidden) kick();
 });
-addEventListener("resize", effects);
-// Home в фоне (режим окна «Обои»): rAF не идёт — размер окна и смену слоёв сверяем таймером (фоновые страницы получают его раз в ~секунду)
-const bgTimer = setInterval(() => { if (document.hidden && windowWall()) { if (place()) effects(); else if (fade) paint(); } }, 300);
+addEventListener("resize", relayout);
+// положение вкладки меняют рейка, полосы, compact: следим за размером <browser> и его контейнера и за окном (оно же — в фоне, режим «Обои»)
+const ro = new win.ResizeObserver(relayout);
+const embedder = window.browsingContext.embedderElement;
+if (embedder) for (const n of [embedder, embedder.closest(".browserSidebarContainer")]) n && ro.observe(n);
+let settle = 0;
+const relayoutSoon = () => { clearTimeout(settle); settle = setTimeout(relayout, 80); }; // конец анимации (compact двигает вкладку без смены размера)
+win.addEventListener("resize", relayout);
+win.addEventListener("transitionend", relayoutSoon, true);
 
 // ---------- смена по расписанию ----------
 let timer = 0;
@@ -450,16 +455,12 @@ async function readData() {
   favs = (await safe(FAV, [])) ?? null;
   bans = new Set((await safe(BANS, [])) ?? []);
   state = { current: null, shownAt: 0, queue: [], ...(await safe(STATE, {})) };
-  if (state.current?.source == "we") state.current = null; // обои Wallpaper Engine вырезаны
-  state.queue = state.queue.filter(i => i.source != "we");
 }
 export const ready = (async () => {
   await readData();
   if (transparent()) return liveWant(); // прозрачная Home — свои обои не грузим
-  let shown = false;
-  if (!shown && state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current)))
-    shown = await load(state.current).then(l => (show(l), preload(), true), () => false);
-  if (!shown) await next();
+  const keep = state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current));
+  if (!(keep && await load(state.current).then(l => (show(l), preload(), true), () => false))) await next();
   schedule();
 })();
 
@@ -467,7 +468,7 @@ let soon = 0;
 const onPref = (_, __, name) => {
   if (name.endsWith(".mode")) transparent() ? clearWall() : current ? (liveWant(), applyAccent(), syncButtons()) : next();
   else if (/\.(volume|muted)$/.test(name)) applyVolume();
-  else if (/\.(src\.|query|category|sorting|folder|favoritesOnly)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
+  else if (/\.(src\.|query|category|sorting|folder|favoritesOnly|favShuffle|wh\.|key\.|reddit\.)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
   else if (name.endsWith(".rotate") || name.endsWith(".interval")) schedule();
   else if (name == ACCENT) applyAccent();
   else effects();
@@ -476,15 +477,21 @@ prefs.addObserver(P, onPref);
 prefs.addObserver(ACCENT, onPref);
 const onLook = () => effects(); // режим окна и прозрачность обоев (настройки «Внешний вид»)
 prefs.addObserver("luminoctis.look.", onLook);
+prefs.addObserver("luminoctis.palette.", onLook); // цвет фона без своего цвета — акцент палитры
 window.addEventListener("unload", () => {
   prefs.removeObserver("luminoctis.look.", onLook);
+  prefs.removeObserver("luminoctis.palette.", onLook);
   prefs.removeObserver(P, onPref);
   prefs.removeObserver(ACCENT, onPref);
   clearInterval(timer);
-  clearInterval(bgTimer);
+  clearTimeout(tickTimer);
+  clearTimeout(settle);
+  ro.disconnect();
+  win.removeEventListener("resize", relayout);
+  win.removeEventListener("transitionend", relayoutSoon, true);
   win.lumiHomeLive?.want(null);
 });
 
 // для проверок (dev/check-home-wallpaper.js) и будущих виджетов
-window.lumiWallpaper = { next, togglePanel, panel, applyVolume, favorite, ban, openSource, sources, kinds, registerKind, accentOf, ready,
-  get current() { return current; }, get state() { return state; }, get favs() { return favs; }, get bans() { return bans; }, reload: () => (reset(), readData()) };
+window.lumiWallpaper = { next, favorite, ban, sources, sourceOn, net, ready,
+  get current() { return current; }, get state() { return state; }, get favs() { return favs; }, get bans() { return bans; } };

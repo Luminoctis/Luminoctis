@@ -614,6 +614,47 @@ renderPalette();
       Services.prefs.setBoolPref("luminoctis.home.wallpaper.src.local", true); // выбрали папку — значит, её и показывать
     });
   });
+  const WP = "luminoctis.home.wallpaper.";
+  // источники и отметки, которым нужен ключ: пока ключа нет — выключены, рядом подсказка «нужен ключ»
+  for (const box of document.querySelectorAll("[data-need-key]")) {
+    const kp = WP + "key." + box.dataset.needKey, hint = box.closest("label").querySelector(".need-key");
+    watchPref(kp, () => { const has = !!Services.prefs.getStringPref(kp, "").trim(); box.disabled = !has; hint.hidden = has; });
+  }
+  // своя папка: состояние, превью файлов, «Открыть в проводнике»
+  const { IMG, VID, localDir } = await import("./home/wallpaper-sources.js");
+  const grid = $("#wp-previews"), info = $("#wp-folder-state");
+  let seen = "";
+  const previews = async () => {
+    const dir = localDir();
+    let files = null;
+    try { files = (await IOUtils.getChildren(dir)).filter(f => IMG.test(f) || VID.test(f)).sort(); } catch {}
+    const sig = dir + "|" + files?.join("|");
+    if (sig == seen) return;
+    seen = sig;
+    grid.replaceChildren();
+    info.textContent = files ? `${dir} — файлов: ${files.length}` : `Папки нет: ${dir}. «Открыть в проводнике» создаст её`;
+    for (const f of files?.slice(0, 30) ?? []) {
+      const name = PathUtils.filename(f);
+      grid.append(VID.test(f) ? el("span", { className: "wp-video", title: name, textContent: "▶ " + name })
+        : el("img", { src: PathUtils.toFileURI(f), title: name, loading: "lazy", decoding: "async", alt: "" }));
+    }
+    if (files?.length > 30) grid.append(el("span", { className: "wp-video", textContent: `+ ещё ${files.length - 30}` }));
+  };
+  watchPref(WP + "folder", previews);
+  window.addEventListener("focus", previews); // вернулись из проводника — список обновился
+  $("#wp-open").addEventListener("click", async () => {
+    const dir = localDir();
+    await IOUtils.makeDirectory(dir, { createAncestors: true, ignoreExisting: true });
+    const f = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
+    f.initWithPath(dir);
+    f.launch();
+    previews();
+  });
+  // цвет фона без обоев: пусто — акцент палитры
+  const color = $("#wp-color");
+  watchPref(WP + "color", () => (color.value = Services.prefs.getStringPref(WP + "color", "") || palette.colors().accent));
+  color.addEventListener("input", () => Services.prefs.setStringPref(WP + "color", color.value));
+  $("#wp-color-reset").addEventListener("click", () => Services.prefs.clearUserPref(WP + "color"));
 }
 
 // ---------- LumiTime: «Открыть» — Home и панель настроек таймера (home/time.js) ----------

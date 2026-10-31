@@ -219,6 +219,14 @@ kbd {
 .clock-styles .lumi-clock-analog .lumi-clock-dial { width: 1.8em; height: 1.8em; }
 .clock-styles .lumi-clock-stacked { --clock-size: 22px; }
 #wp-folder { flex: 1; min-width: 0; }
+.need-key { color: var(--lumi-muted); font-size: 11px; &[hidden] { display: none; } }
+.checks label:has(:disabled) { opacity: 0.6; }
+input.keyfield { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--lumi-bg1); color: var(--lumi-fg); font: 500 12.5px Inter, system-ui, sans-serif; }
+input[type="color"] { width: 44px; height: 32px; padding: 2px; border-radius: 8px; border: 1px solid var(--line); background: var(--lumi-bg1); }
+.wp-previews { display: flex; flex-wrap: wrap; gap: 6px; max-height: 190px; overflow: auto;
+  &:empty { display: none; }
+  & img, & .wp-video { width: 96px; height: 54px; border-radius: 6px; object-fit: cover; background: var(--lumi-bg1); }
+  & .wp-video { display: flex; align-items: center; justify-content: center; padding: 0 4px; box-sizing: border-box; overflow: hidden; font-size: 11px; color: var(--lumi-muted); white-space: nowrap; text-overflow: ellipsis; } }
 /* Окно браузера (раздел «Оформление»): body[data-mode] ставит settings.js. Прозрачность — в «Прозрачном» и «Обоях», остальное по режиму */
 #glass-options { display: flex; flex-direction: column; gap: 8px; }
 body[data-mode="opaque"] #glass-options, body:not([data-mode="transparent"]) .only-transparent, body:not([data-mode="wallpaper"]) .only-wallpaper { display: none; }

@@ -1,8 +1,7 @@
-/* Luminoctis Home — каркас: фон (#lumi-wallpaper), часы в центре, LumiTime справа столбцом, доски LumiNotes снизу.
+/* Luminoctis Home — каркас: фон (#lumi-wallpaper), часы в центре, доски LumiNotes снизу (LumiTime с Home убран на этапе 2A — вернётся в рейке).
  * Цвета — токены палитры (--lumi-*), их ставит js/lumi-palette.sys.mjs (home.js). Вид виджетов — в их собственных css. */
 :root {
   --lumi-mono: "JetBrains Mono", Consolas, monospace;
-  --lumi-time-w: 320px;   /* ширина столбца LumiTime */
   --lumi-notes-h: 180px;  /* высота полосы досок в покое */
   color-scheme: dark;
 }
@@ -15,27 +14,24 @@ body { background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c0caf5); fon
 
 #lumi-home {
   position: relative; z-index: 1; height: 100%;
-  display: grid; grid-template-columns: 1fr var(--lumi-time-w); grid-template-rows: 1fr var(--lumi-notes-h);
-  grid-template-areas: "clock time" "notes time";
+  display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr var(--lumi-notes-h);
+  grid-template-areas: "clock" "notes";
   pointer-events: none; /* пустые места — клики по обоям */
   & > * { pointer-events: auto; min-width: 0; min-height: 0; }
 }
 #lumi-clock { grid-area: clock; place-self: center; text-align: center; user-select: none; }
-#lumi-time  { grid-area: time; }
 #lumi-notes { grid-area: notes; }
-#lumi-clock:empty, #lumi-time:empty, #lumi-notes:empty { pointer-events: none; }
-/* спрятанные таймер и доски (time.js, notes.js) схлопывают свою колонку/строку — часы встают в центр */
+#lumi-clock:empty, #lumi-notes:empty { pointer-events: none; }
+/* спрятанные доски (notes.js) схлопывают свою строку — часы встают в центр */
 #lumi-home { transition: grid-template-columns .35s cubic-bezier(.2, .8, .2, 1), grid-template-rows .35s cubic-bezier(.2, .8, .2, 1); }
 
-/* плашки LumiTime (у правого края) и LumiNotes (у нижнего): сплошные, цвета акцента, видны только при наведении;
- * клик — открыть/закрыть, место одно и то же (у таймера плашка в его отступе от края, над досками — поверх) */
+/* плашка LumiNotes (у нижнего края): сплошная, цвета акцента, видна только при наведении; клик — открыть/закрыть */
 .lumi-bar {
   position: fixed; z-index: 6; padding: 0; border: 0; border-radius: 0; background: var(--lumi-accent, #7aa2f7); cursor: pointer;
   opacity: 0; transition: opacity .2s;
   &:hover, &:focus-visible { opacity: 1; }
   &:focus-visible { outline: 2px solid var(--lumi-fg, #c0caf5); outline-offset: 2px; }
   }
-.lumi-bar-time { top: 0; right: 0; bottom: 0; width: 12px; } /* на всю высоту окна */
 .lumi-bar-notes { left: 0; right: 0; bottom: 0; height: 12px; } /* на всю ширину окна */
 @media (prefers-reduced-motion: reduce) { #lumi-home, .lumi-bar { transition-duration: .01s; } }
 

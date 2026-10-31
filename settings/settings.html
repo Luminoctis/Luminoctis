@@ -138,6 +138,10 @@
       <input type="checkbox" data-pref="zen.urlbar.replace-newtab" data-inverted>
     </label>
     <label class="row">
+      <div class="text"><b>Никогда не выгружать Home</b><span>Вкладка Home не выгружается ни таймером, ни кнопкой «Выгрузить». Без флажка она выгружается как обычная вкладка и открывается заново по «L»</span></div>
+      <input type="checkbox" data-pref="luminoctis.home.never-unload">
+    </label>
+    <label class="row">
       <div class="text"><b>Открывать заново, а не переключаться</b><span>Если сайт из адресной строки уже открыт — открыть его в новой вкладке, а не перейти на открытую</span></div>
       <input type="checkbox" data-pref="luminoctis.urlbar.always-new-tab">
     </label>
@@ -177,27 +181,61 @@
 
     <h2>Обои <span class="hint">· кнопки ⟳ ♥ ✕ ↗ ⚙ — в левом верхнем углу Home при наведении</span></h2>
     <div class="row stack">
-      <div class="text"><b>Откуда брать</b><span>Из сети — только безопасные (SFW) картинки; нет сети — тёмный градиент.
-        «Рабочий стол» — без своих обоев: Home насквозь, виден рабочий стол. Нужна прозрачность окна от Windows</span></div>
+      <div class="text"><b>Откуда брать</b><span>Каждый источник включается отдельно, картинки из них идут вперемешку. Из сети — только безопасные (SFW; Wallhaven — как настроите ниже).
+        Ничего не включено или сети нет — цветной фон. «Рабочий стол» — без своих обоев: Home насквозь, виден рабочий стол. Нужна прозрачность окна от Windows</span></div>
       <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper">Обои</button><button data-value="transparent">Рабочий стол</button></div>
       <div class="checks">
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.unsplash" data-need-key="unsplash">Unsplash <span class="need-key">нужен ключ</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.pexels" data-need-key="pexels">Pexels <span class="need-key">нужен ключ</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.reddit">Reddit</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan">Konachan (аниме)</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.yandere">Yande.re (аниме)</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.safebooru">Safebooru (аниме)</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.apod">NASA — картинка дня</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wikimedia">Wikimedia — картинка дня</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing">Bing — картинка дня</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local">Своя папка</label>
       </div>
     </div>
     <div class="row stack">
-      <div class="text"><b>Поиск в сети</b><span>Теги или тема для Wallhaven и Konachan, например «night city» или «landscape». Пусто — любые</span></div>
+      <div class="text"><b>Поиск в сети</b><span>Теги или тема для Wallhaven, Unsplash, Pexels и аниме-сайтов, например «night city» или «landscape». Пусто — любые</span></div>
       <input id="wp-query" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.query" placeholder="любые">
-      <div class="seg" data-pref="luminoctis.home.wallpaper.category" data-default="all"><button data-value="all">Всё</button><button data-value="anime">Аниме</button><button data-value="general">Общие</button></div>
-      <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random">Случайные</button><button data-value="toplist">Лучшие</button></div>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random">Случайные</button><button data-value="toplist">Лучшие</button><button data-value="hot">Горячие</button></div>
     </div>
     <div class="row stack">
-      <div class="text"><b>Своя папка</b><span>Картинки, GIF и видео mp4/webm (по кругу; звук — в группе «Звук»)</span></div>
-      <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана"><button id="wp-pick">Выбрать…</button></div>
+      <div class="text"><b>Wallhaven</b><span>Что искать: категории, чистота и размер. NSFW включается только при заданном ключе Wallhaven (ниже)</span></div>
+      <div class="checks">
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.general" data-default="true">Общие</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.anime" data-default="true">Аниме</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.people">Люди</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.sketchy">Sketchy (полуоткровенные)</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.nsfw" data-need-key="wallhaven">NSFW <span class="need-key">нужен ключ</span></label>
+      </div>
+      <label class="slider">Не меньше <select data-str-pref="luminoctis.home.wallpaper.wh.atleast"><option value="">любой размер</option><option value="1280x720">1280×720</option><option value="1920x1080">1920×1080 (Full HD)</option><option value="2560x1440">2560×1440</option><option value="3840x2160">3840×2160 (4K)</option></select></label>
+      <label class="slider">Пропорции <select data-str-pref="luminoctis.home.wallpaper.wh.ratios"><option value="">горизонтальные</option><option value="16x9">16:9</option><option value="16x10">16:10</option><option value="21x9">21:9</option><option value="any">любые</option></select></label>
     </div>
-    <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — их копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
+    <div class="row stack">
+      <div class="text"><b>Reddit</b><span>Сабреддиты через запятую (до 5): берутся лучшие за неделю, только прямые картинки и без 18+</span></div>
+      <input type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.reddit.subs" placeholder="wallpapers, wallpaper">
+    </div>
+    <div class="row stack">
+      <div class="text"><b>Ключи доступа</b><span>Unsplash (Access Key) и Pexels (API key) бесплатны на сайтах сервисов; без ключа источник выключен. Ключ Wallhaven — по желанию (нужен для NSFW). Ключи хранятся в настройках профиля Zen</span></div>
+      <label class="slider">Unsplash<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.unsplash"></label>
+      <label class="slider">Pexels<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.pexels"></label>
+      <label class="slider">Wallhaven<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.wallhaven"></label>
+    </div>
+    <div class="row stack">
+      <div class="text"><b>Своя папка</b><span>Положите в неё картинки (jpg, jpeg, png, webp, avif, bmp, gif, apng, svg) и видео (mp4, webm, ogv) — они пойдут по кругу (звук видео — в группе «Звук»).
+        Папка не выбрана — берётся wallpapers\local в папке данных</span></div>
+      <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана"><button id="wp-pick">Выбрать…</button><button id="wp-open">Открыть в проводнике</button></div>
+      <div class="text"><span id="wp-folder-state"></span></div>
+      <div id="wp-previews" class="wp-previews"></div>
+    </div>
+    <div class="row"><div class="text"><b>Цвет фона</b><span>Мягкий градиент из этого цвета показывается, когда обоев нет: ничего не включено, нет сети или пусто в избранном. «Как акцент» — цвет акцента палитры</span></div>
+      <div class="key"><input type="color" id="wp-color"><button id="wp-color-reset">Как акцент</button></div></div>
+    <label class="row"><div class="text"><b>Только избранное</b><span>Показывать только обои с ♥ — по кругу, по порядку (и сетевые, и из своей папки). Копии лежат в папке данных, wallpapers\favorites</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
+    <label class="row"><div class="text"><b>Избранное вперемешку</b></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favShuffle"></label>
     <div class="row stack">
       <div class="text"><b>Смена обоев</b></div>
       <div class="seg" data-pref="luminoctis.home.wallpaper.rotate" data-default="open"><button data-value="open">При открытии</button><button data-value="interval">По таймеру</button><button data-value="daily">Раз в день</button><button data-value="manual">Кнопкой ⟳</button></div>

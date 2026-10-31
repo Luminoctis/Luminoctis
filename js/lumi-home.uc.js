@@ -9,6 +9,8 @@
 // Выгрузка: chrome://-страница живёт в процессе браузера, а родной gBrowser.discardBrowser выгружает только вкладки сайтов
 // (для неё всегда false). Поэтому discardBrowser для Home закрывает её без следа в истории закрытых, а «L» создаёт заново —
 // так её выгружают и таймер выгрузки мода, и «Выгрузить» Zen. Данные виджеты хранят в папке (home/store.js), не во вкладке.
+// Не выгружать вообще: флажок luminoctis.home.never-unload (и режим окна «Обои»).
+// Старт: каждое обычное окно (первое с восстановленной сессией, Ctrl+N) выбирает Home, а все остальные вкладки выгружены (startup() ниже).
 (() => {
   const { windowMode } = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
   const URL = "chrome://userchrome/content/luminoctis/home/home.html";
@@ -79,8 +81,9 @@
   // в момент TabSelect класса окошка ещё нет — закреп (zen-essential) узнаём сразу, иначе на кадр мигает рабочий стол; rAF-повтор в TabSelect уточнит
   const underPin = () => !!(gBrowser.selectedTab?.hasAttribute("zen-essential") || panelOf(gBrowser.selectedTab)?.classList.contains("lumi-pin-window")) &&
     !!panelOf(gBrowser.tabs.find(isHome))?.classList.contains("deck-selected");
+  const neverUnload = () => wallMode() || Services.prefs.getBoolPref("luminoctis.home.never-unload", false);
   const toggle = () => (isHome(gBrowser.selectedTab) ? back() : open());
-  window.lumiHome = { toggle, open, back, isHome, find, URL };
+  window.lumiHome = { toggle, open, back, isHome, find, URL, settle: () => settle() }; // settle — старт (для проверок)
 
   // «Обычная страница новой вкладки» (zen.urlbar.replace-newtab выключен): Ctrl+T и «+» без адреса ведут на Home, а не создают вкладку.
   // Включён — родной плавающий поиск Zen. Вызовы с адресом (ссылки, закладки) и Ctrl+T из самой Home не трогаем.
@@ -90,10 +93,43 @@
     if (!isHome(gBrowser.selectedTab)) open();
   };
 
+  // ---------- Старт: всегда Home ----------
+  // Стартовое окно: обычное (не приватное, не всплывающее), без вкладки/ссылки в аргументах (перетащенная вкладка, ссылка из другой программы — не трогаем).
+  // Zen сам выбирает при старте пустую вкладку или (continue-where-left-off) прошлую — она бы загрузилась — и открывает над ней поиск (open-on-startup).
+  // Пока он выбирает, обе настройки временно выключены (старые значения лежат в pref luminoctis.home.startup-saved, возвращает окно, которое их выключило); когда Zen закончил — выбираем Home
+  // и выгружаем всё, что успело загрузиться (вкладки сессии уже pending: browser.sessionstore.restore_on_demand).
+  const arg = window.arguments?.[0];
+  const startsOnHome = !PrivateBrowsingUtils.isWindowPrivate(window) && window.toolbar.visible &&
+    (!arg || (typeof arg == "string" && (typeof isInitialPage != "function" || isInitialPage(arg.split("|")[0]))));
+  function settle() {
+    open();
+    for (const t of gZenWorkspaces.allStoredTabs) {
+      if (!t.selected && !t.closing && !t.hasAttribute("pending") && !t.soundPlaying && !t.matches("[zen-empty-tab], [zen-glance-tab], [glance-id]")) {
+        gBrowser.discardBrowser(t, true);
+      }
+    }
+  }
+  if (startsOnHome) {
+    const ZEN = ["zen.workspaces.continue-where-left-off", "zen.urlbar.open-on-startup"], SAVED = "luminoctis.home.startup-saved", pr = Services.prefs;
+    const restore = () => {
+      for (const [n, had, v] of JSON.parse(pr.getStringPref(SAVED, "[]"))) had ? pr.setBoolPref(n, v) : pr.clearUserPref(n);
+      pr.clearUserPref(SAVED);
+    };
+    // остаток прошлого запуска (сбой до restore) — вернуть; настройки уже временно выключены другим стартующим окном — не трогаем
+    if (pr.prefHasUserValue(SAVED) && [...Services.wm.getEnumerator("navigator:browser")].length < 2) restore();
+    const owner = !pr.prefHasUserValue(SAVED);
+    if (owner) {
+      pr.setStringPref(SAVED, JSON.stringify(ZEN.map(n => [n, pr.prefHasUserValue(n), pr.getBoolPref(n, false)])));
+      for (const n of ZEN) pr.setBoolPref(n, false);
+    }
+    Promise.race([gZenWorkspaces.promiseInitialized, new Promise(r => setTimeout(r, 20000))]).then(() => UC_API.Windows.waitWindowLoading(window)).then(settle)
+      .catch(console.error).finally(() => { if (owner) restore(); });
+  }
+
   const discard = gBrowser.discardBrowser;
   gBrowser.discardBrowser = function (tab, force) {
     if (!isHome(tab)) return discard.call(this, tab, force);
-    if (tab.selected || tab.closing || wallMode()) return false;
+    if (tab.selected || tab.closing || neverUnload()) return false;
     this.removeTab(tab, { animate: false, skipSessionStore: true });
     return true;
   };
@@ -115,7 +151,7 @@
       sync();
       requestAnimationFrame(sync); // класс окошка закрепа ставится после TabSelect
     });
-    SessionStore.promiseAllWindowsRestored.then(() => { find(); ensure(); sync(); }).catch(console.error);
+    if (!startsOnHome) SessionStore.promiseAllWindowsRestored.then(() => { find(); ensure(); sync(); }).catch(console.error);
     const onWin = () => { ensure(); sync(); };
     Services.prefs.addObserver("luminoctis.look.window", onWin);
     window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.look.window", onWin), { once: true });

@@ -568,13 +568,39 @@ zen-library {
   background: color-mix(in srgb, var(--lumi-fg) 14%, transparent);
 }
 @container (max-width: 44px) { .lumi-folder-count { display: none !important; } }
-#lumi-folder-menu {
-  & menuitem { max-width: 340px; }
-  & menuitem[lumi-current] { color: var(--lumi-fg) !important; background-color: var(--lumi-raised) !important; font-weight: 600; }
-  & menuitem[pending] { opacity: 0.55; & .menu-icon { filter: grayscale(1); } }
-  & menuitem[lumi-level="1"] { padding-inline-start: 24px !important; }
-  & menuitem[lumi-level="2"] { padding-inline-start: 38px !important; }
-  & menuitem[disabled] { font-weight: 600; opacity: 1; }
+/* перетаскивание вкладки на фишку: подсветка (бросок положит её в папку) */
+.lumi-tab.lumi-folder[drop-into] { --pill-bg: color-mix(in srgb, var(--lumi-accent) 30%, var(--lumi-bg1)); --pill-line: var(--lumi-accent); color: var(--lumi-fg); }
+.lumi-tab.lumi-folder[drop-into]::before { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lumi-accent) 45%, transparent); }
+/* переименование прямо в фишке (js/lumi-tabstrip.uc.js: renameChip) */
+.lumi-tab .lumi-folder-edit {
+  pointer-events: auto; flex: 1; min-width: 0; height: 20px; box-sizing: border-box; margin: 0; padding: 0 5px;
+  font: inherit; color: var(--lumi-fg); background: var(--lumi-bg1); border: 1px solid var(--lumi-accent); border-radius: 6px; outline: none;
+}
+/* выпадающий список папки: строки как вкладки полосы, те же кнопки «звук», «выгрузить», «×» */
+#lumi-folder-list {
+  display: flex; flex-direction: column; gap: 2px; min-width: 280px; max-width: 380px; max-height: 60vh; overflow-y: auto;
+  font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg);
+}
+.lumi-fr {
+  display: flex; align-items: center; gap: 8px; height: 32px; flex-shrink: 0; box-sizing: border-box;
+  padding: 0 6px 0 calc(8px + var(--lumi-level, 0) * 14px); border-radius: 8px; color: var(--lumi-muted);
+  &:hover { background: var(--lumi-raised); color: var(--lumi-fg); }
+  &[selected] { color: var(--lumi-fg); background: var(--lumi-raised); font-weight: 600; box-shadow: inset 2px 0 0 var(--lumi-accent); }
+  &[pending] > :is(.lumi-fr-icon, .lumi-fr-label) { filter: grayscale(1) brightness(0.6); }
+  &.lumi-fr-head { color: var(--lumi-dim); font-weight: 600; height: 26px; }
+  & > * { flex-shrink: 0; }
+  & .lumi-fr-icon { width: 16px; height: 16px; pointer-events: none; }
+  & .lumi-fr-label { flex: 1; min-width: 0; flex-shrink: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; pointer-events: none; }
+  & .lumi-fr-btn {
+    width: 20px; height: 20px; border-radius: 6px; background: center / 12px no-repeat; -moz-context-properties: fill; fill: currentColor;
+    &:hover { background-color: color-mix(in srgb, var(--lumi-fg) 15%, transparent); }
+  }
+  & .lumi-fr-close { background-image: url("chrome://global/skin/icons/close.svg"); opacity: 0.8; }
+  & .lumi-fr-unload { background-image: url("chrome://browser/skin/zen-icons/unpin.svg"); background-size: 13px; opacity: 0.8; } /* родной значок Zen «выгрузить/сбросить» */
+  &[pending] .lumi-fr-unload { visibility: hidden; }
+  & .lumi-fr-audio { display: none; background-image: url("chrome://global/skin/media/audio.svg"); }
+  &[soundplaying] .lumi-fr-audio, &[muted] .lumi-fr-audio { display: block; }
+  &[muted] .lumi-fr-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
 }
 
 /* «+» — квадратная таблетка 28×28, как вкладка-квадратик (та же форма и наведение); кликается от верхнего края.

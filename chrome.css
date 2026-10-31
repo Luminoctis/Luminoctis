@@ -862,12 +862,14 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   /* панель настроек — настоящее стекло: свою заливку рисует страница (surface с ползунком прозрачности), рамка прозрачная, а сайт под ней вырезан
    * маской (дырка по живому прямоугольнику панели; js: settings/settings.js, блок «стекло») — сквозь панель видно то же, что за окном */
   & #lumi-settings { background: transparent; }
+  /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
   & #tabbrowser-tabpanels[lumi-hole] {
-    mask-image: linear-gradient(#000, #000), linear-gradient(#000, #000);
-    mask-size: 100% 100%, var(--lumi-hole-w) var(--lumi-hole-h);
-    mask-position: 0 0, var(--lumi-hole-x) var(--lumi-hole-y);
+    mask-image: radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 0 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 100% 0, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 0 0, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)),
+      linear-gradient(#000, #000), linear-gradient(#000, #000);
+    mask-size: var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-hole-w) var(--lumi-hole-h), 100% 100%;
+    mask-position: var(--lumi-hole-x) var(--lumi-hole-y), calc(var(--lumi-hole-x) + var(--lumi-hole-w) - var(--lumi-radius)) var(--lumi-hole-y), var(--lumi-hole-x) calc(var(--lumi-hole-y) + var(--lumi-hole-h) - var(--lumi-radius)), calc(var(--lumi-hole-x) + var(--lumi-hole-w) - var(--lumi-radius)) calc(var(--lumi-hole-y) + var(--lumi-hole-h) - var(--lumi-radius)), var(--lumi-hole-x) var(--lumi-hole-y), 0 0;
     mask-repeat: no-repeat;
-    mask-composite: exclude;
+    mask-composite: add, add, add, add, exclude, add;
   }
   /* рейка, полоса вкладок и адресная строка в Compacting лежат на сайте с тем же стеклом, что и на месте (--lumi-bg0/bg1) — подложки нет */
 }
@@ -878,13 +880,19 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
  * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
 :root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {
   @media (-moz-windows-mica-popups) {
-    &:is(menupopup, panel[type="arrow"]) {
+    &:is(menupopup, panel[type="arrow"], #lumi-folder-panel) {
       appearance: auto !important; -moz-default-appearance: menupopup;
       --panel-border-color: transparent !important; --panel-box-shadow-margin: 0px !important;
     }
   }
   @media not (-moz-windows-mica-popups) { --panel-background-color: var(--lumi-solid) !important; }
 }
+
+/* Список папки (#lumi-folder-panel, js/lumi-tabstrip.uc.js) — обычная panel (не type="arrow"), поэтому стекло Windows (размытие под ней) она получает
+ * через список выше. Заливка не ниже ~85% плотности при любой прозрачности: пока размытия нет (Windows 10, нет аппаратного ускорения) или ползунок
+ * на максимуме, названия вкладок под списком не должны читаться насквозь. color-mix смешивает непрозрачный bg0 (80%) и surface палитры:
+ * итоговая плотность = 0.8 + 0.2 × плотность surface. (::part(content) из userChrome в виджет панели не достаёт — только переменная.) */
+:root[lumi-glass] #lumi-folder-panel { --panel-background-color: color-mix(in srgb, var(--lumi-solid) 80%, var(--lumi-surface)) !important; }
 
 /* Home не показываем в списке вкладок Библиотеки Zen (<zen-library>, копии вкладок сохраняют атрибут) */
 zen-library tab[lumi-home] { display: none !important; }

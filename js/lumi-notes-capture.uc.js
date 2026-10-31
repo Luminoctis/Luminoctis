@@ -5,7 +5,8 @@
 
 // Пишет те же файлы досок, что Home (home/notes-md.mjs + home/store.js); открытая Home перечитывает доски по уведомлению.
 (() => {
-  const notes = ChromeUtils.importESModule("chrome://userchrome/content/luminoctis/home/notes-md.mjs");
+  const { pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
+  const notes = ChromeUtils.importESModule(pageUrl("home/notes-md.mjs"));
 
   // карточка: выделенный текст + «— [заголовок](адрес)»
   async function add(board, text, title = "", url = "") {

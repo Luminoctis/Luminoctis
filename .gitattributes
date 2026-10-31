@@ -1,1 +1,9 @@
 vendor/fx-autoconfig/** -text
+
+# Sine скачивает репозиторий архивом git: всё лишнее не включаем
+dev/ export-ignore
+vendor/ export-ignore
+installer/ export-ignore
+docs/ export-ignore
+install.cmd export-ignore
+backups/ export-ignore

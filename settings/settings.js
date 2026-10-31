@@ -1,6 +1,7 @@
-// Панель настроек Luminoctis (chrome://userchrome/content/luminoctis/settings.html, встроена в окно справа от рейки —
+// Панель настроек Luminoctis (chrome://userchrome/content/luminoctis/settings/settings.html, встроена в окно справа от рейки —
 // js/lumi-rail.uc.js). Страница привилегированная: читает и пишет настройки Firefox напрямую,
 // закрепы (родные Essentials Zen) — через win.luminoctis, пространства — через gZenWorkspaces окна.
+import { JS } from "../home/paths.js";
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow; // окно браузера с этой панелью
 const { ContextualIdentityService } = win;
@@ -20,9 +21,9 @@ const el = (tag, props = {}, ...kids) => {
 const DOT = { blue: "blue", turquoise: "teal", green: "green", yellow: "yellow", orange: "orange",
   red: "red", pink: "pink", purple: "purple", toolbar: "fg" };
 // палитра: цвета ставятся и на эту страницу (она отдельный документ и не наследует переменные окна)
-const palette = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
+const palette = ChromeUtils.importESModule(JS("lumi-palette.sys.mjs"));
 palette.watch(document, { glass: true });
-const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
+const keys = ChromeUtils.importESModule(JS("lumi-keys.sys.mjs"));
 
 // ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
@@ -569,7 +570,7 @@ renderPalette();
 
 // ---------- Luminoctis Home: папка данных (home/store.js; пусто — Documents\Luminoctis Home) ----------
 {
-  const store = await import("./home/store.js");
+  const store = await import("../home/store.js");
   const box = $("#home-dir");
   box.placeholder = store.defaultDir();
   const read = () => (box.value = Services.prefs.getStringPref(store.PREF, ""));
@@ -582,7 +583,7 @@ renderPalette();
 
 // ---------- Luminoctis Home: часы и обои (home/clock.js, home/wallpaper.js; docs/areas/home.md) ----------
 {
-  const { Clock } = await import("./home/clock.js");
+  const { Clock } = await import("../home/clock.js");
   for (const b of document.querySelectorAll(".clock-styles [data-value]")) new Clock(b.querySelector(".clock-prev"), b.dataset.value); // живые превью
   // числа: ползунки (рядом <output>) и списки
   for (const input of document.querySelectorAll("[data-int-pref]")) {
@@ -621,7 +622,7 @@ renderPalette();
     watchPref(kp, () => { const has = !!Services.prefs.getStringPref(kp, "").trim(); box.disabled = !has; hint.hidden = has; });
   }
   // своя папка: состояние, превью файлов, «Открыть в проводнике»
-  const { IMG, VID, localDir } = await import("./home/wallpaper-sources.js");
+  const { IMG, VID, localDir } = await import("../home/wallpaper-sources.js");
   const grid = $("#wp-previews"), info = $("#wp-folder-state");
   let seen = "";
   const previews = async () => {
@@ -688,7 +689,7 @@ renderPalette();
 }
 
 // ---------- обновления мода (js/lumi-update.sys.mjs) ----------
-const upd = ChromeUtils.importESModule("chrome://userscripts/content/lumi-update.sys.mjs");
+const upd = ChromeUtils.importESModule(JS("lumi-update.sys.mjs"));
 const UPD = "luminoctis.update.";
 const updStatus = text => ($("#update-status").textContent = text);
 watchPref(UPD + "available", () => {
@@ -714,8 +715,6 @@ $("#update-apply").addEventListener("click", async event => {
 });
 upd.installedVersion().then(v => {
   $("#update-version").textContent = v ? "Установлена v" + v : "Обновления недоступны";
-  if (!v) {
-    updStatus("Мод не установлен установщиком — обновляйте его вручную");
-    $("#update-check").disabled = $("#update-auto").disabled = true;
-  }
+  // самообновление — только у мода, поставленного установщиком (под Sine обновляет сам Sine)
+  if (!v) for (const el of [$("#update-title"), $("#update-row"), $("#update-auto").closest("label")]) el.style.display = "none";
 });

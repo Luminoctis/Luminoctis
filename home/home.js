@@ -2,7 +2,8 @@
 // Страница привилегированная (chrome:// во вкладке, системный принципал): Services, ChromeUtils, IOUtils, PathUtils.
 // Окно браузера — window.browsingContext.topChromeWindow (там window.lumiHome, window.luminoctis).
 // Виджеты подключаются своими файлами (список — в home.html) и рисуют в своих областях: #lumi-wallpaper, #lumi-clock, #lumi-search, #lumi-shortcuts, #lumi-notes.
-ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs").watch(document);
+import { JS } from "./paths.js";
+ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
 
 // блоки first screen и заметки включаются/выключаются: luminoctis.home.show.<clock|search|shortcuts|notes> (по умолчанию все включены)
 const SHOW = "luminoctis.home.show.";

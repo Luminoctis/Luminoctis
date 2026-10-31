@@ -4,9 +4,10 @@
 // ==/UserScript==
 
 (() => {
+  const { jsUrl, pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   // палитра — сразу, до отрисовки окна (скрипт идёт на DOMContentLoaded): без вспышки цветов Tokyo Night
-  ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs").watch(document, { glass: true });
-  const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.sys.mjs");
+  ChromeUtils.importESModule(jsUrl("lumi-palette.sys.mjs")).watch(document, { glass: true });
+  const keys = ChromeUtils.importESModule(jsUrl("lumi-keys.sys.mjs"));
   const h = (tag, className, props = {}) =>
     Object.assign(document.createElement(tag), { className }, props);
   const labeled = (el, text) => {
@@ -18,7 +19,7 @@
   // Настройки Luminoctis — панель справа от рейки (концепт, вид «edit»). Внутри — страница настроек
   // (Luminoctis\settings → профиль chrome\resources\luminoctis, адрес даёт fx-autoconfig), раздел — в её адресе (#sidebar).
   // Панель грузится при первом открытии, потом только прячется: раздел и прокрутка остаются как были.
-  const SETTINGS_URL = "chrome://userchrome/content/luminoctis/settings.html";
+  const SETTINGS_URL = pageUrl("settings/settings.html");
   let settings;
   const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches; // «уменьшить анимацию» — общая для рейки и полосы
   window.luminoctis = {

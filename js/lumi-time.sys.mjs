@@ -10,7 +10,8 @@
 // Записи журнала — тот же формат, что у плагина (kind Focus/Break/Long break, Countdown/Stopwatch, Completed/Stopped); подписи — в интерфейсе.
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
-const STORE_URL = "chrome://userchrome/content/luminoctis/home/store.js";
+import { pageUrl } from "./lumi-paths.sys.mjs";
+const STORE_URL = pageUrl("home/store.js");
 const store = () => ChromeUtils.importESModule(STORE_URL);
 export const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json" };
 export const dayFile = date => `time/days/${date}.json`;

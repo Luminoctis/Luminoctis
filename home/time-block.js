@@ -1,6 +1,7 @@
 // Заглушка блока сайтов (home/time-block.html): «Фокус — вернись после чч:мм»; «Всё равно открыть» — сайт открыт до конца этого фокуса.
-ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs").watch(document);
-const engine = ChromeUtils.importESModule("chrome://userscripts/content/lumi-time.sys.mjs");
+import { JS } from "./paths.js";
+ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
+const engine = ChromeUtils.importESModule(JS("lumi-time.sys.mjs"));
 const q = new URLSearchParams(location.search);
 const url = q.get("url") ?? "", site = q.get("site") ?? "", until = q.get("until");
 let target = null;

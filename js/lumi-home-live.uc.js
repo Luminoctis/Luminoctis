@@ -11,7 +11,8 @@
 // acrylic / mica — ACCENT_DISABLED (родная подложка Zen, её вид пишет lumi-palette в widget.windows.mica.toplevel-backdrop).
 // Ушли с Home / свернули окно / режим окна не прозрачный — ACCENT_DISABLED.
 (() => {
-  const { windowMode } = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
+  const { jsUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
+  const { windowMode } = ChromeUtils.importESModule(jsUrl("lumi-palette.sys.mjs"));
   const mica = matchMedia("(-moz-windows-mica)"); // без него Windows не рисует прозрачные пиксели окна
   const DESKTOP = "desktop";
 

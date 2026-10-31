@@ -1,8 +1,9 @@
 // LumiTime: панели «Настройки», «Статистика», «Журнал», «День» (кнопки внизу столбца таймера, home/time.js).
 // Открытая панель — body[lumi-time-panel=имя]: часы и доски уезжают вправо, панель выезжает слева, столбец таймера остаётся (time.css).
 // Данные — у движка (js/lumi-time.sys.mjs, один на всё приложение); Daily Log — свои файлы time/days/гггг-мм-дд.json (home/store.js).
+import { JS } from "./paths.js";
 import * as store from "./store.js";
-export const E = ChromeUtils.importESModule("chrome://userscripts/content/lumi-time.sys.mjs");
+export const E = ChromeUtils.importESModule(JS("lumi-time.sys.mjs"));
 
 // ---------- мелочи ----------
 // h("div", { class, text, title, on: { click }, ...атрибуты/свойства }, ...дети)

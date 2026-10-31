@@ -232,7 +232,7 @@ foreach ($f in $jsFiles) {
 $res = Join-Path $chrome 'resources\luminoctis'
 Remove-Item $res -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $res | Out-Null
-Copy-Item (Join-Path $root 'settings\*') $res -Recurse
+Copy-Item (Join-Path $root 'settings') (Join-Path $res 'settings') -Recurse
 Copy-Item (Join-Path $root 'home') (Join-Path $res 'home') -Recurse
 
 $lum = Join-Path $chrome 'luminoctis'
@@ -253,6 +253,8 @@ Copy-Item (Join-Path $root 'preferences.json'), (Join-Path $root 'README.md') $m
 $mods = Read-Mods $modsFile
 $theme = [IO.File]::ReadAllText((Join-Path $root 'theme.json')) | ConvertFrom-Json
 $entry = $theme | Select-Object *
+# поля Sine (scripts, fork) списку модов Zen не нужны
+foreach ($n in 'scripts', 'fork') { $entry.PSObject.Properties.Remove($n) }
 $entry | Add-Member -Force enabled $true
 $mods | Add-Member -Force luminoctis $entry
 

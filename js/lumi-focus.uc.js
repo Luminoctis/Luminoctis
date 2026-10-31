@@ -7,8 +7,9 @@
 // и грузим во вкладку home/time-block.html. Каждое окно обслуживает только свои вкладки (embedderElement в этом окне).
 // Решение «блокировать?» — в движке (lumi-time.sys.mjs focusBlock): включено, список не пуст, фокус идёт (не пауза, не перерыв).
 (() => {
-  const engine = ChromeUtils.importESModule("chrome://userscripts/content/lumi-time.sys.mjs");
-  const BLOCK = "chrome://userchrome/content/luminoctis/home/time-block.html";
+  const { jsUrl, pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
+  const engine = ChromeUtils.importESModule(jsUrl("lumi-time.sys.mjs"));
+  const BLOCK = pageUrl("home/time-block.html");
   // движок здесь не запускаем: фокус может идти, только если его начали на Home (там init); до этого focusBlock — null
 
   const observer = {

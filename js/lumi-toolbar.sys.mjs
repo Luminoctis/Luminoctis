@@ -5,6 +5,23 @@
 
 import { CustomizableUI } from "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs";
 
+// Настройки Zen, без которых мод выглядит неправильно. Установщик пишет их сам (installer/install.ps1 $prefDefs); под Sine установщика нет —
+// ставим один раз из JS (флаг luminoctis.prefs.seeded), если нет <профиль>\luminoctis-install.json. Список держать в паре с $prefDefs.
+// Часть настроек Zen читает при создании окна, поэтому при самом первом запуске нужен перезапуск.
+{
+  const state = Services.dirsvc.get("ProfD", Ci.nsIFile);
+  state.append("luminoctis-install.json");
+  if (!state.exists() && !Services.prefs.getBoolPref("luminoctis.prefs.seeded", false)) {
+    const set = {
+      "zen.workspaces.separate-essentials": false, "zen.view.use-single-toolbar": false,
+      "zen.view.compact.enable-at-startup": true, "zen.view.compact.hide-toolbar": true, "zen.view.compact.hide-tabbar": false,
+      "zen.view.sidebar-expanded": true, "zen.view.show-newtab-button-top": false,
+    };
+    for (const [k, v] of Object.entries(set)) Services.prefs.setBoolPref(k, v);
+    Services.prefs.setBoolPref("luminoctis.prefs.seeded", true);
+  }
+}
+
 // Шестерёнка — родная кнопка Firefox «Настройки» (preferences-button): открывает настройки Zen, значок-шестерёнку даёт Zen.
 // Настройки мода — правой кнопкой по рейке (js/lumi-rail.uc.js).
 // Раскладку ставим один раз (номер версии в настройке), дальше пользователь вправе её менять.

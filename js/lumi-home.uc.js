@@ -12,8 +12,9 @@
 // Не выгружать вообще: флажок luminoctis.home.never-unload (и режим окна «Обои»).
 // Старт: каждое обычное окно (первое с восстановленной сессией, Ctrl+N) выбирает Home, а все остальные вкладки выгружены (startup() ниже).
 (() => {
-  const { windowMode } = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
-  const URL = "chrome://userchrome/content/luminoctis/home/home.html";
+  const { jsUrl, pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
+  const { windowMode } = ChromeUtils.importESModule(jsUrl("lumi-palette.sys.mjs"));
+  const URL = pageUrl("home/home.html");
   const KEY = "lumi-home";
   let prev = null; // вкладка, с которой пришли на Home
 

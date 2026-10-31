@@ -7,3 +7,4 @@ installer/ export-ignore
 docs/ export-ignore
 install.cmd export-ignore
 backups/ export-ignore
+setup/ export-ignore

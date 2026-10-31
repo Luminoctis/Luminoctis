@@ -4,9 +4,11 @@
 #   -ProfileDir <папка профиля>     вместо выбора из profiles.ini (для тестов)
 #   -Uninstall                      убрать мод
 #   -Yes                            отвечать «да» на все вопросы
+#   -Probe                          ничего не менять, вывести одну строку JSON (Zen, профили, версия, занятость, мешающие моды, Sine) — для Luminoctis-Setup.exe
+#   -DisableMods <id,id> / -KeepMods  заранее решить, какие мешающие моды выключить (без вопроса); для графического установщика
 #   -Update                         как -Yes, но выключенные ранее моды Zen заново не трогает (зовёт update.ps1 при обновлении из мода)
 # Повторный запуск = обновление/починка. Источники берутся от корня репозитория (папка выше installer\).
-param([string]$ZenDir, [string]$ProfileDir, [switch]$Uninstall, [switch]$Yes, [switch]$Update)
+param([string]$ZenDir, [string]$ProfileDir, [switch]$Uninstall, [switch]$Yes, [switch]$Update, [switch]$Probe, [string]$DisableMods, [switch]$KeepMods)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $root = Split-Path $PSScriptRoot -Parent
@@ -26,7 +28,9 @@ $prefDefs = [ordered]@{
   'zen.view.show-newtab-button-top'                     = 'false'
 }
 
-function Fail($m) { Write-Host "Ошибка: $m" -ForegroundColor Red; exit 1 }
+function Fail($m) { Write-Host "Ошибка: $m" -ForegroundColor Red; Write-Host "##ERROR $m"; exit 1 }
+# метки для графического установщика: ##STEP n/всего ключ, ##DONE версия|uninstall, ##ERROR текст
+function Step($n, $total, $key) { Write-Host "##STEP $n/$total $key" }
 function Ask($q) {
   if ($Yes -or $Update) { Write-Host "$q [да]"; return $true }
   $a = Read-Host "$q (Y/n)"
@@ -76,7 +80,52 @@ function Remove-IfEmpty($d) { if ((Test-Path $d) -and -not (Get-ChildItem $d -Fo
 function Read-Mods($f) { if (Test-Path $f) { [IO.File]::ReadAllText($f) | ConvertFrom-Json } else { [pscustomobject]@{} } }
 function Write-Mods($mods, $f) { [IO.File]::WriteAllText($f, ($mods | ConvertTo-Json -Depth 10), $utf8) }
 
+# ===== Проба (ничего не меняет) =====
+if ($Probe) {
+  $zd = if ($ZenDir) { $ZenDir } else { Find-Zen }
+  if ($zd -and -not (Test-Path (Join-Path $zd 'zen.exe'))) { $zd = $null }
+  $zData = Join-Path $env:APPDATA 'zen'
+  $plist = @(); $pdef = $null
+  $pini = Join-Path $zData 'profiles.ini'
+  if (Test-Path $pini) {
+    $iniDef = $null
+    $inst0 = Join-Path $zData 'installs.ini'
+    if (Test-Path $inst0) { $iniDef = @(Read-Ini $inst0 | Where-Object { $_.Default } | ForEach-Object { Join-Path $zData ($_.Default -replace '/', '\') })[0] }
+    foreach ($e in @(Read-Ini $pini | Where-Object { $_.Path })) {
+      $d = if ($e.IsRelative -eq '1') { Join-Path $zData ($e.Path -replace '/', '\') } else { $e.Path -replace '/', '\' }
+      $isDef = if ($iniDef) { $d -ieq $iniDef } else { $e.Default -eq '1' }
+      $plist += [pscustomobject]@{ name = $e.Name; dir = $d; isDefault = [bool]$isDef }
+    }
+  }
+  $cur = $null
+  if ($ProfileDir) { $cur = $ProfileDir } else { $c = @($plist | Where-Object isDefault); if ($c) { $cur = $c[0].dir } }
+  $ver = $null; $running = $false; $hitsP = @(); $sine = $false
+  if ($cur -and (Test-Path $cur)) {
+    $sf = Join-Path $cur 'luminoctis-install.json'
+    if (Test-Path $sf) { try { $ver = ([IO.File]::ReadAllText($sf) | ConvertFrom-Json).version } catch {} }
+    $lk = Join-Path $cur 'parent.lock'
+    if (Test-Path $lk) { try { [IO.File]::Open($lk, 'Open', 'ReadWrite', 'None').Close() } catch { $running = $true } }
+    $mf = Join-Path $cur 'zen-themes.json'
+    if (Test-Path $mf) {
+      try {
+        $pm = [IO.File]::ReadAllText($mf) | ConvertFrom-Json
+        $hitsP = @($pm.PSObject.Properties | Where-Object { $n = $_.Value.name; $_.Name -ne 'luminoctis' -and $_.Value.enabled -and $n -and ($overlap | Where-Object { $n -like "*$_*" }) } |
+          ForEach-Object { [pscustomobject]@{ id = $_.Name; name = $_.Value.name } })
+      } catch {}
+    }
+    if (Test-Path (Join-Path $cur 'chrome\sine-mods')) { $sine = $true }
+  }
+  if ($zd) {
+    $pd = if ($zd -match '\\scoop\\apps\\') { ($zd -replace '\\apps\\.*$', '') + '\persist\zen-browser\addition' } else { $zd }
+    foreach ($cj in (Join-Path $zd 'config.js'), (Join-Path $pd 'config.js')) { if ((Test-Path $cj) -and (Select-String -Path $cj -Pattern 'sine' -Quiet)) { $sine = $true } }
+  }
+  [ordered]@{ zenDir = $zd; profile = $cur; profiles = $plist; installedVersion = $ver; zenRunning = $running; overlapMods = $hitsP; sine = $sine } | ConvertTo-Json -Compress -Depth 5
+  exit 0
+}
+
 # --- 1. Zen ---
+$total = if ($Uninstall) { 3 } else { 6 }
+Step 1 $total 'zen'
 if (-not $ZenDir) { $ZenDir = Find-Zen }
 if (-not $ZenDir -or -not (Test-Path (Join-Path $ZenDir 'zen.exe'))) { Fail 'Zen не найден. Укажите папку: install.cmd -ZenDir "C:\...\Zen Browser"' }
 $scoop = $ZenDir -match '\\scoop\\apps\\'
@@ -88,6 +137,7 @@ if ($scoop) {
 Write-Host "Zen: $ZenDir"
 
 # --- 2. Профиль ---
+Step 2 $total 'profile'
 $zenData = Join-Path $env:APPDATA 'zen'
 if ($ProfileDir) {
   if (-not (Test-Path $ProfileDir)) { Fail "Профиль не найден: $ProfileDir" }
@@ -137,6 +187,7 @@ $cacheDirs = @((Join-Path $profile 'startupCache'), (Join-Path $env:LOCALAPPDATA
 
 # ===== Удаление =====
 if ($Uninstall) {
+  Step 3 $total 'uninstall'
   if (-not $state) { Fail 'Следов установки нет (luminoctis-install.json не найден).' }
   foreach ($f in @($state.jsFiles)) { Remove-Item (Join-Path $chrome "JS\$f") -Force -ErrorAction SilentlyContinue }
   foreach ($d in 'luminoctis', 'resources\luminoctis', 'zen-themes\luminoctis') { Remove-Item (Join-Path $chrome $d) -Recurse -Force -ErrorAction SilentlyContinue }
@@ -161,6 +212,7 @@ if ($Uninstall) {
   Remove-Item $stateFile -Force
   Write-Host 'Luminoctis удалён. Настройки мода (luminoctis.*) и резервные копии (luminoctis-backup) оставлены.'
   Write-Host 'Программная часть fx-autoconfig в папке Zen оставлена на месте (она безвредна без скриптов).'
+  Write-Host '##DONE uninstall'
   exit 0
 }
 
@@ -171,6 +223,7 @@ foreach ($cj in (Join-Path $ZenDir 'config.js'), (Join-Path $progDir 'config.js'
 }
 
 # --- 4. Программная часть fx-autoconfig ---
+Step 3 $total 'program'
 $srcProg = Join-Path $root 'vendor\fx-autoconfig\program'
 $pairs = @(
   @{ S = (Join-Path $srcProg 'config.js'); T = (Join-Path $progDir 'config.js') },
@@ -197,6 +250,7 @@ if (-not ($pairs | Where-Object { -not (Same $_.S $_.T) })) {
 }
 
 # --- 5. Резервная копия ---
+Step 4 $total 'backup'
 $ts = Get-Date -Format 'yyyyMMdd-HHmmss'
 $bk = Join-Path $profile "luminoctis-backup\$ts"
 New-Item -ItemType Directory -Force $bk | Out-Null
@@ -214,6 +268,7 @@ else {
 [IO.File]::WriteAllText((Join-Path $bk 'prefs-before.json'), ($prefsBefore | ConvertTo-Json), $utf8)
 
 # --- 6. Профильная часть ---
+Step 5 $total 'files'
 New-Item -ItemType Directory -Force $chrome | Out-Null
 $utilsPre = if ($state) { [bool]$state.utilsPreExisted } else { Test-Path (Join-Path $chrome 'utils') }
 Copy-Item (Join-Path $root 'vendor\fx-autoconfig\utils') $chrome -Recurse -Force
@@ -267,11 +322,17 @@ $hits = @($mods.PSObject.Properties | Where-Object {
 if ($hits -and -not $Update) {
   Write-Host 'Эти моды Zen делают то же, что Luminoctis, и мешают ему:'
   $hits | ForEach-Object { Write-Host "  - $($_.Value.name)" }
-  if (Ask 'Выключить их?') { foreach ($h in $hits) { $h.Value.enabled = $false; $disabled += $h.Name } }
+  if ($KeepMods) { Write-Host 'Оставляю включёнными.' }
+  elseif ($DisableMods) {
+    $ids = @($DisableMods -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+    foreach ($h in $hits) { if ($ids -contains $h.Name) { $h.Value.enabled = $false; $disabled += $h.Name; Write-Host "Выключен: $($h.Value.name)" } }
+  }
+  elseif (Ask 'Выключить их?') { foreach ($h in $hits) { $h.Value.enabled = $false; $disabled += $h.Name } }
 }
 Write-Mods $mods $modsFile
 
 # --- настройки Zen ---
+Step 6 $total 'prefs'
 Set-Prefs $prefsFile @($prefDefs.Keys) $prefDefs
 foreach ($c in $cacheDirs) { Remove-Item $c -Recurse -Force -ErrorAction SilentlyContinue }
 
@@ -284,3 +345,4 @@ foreach ($c in $cacheDirs) { Remove-Item $c -Recurse -Force -ErrorAction Silentl
 
 Write-Host "Luminoctis $($theme.version) установлен. Резервная копия: $bk" -ForegroundColor Green
 Write-Host 'Запустите Zen.'
+Write-Host "##DONE $($theme.version)"

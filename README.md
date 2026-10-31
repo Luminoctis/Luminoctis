@@ -198,6 +198,10 @@ Zen Browser mod Luminoctis by Laith.
 | `browser.urlbar.unifiedSearchButton.always` | `true` | выбор поисковика не прячется на открытом сайте |
 | `toolkit.legacyUserProfileCustomizations.stylesheets` | `true` | только при подключении через userChrome.css |
 
+## Установка одним кликом (Windows)
+
+Закрыть Zen и запустить `install.cmd` (двойной клик): ставит fx-autoconfig (один запрос прав администратора, если его ещё нет), копирует мод в выбранный профиль, прописывает нужные настройки Zen и предлагает выключить пересекающиеся моды. Повторный запуск — обновление; `install.cmd -Uninstall` — удалить. Подробнее: `docs/areas/installer.md`.
+
 ## fx-autoconfig
 
 Скрипты мода (`js\`) запускает [fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig). У него две половины:

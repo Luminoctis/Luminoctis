@@ -686,3 +686,36 @@ renderPalette();
   window.addEventListener("focus", fill); // вернулись в окно — папки могли добавить
   await fill();
 }
+
+// ---------- обновления мода (js/lumi-update.sys.mjs) ----------
+const upd = ChromeUtils.importESModule("chrome://userscripts/content/lumi-update.sys.mjs");
+const UPD = "luminoctis.update.";
+const updStatus = text => ($("#update-status").textContent = text);
+watchPref(UPD + "available", () => {
+  const v = Services.prefs.getStringPref(UPD + "available", "");
+  $("#update-avail").hidden = !v;
+  $("#update-new").textContent = v && "v" + v;
+});
+$("#update-page").addEventListener("click", event => {
+  event.preventDefault();
+  const url = Services.prefs.getStringPref(UPD + "page", "");
+  if (/^https?:/.test(url)) win.openTrustedLinkIn(url, "tab");
+});
+$("#update-check").addEventListener("click", async () => {
+  updStatus("Проверяю…");
+  const r = await upd.check();
+  updStatus(r.error ? "Не удалось проверить: " + r.error : r.available ? "" : "Установлена последняя версия");
+});
+$("#update-apply").addEventListener("click", async event => {
+  event.target.disabled = true;
+  updStatus("Скачиваю и проверяю…");
+  try { await upd.apply(); updStatus("Перезапускаю Zen…"); }
+  catch (e) { updStatus("Ошибка: " + e.message); event.target.disabled = false; }
+});
+upd.installedVersion().then(v => {
+  $("#update-version").textContent = v ? "Установлена v" + v : "Обновления недоступны";
+  if (!v) {
+    updStatus("Мод не установлен установщиком — обновляйте его вручную");
+    $("#update-check").disabled = $("#update-auto").disabled = true;
+  }
+});

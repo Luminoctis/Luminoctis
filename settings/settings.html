@@ -38,6 +38,16 @@
       <input id="pin-search" type="search" placeholder="+ Из закладок: название или адрес">
     </div>
     <div id="pin-results" class="list"></div>
+    <h2>Обновления <span class="hint">· из GitHub Releases</span></h2>
+    <div class="row" id="update-row">
+      <div class="text"><b id="update-version"></b><span id="update-status"></span></div>
+      <button id="update-check" class="small">Проверить сейчас</button>
+    </div>
+    <div class="row" id="update-avail" hidden>
+      <div class="text"><b>Доступна <span id="update-new"></span></b><span><a id="update-page" href="#">Что нового</a> · Zen перезапустится сам</span></div>
+      <button id="update-apply" class="primary">Обновить</button>
+    </div>
+    <label class="row"><div class="text"><b>Проверять раз в сутки</b><span>Раз в сутки запрашивает GitHub; обновить без вашего нажатия мод не может</span></div><input type="checkbox" id="update-auto" data-pref="luminoctis.update.auto-check" data-default="true"></label>
   </section>
 
   <!-- ===== Оформление: цвета, форма, прозрачность окна ===== -->

@@ -4,8 +4,9 @@
 #   -ProfileDir <папка профиля>     вместо выбора из profiles.ini (для тестов)
 #   -Uninstall                      убрать мод
 #   -Yes                            отвечать «да» на все вопросы
+#   -Update                         как -Yes, но выключенные ранее моды Zen заново не трогает (зовёт update.ps1 при обновлении из мода)
 # Повторный запуск = обновление/починка. Источники берутся от корня репозитория (папка выше installer\).
-param([string]$ZenDir, [string]$ProfileDir, [switch]$Uninstall, [switch]$Yes)
+param([string]$ZenDir, [string]$ProfileDir, [switch]$Uninstall, [switch]$Yes, [switch]$Update)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $root = Split-Path $PSScriptRoot -Parent
@@ -27,7 +28,7 @@ $prefDefs = [ordered]@{
 
 function Fail($m) { Write-Host "Ошибка: $m" -ForegroundColor Red; exit 1 }
 function Ask($q) {
-  if ($Yes) { Write-Host "$q [да]"; return $true }
+  if ($Yes -or $Update) { Write-Host "$q [да]"; return $true }
   $a = Read-Host "$q (Y/n)"
   return ($a -eq '' -or $a -match '^[YyДд]')
 }
@@ -110,7 +111,7 @@ if ($ProfileDir) {
   }
   if (-not $profile) {
     if (-not $profs) { Fail 'Профили не найдены.' }
-    if ($Yes) { Fail 'Профиль не выбран: укажите -ProfileDir.' }
+    if ($Yes -or $Update) { Fail 'Профиль не выбран: укажите -ProfileDir.' }
     for ($i = 0; $i -lt $profs.Count; $i++) { Write-Host ("  {0}. {1}  ({2})" -f ($i + 1), $profs[$i].Name, $profs[$i].Dir) }
     $n = [int](Read-Host 'Номер профиля')
     if ($n -lt 1 -or $n -gt $profs.Count) { Fail 'Нет такого номера.' }
@@ -261,7 +262,7 @@ $hits = @($mods.PSObject.Properties | Where-Object {
   $n = $_.Value.name
   $_.Name -ne 'luminoctis' -and $_.Value.enabled -and $n -and ($overlap | Where-Object { $n -like "*$_*" })
 })
-if ($hits) {
+if ($hits -and -not $Update) {
   Write-Host 'Эти моды Zen делают то же, что Luminoctis, и мешают ему:'
   $hits | ForEach-Object { Write-Host "  - $($_.Value.name)" }
   if (Ask 'Выключить их?') { foreach ($h in $hits) { $h.Value.enabled = $false; $disabled += $h.Name } }

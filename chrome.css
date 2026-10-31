@@ -427,6 +427,9 @@
 /* ---------- 8. Панель адреса: без родной боковой панели Firefox ----------
  * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. Слева от неё — «⋯»: свой виджет
  * #lumi-appmenu-button (js/lumi-toolbar.sys.mjs; открывает родное меню Zen/Firefox, js/lumi-appmenu.uc.js); скрытые в настройках пункты — [lumi-hidden]. */
+/* Точка на шестерёнке, пока найдено обновление мода (атрибут ставит js/lumi-update.uc.js) */
+:root[lumi-update] #preferences-button { position: relative;
+  &::after { content: ""; position: absolute; top: 4px; right: 4px; width: 7px; height: 7px; border-radius: 50%; background: var(--lumi-accent); pointer-events: none; } }
 #PanelUI-button { display: none !important; } /* родная «⋯» не настраивается — вместо неё виджет #lumi-appmenu-button */
 #lumi-appmenu-button { list-style-image: url("chrome://browser/skin/zen-icons/menu.svg"); }
 #appMenu-mainView [lumi-hidden], #tabContextMenu > [lumi-hidden] { display: none !important; } /* пункты, скрытые в настройках («Меню») */

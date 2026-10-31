@@ -16,6 +16,8 @@ import { CustomizableUI } from "moz-src:///browser/components/customizableui/Cus
       "zen.workspaces.separate-essentials": false, "zen.view.use-single-toolbar": false,
       "zen.view.compact.enable-at-startup": true, "zen.view.compact.hide-toolbar": true, "zen.view.compact.hide-tabbar": false,
       "zen.view.sidebar-expanded": true, "zen.view.show-newtab-button-top": false,
+      "browser.download.autohideButton": false, "browser.urlbar.scotchBonnet.enableOverride": true,
+      "browser.urlbar.unifiedSearchButton.always": true,
     };
     for (const [k, v] of Object.entries(set)) Services.prefs.setBoolPref(k, v);
     Services.prefs.setBoolPref("luminoctis.prefs.seeded", true);

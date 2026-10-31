@@ -26,6 +26,9 @@ $prefDefs = [ordered]@{
   'zen.view.compact.hide-tabbar'                        = 'false'
   'zen.view.sidebar-expanded'                           = 'true'
   'zen.view.show-newtab-button-top'                     = 'false'
+  'browser.download.autohideButton'                     = 'false'
+  'browser.urlbar.scotchBonnet.enableOverride'          = 'true'
+  'browser.urlbar.unifiedSearchButton.always'           = 'true'
 }
 
 function Fail($m) { Write-Host "Ошибка: $m" -ForegroundColor Red; Write-Host "##ERROR $m"; exit 1 }
@@ -261,10 +264,9 @@ foreach ($f in 'chrome\userChrome.css', 'chrome\userContent.css', 'zen-themes.js
 # Исходные значения настроек запоминаем один раз (при повторной установке в prefs.js уже наши)
 $prefsBefore = [ordered]@{}
 if ($state -and $state.prefsBefore) { foreach ($p in $state.prefsBefore.PSObject.Properties) { $prefsBefore[$p.Name] = $p.Value } }
-else {
-  $cur = if (Test-Path $prefsFile) { [IO.File]::ReadAllLines($prefsFile, $utf8) } else { @() }
-  foreach ($k in $prefDefs.Keys) { $prefsBefore[$k] = Get-PrefRaw $cur $k }
-}
+# настройки, добавленные в новых версиях, запоминаем при обновлении
+$cur = if (Test-Path $prefsFile) { [IO.File]::ReadAllLines($prefsFile, $utf8) } else { @() }
+foreach ($k in $prefDefs.Keys) { if (-not $prefsBefore.Contains($k)) { $prefsBefore[$k] = Get-PrefRaw $cur $k } }
 [IO.File]::WriteAllText((Join-Path $bk 'prefs-before.json'), ($prefsBefore | ConvertTo-Json), $utf8)
 
 # --- 6. Профильная часть ---

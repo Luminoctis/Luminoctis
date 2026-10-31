@@ -10,6 +10,7 @@
 // (для неё всегда false). Поэтому discardBrowser для Home закрывает её без следа в истории закрытых, а «L» создаёт заново —
 // так её выгружают и таймер выгрузки мода, и «Выгрузить» Zen. Данные виджеты хранят в папке (home/store.js), не во вкладке.
 (() => {
+  const { windowMode } = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
   const URL = "chrome://userchrome/content/luminoctis/home/home.html";
   const KEY = "lumi-home";
   let prev = null; // вкладка, с которой пришли на Home
@@ -48,7 +49,7 @@
   }
   // режим окна «Обои» (luminoctis.look.window): обои Home — под интерфейсом на всех вкладках; кадр рисует страница Home, поэтому она должна жить
   // (в фоне): не выгружаем её и поднимаем при старте / включении режима
-  const wallMode = () => Services.prefs.getStringPref("luminoctis.look.window", "") == "wallpaper";
+  const wallMode = () => windowMode() == "wallpaper";
   const ensure = () => { if (wallMode() && !find()) create(true); };
 
   function open() {

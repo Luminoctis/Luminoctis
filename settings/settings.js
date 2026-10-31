@@ -5,6 +5,12 @@ const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/Place
 const win = window.browsingContext.topChromeWindow; // окно браузера с этой панелью
 const { ContextualIdentityService } = win;
 const $ = sel => document.querySelector(sel);
+// следить за настройкой: read() сразу и при каждой смене, снять наблюдателя при закрытии страницы
+const watchPref = (pref, read) => {
+  Services.prefs.addObserver(pref, read);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
+  read();
+};
 const el = (tag, props = {}, ...kids) => {
   const e = Object.assign(document.createElement(tag), props);
   e.append(...kids);
@@ -22,13 +28,12 @@ const keys = ChromeUtils.importESModule("chrome://userscripts/content/lumi-keys.
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
 const RENAMED = { tabs: "panels" }; // старые разделы (запомненные в luminoctis.settings.tab, ссылки) → новые
 const showTab = () => {
-  let [wanted, anchor] = location.hash.slice(1).split("/"); // #раздел или #раздел/место
+  let wanted = location.hash.slice(1); // #раздел
   wanted = RENAMED[wanted] ?? wanted;
   const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "sidebar";
   for (const b of tabButtons) b.setAttribute("aria-selected", b.dataset.tab == name);
   for (const s of document.querySelectorAll("main > section")) s.classList.toggle("shown", s.id == name);
   document.querySelector("main").scrollTop = 0;
-  if (name == wanted && anchor) document.getElementById(anchor + "-section")?.scrollIntoView({ block: "start" });
   Services.prefs.setStringPref("luminoctis.settings.tab", name); // панель откроется на нём и после перезапуска
 };
 window.lumiShowTab = showTab; // для js/lumi-rail.uc.js: тот же адрес hashchange не шлёт
@@ -48,9 +53,7 @@ for (const box of document.querySelectorAll("input[type=checkbox][data-pref]")) 
   const pref = box.dataset.pref, inverted = "inverted" in box.dataset;
   const read = () => (box.checked = Services.prefs.getBoolPref(pref, box.dataset.default == "true") != inverted);
   box.addEventListener("change", () => Services.prefs.setBoolPref(pref, box.checked != inverted));
-  Services.prefs.addObserver(pref, read);
-  window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
-  read();
+  watchPref(pref, read);
 }
 
 // ---------- выбор из нескольких значений (data-pref, data-default; кнопки data-value; data-int — числовая настройка) ----------
@@ -64,9 +67,7 @@ for (const seg of document.querySelectorAll("div[data-pref]")) {
     const b = event.target.closest("[data-value]");
     if (b) int ? Services.prefs.setIntPref(pref, Number(b.dataset.value)) : Services.prefs.setStringPref(pref, b.dataset.value);
   });
-  Services.prefs.addObserver(pref, read);
-  window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
-  read();
+  watchPref(pref, read);
 }
 
 // режим окна: body[data-mode] прячет лишние строки (settings.css); «Обои» доступны, только пока у Home режим обоев (lumi-palette откатывает сам)
@@ -79,8 +80,7 @@ for (const seg of document.querySelectorAll("div[data-pref]")) {
     btn.disabled = !ok;
     btn.title = ok ? "" : "Нужен режим Home «Обои»";
   };
-  for (const n of [WIN, MODE]) { pr.addObserver(n, show); window.addEventListener("unload", () => pr.removeObserver(n, show)); }
-  show();
+  for (const n of [WIN, MODE]) watchPref(n, show);
 }
 
 // прозрачность окна даёт Windows (Zen: widget.windows.mica); если её нет — предупреждаем
@@ -301,7 +301,6 @@ function renderKeys() {
     row.querySelector(".bind").textContent = keys.label(keys.get(name));
     row.querySelector(".reset").hidden = !Services.prefs.prefHasUserValue(keys.pref(name));
   }
-  for (const view of document.querySelectorAll("[data-key-view]")) view.textContent = keys.label(keys.get(view.dataset.keyView));
 }
 const stopRecording = () => {
   recording?.bind.classList.remove("recording");
@@ -321,8 +320,7 @@ for (const row of document.querySelectorAll("[data-key]")) {
     if (!recording) record(name);
   });
   row.querySelector(".reset").addEventListener("click", () => Services.prefs.clearUserPref(keys.pref(name)));
-  Services.prefs.addObserver(keys.pref(name), renderKeys);
-  window.addEventListener("unload", () => Services.prefs.removeObserver(keys.pref(name), renderKeys));
+  watchPref(keys.pref(name), renderKeys);
 }
 // нажатие, которым записали сочетание, дальше не идёт: ни клик по кнопке под мышью, ни меню правой кнопки
 let swallow = false;
@@ -579,20 +577,13 @@ renderPalette();
     const v = box.value.trim();
     v ? Services.prefs.setStringPref(store.PREF, v) : Services.prefs.clearUserPref(store.PREF);
   });
-  Services.prefs.addObserver(store.PREF, read);
-  window.addEventListener("unload", () => Services.prefs.removeObserver(store.PREF, read));
-  read();
+  watchPref(store.PREF, read);
 }
 
 // ---------- Luminoctis Home: часы и обои (home/clock.js, home/wallpaper.js; docs/areas/home.md) ----------
 {
   const { Clock } = await import("./home/clock.js");
   for (const b of document.querySelectorAll(".clock-styles [data-value]")) new Clock(b.querySelector(".clock-prev"), b.dataset.value); // живые превью
-  const watchPref = (pref, read) => {
-    Services.prefs.addObserver(pref, read);
-    window.addEventListener("unload", () => Services.prefs.removeObserver(pref, read));
-    read();
-  };
   // числа: ползунки (рядом <output>) и списки
   for (const input of document.querySelectorAll("[data-int-pref]")) {
     const pref = input.dataset.intPref, out = input.nextElementSibling?.matches("output") ? input.nextElementSibling : null;
@@ -601,7 +592,7 @@ renderPalette();
   }
   // ползунок прозрачности выехавших панелей действует только в прозрачном режиме окна
   watchPref("luminoctis.look.window", () => {
-    const on = ["transparent", "wallpaper"].includes(Services.prefs.getStringPref("luminoctis.look.window", ""));
+    const on = palette.windowMode() != "opaque";
     $("#compact-transparency").classList.toggle("off", !on);
     $("#compact-transparency input").disabled = !on;
   });

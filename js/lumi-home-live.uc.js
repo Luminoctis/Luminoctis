@@ -11,6 +11,7 @@
 // acrylic / mica — ACCENT_DISABLED (родная подложка Zen, её вид пишет lumi-palette в widget.windows.mica.toplevel-backdrop).
 // Ушли с Home / свернули окно / режим окна не прозрачный — ACCENT_DISABLED.
 (() => {
+  const { windowMode } = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
   const mica = matchMedia("(-moz-windows-mica)"); // без него Windows не рисует прозрачные пиксели окна
   const DESKTOP = "desktop";
 
@@ -46,7 +47,7 @@
   const wantKind = on => on && mica.matches && window.windowState != window.STATE_MINIMIZED ? Services.prefs.getStringPref(KIND, "acrylic") : "";
   function applyAccent() {
     if (!api()) return;
-    const kind = wantKind(through || Services.prefs.getStringPref(WIN, "") == "transparent"), state = STATES[kind]?.state ?? 0;
+    const kind = wantKind(through || windowMode() == "transparent"), state = STATES[kind]?.state ?? 0;
     if (state != accentSet) accent(kind);
   }
 

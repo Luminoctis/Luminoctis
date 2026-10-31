@@ -1,4 +1,4 @@
-/* Luminoctis — мод для Zen Browser 1.23.4b. Этап 1: Tokyo Night, compact mode, окно сайта вплотную к краям, серые выгруженные вкладки. Этап 2: рейка (см. js/). Этап 3: вкладки полосой сверху. */
+/* Luminoctis — мод для Zen Browser 1.23.4b. Tokyo Night, compact mode, окно сайта вплотную к краям, серые выгруженные вкладки; рейка (см. js/); вкладки полосой сверху. */
 
 /* ---------- 1. Палитра (17 токенов) ----------
  * Значения ниже — Tokyo Night, запасные: js/lumi-palette.sys.mjs ставит цвета выбранной палитры
@@ -509,7 +509,7 @@ zen-library {
   content: ""; position: absolute; z-index: -1; pointer-events: none;
   inset: var(--lumi-pill-top) 0 auto 0; height: var(--lumi-pill-h);
   border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
-  background: color-mix(in srgb, var(--pill-bg) var(--pill-a, 100%), transparent); /* --pill-a — над живой сценой (раздел 15) */
+  background: var(--pill-bg);
 }
 @container (max-width: 44px) {
   .lumi-tab-label, .lumi-tab-close, .lumi-tab-audio { display: none !important; }
@@ -530,7 +530,7 @@ zen-library {
 }
 /* Трапеции (прежние «Скошенные», pref slanted) */
 @media -moz-pref("luminoctis.tabs.shape", "slanted") {
-  #lumi-tabstrip { --lumi-tab-radius: 4px; --lumi-slant: 10deg; }
+  #lumi-tabstrip { --lumi-tab-radius: 4px; }
   .lumi-tab {
     &:first-child { margin-left: 3px; } /* нижние углы выступают на 2,5px — край прокрутки их срезал бы */
     &:last-child { margin-right: 3px; }
@@ -544,7 +544,7 @@ zen-library {
     &::before { background: var(--pill-line);
       clip-path: polygon(evenodd, calc(2 * var(--d)) 0, calc(100% - 2 * var(--d)) 0, 100% 100%, 0 100%,
         calc(2 * var(--d) + 1px) 1px, calc(100% - 2 * var(--d) - 1px) 1px, calc(100% - 1px) calc(100% - 1px), 1px calc(100% - 1px)); }
-    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; height: var(--lumi-pill-h); background: color-mix(in srgb, var(--pill-bg) var(--pill-a, 100%), transparent);
+    &::after { content: ""; position: absolute; z-index: -1; pointer-events: none; height: var(--lumi-pill-h); background: var(--pill-bg);
       clip-path: polygon(calc(2 * var(--d) + 1px) 1px, calc(100% - 2 * var(--d) - 1px) 1px, calc(100% - 1px) calc(100% - 1px), 1px calc(100% - 1px)); }
   }
 }
@@ -814,7 +814,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
  *  · Прозрачный ([lumi-glass]): #lumi-home-wall (над фоном окна, под рейкой и всем интерфейсом) показывает тот же кадр, что и страница,
  *    cover от всего окна, размытый (--lumi-home-blur) — интерфейс лежит на размытых обоях и остаётся тем же стеклом, что на других вкладках
  *    (свой цвет палитры с ползунком «Прозрачность»; никаких добавочных тонов). Страница сдвигает свои обои на место вкладки — стык без шва.
- *    «Прозрачность обоев» (--lumi-home-alpha у #lumi-home-wall, --wp-alpha у страницы) — сквозь сами обои виден рабочий стол.
+ *    «Прозрачность обоев» (--wp-alpha у страницы) — сквозь сами обои виден рабочий стол.
  *  · Непрозрачный: интерфейс как обычно, обоев под ним нет; только в прозрачной Home (окно насквозь) — сплошная подложка цвета палитры вне вкладки.
  * Окно насквозь ([lumi-home-live], js/lumi-home-live.uc.js): всё от корня до <browser> Home прозрачное, виден рабочий стол. */
 #lumi-home-wall { display: none; position: absolute; inset: 0; z-index: 0; overflow: hidden; pointer-events: none; }

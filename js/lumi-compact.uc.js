@@ -74,7 +74,9 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
   new MutationObserver(kick).observe(root, { attributes: true });
   new MutationObserver(kick).observe(nav, { attributes: true, attributeFilter: ["zen-has-hover", "zen-has-implicit-hover", "style"] });
   for (const el of [rail, strip, nav]) el.addEventListener("transitionrun", kick);
-  for (const name of ["luminoctis.compact.sidebar", "luminoctis.compact.tabstrip", "zen.view.compact.hide-toolbar"]) Services.prefs.addObserver(name, kick);
+  const prefs = ["luminoctis.compact.sidebar", "luminoctis.compact.tabstrip", "zen.view.compact.hide-toolbar"];
+  for (const name of prefs) Services.prefs.addObserver(name, kick);
+  window.addEventListener("unload", () => { for (const name of prefs) Services.prefs.removeObserver(name, kick); }, { once: true });
   window.addEventListener("resize", kick);
   kick();
 });

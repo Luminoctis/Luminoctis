@@ -78,7 +78,7 @@ const override = () => Services.prefs.getBoolPref(FROM_WALL, false) && Services.
 // сквозь них видна подложка Windows; wallpaper — сквозь них обои Home на всех вкладках (js/lumi-home.uc.js). Сайты не трогаются.
 // Вид подложки в прозрачном режиме — luminoctis.look.blur-kind: none | blur (accent policy окна — js/lumi-home-live.uc.js) | acrylic | mica (родная подложка Zen).
 const LOOK = "luminoctis.look.";
-export const GLASS = { see: [LOOK + "transparency", 45] }; // [pref, по умолчанию]
+const SEE = [LOOK + "transparency", 45]; // [pref, по умолчанию]
 Services.prefs.clearUserPref(LOOK + "blur"); // ползунок размытия панелей убран (2026-10-30): сайт под ними всё равно не размывается
 // отдельная прозрачность выехавших панелей Compacting (рейка, полоса вкладок, адресная строка), только в прозрачном режиме окна
 const COMPACT = "luminoctis.compact.transparency";
@@ -111,7 +111,7 @@ const glassDocs = new WeakSet(); // окна и панель настроек; H
 const paint = doc => {
   const c = colors(), o = override(), root = doc.documentElement;
   if (HEX.test(o)) c.accent = o;
-  const glass = glassDocs.has(doc) && isGlass(), solid = 100 - int(GLASS.see, 90);
+  const glass = glassDocs.has(doc) && isGlass(), solid = 100 - int(SEE, 90);
   for (const t of TOKENS) root.style.setProperty(`--lumi-${t}`,
     glass && t in LIFT ? `color-mix(in srgb, ${c[t]} ${Math.min(100, solid + LIFT[t])}%, transparent)` : c[t]);
   const cs = glass ? 100 - Math.min(90, Math.max(0, Services.prefs.getIntPref(COMPACT, 45))) : 100; // в непрозрачном режиме — сплошные

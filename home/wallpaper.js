@@ -132,7 +132,7 @@ function show(layer) {
 // прозрачная Home — «насквозь», виден рабочий стол (js/lumi-home-live.uc.js, lumiHomeLive.DESKTOP)
 // Прозрачный режим окна (настройка «Внешний вид»): интерфейс — стекло; «Прозрачность обоев» на Home (luminoctis.look.homeTransparency) —
 // сквозь сами обои виден рабочий стол. Вне прозрачного режима оба не действуют — интерфейс и обои непрозрачные.
-const winMode = () => prefs.getStringPref("luminoctis.look.window", "");
+const { windowMode: winMode } = ChromeUtils.importESModule("chrome://userscripts/content/lumi-palette.sys.mjs");
 const glass = () => winMode() == "transparent" || winMode() == "wallpaper";
 const windowWall = () => winMode() == "wallpaper"; // режим окна «Обои»: кадр в окне виден на всех вкладках, Home может быть в фоне
 const wallAlpha = () => winMode() == "transparent" ? 1 - Math.min(Math.max(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0), 90) / 100 : 1;

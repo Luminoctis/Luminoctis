@@ -40,7 +40,7 @@ h2 {
 .hint { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--lumi-dim); }
 /* вводная строка раздела (Home) */
 section > p.hint { margin: 2px 0 0; font-size: 12px; line-height: 1.4; }
-.soon, .ok {
+.ok {
   margin-left: 6px; padding: 1px 7px; border-radius: 6px; background: var(--lumi-raised);
   font-size: 10px; font-weight: 500; letter-spacing: 0.04em; text-transform: none; color: var(--lumi-muted); white-space: nowrap;
 }

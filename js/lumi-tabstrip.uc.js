@@ -39,9 +39,11 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       item.className = "lumi-tab";
       item.draggable = true;
       item.tab = tab; // по .tab родное меню вкладки (TabContextMenu) узнаёт, для какой вкладки оно открыто
+      item.icon = Object.assign(document.createElement("img"), { className: "lumi-tab-icon", alt: "" });
+      item.labelEl = Object.assign(document.createElement("span"), { className: "lumi-tab-label" });
       item.append(
-        Object.assign(document.createElement("img"), { className: "lumi-tab-icon", alt: "" }),
-        Object.assign(document.createElement("span"), { className: "lumi-tab-label" }),
+        item.icon,
+        item.labelEl,
         Object.assign(document.createElement("span"), { className: "lumi-tab-audio" }),
         Object.assign(document.createElement("span"), { className: "lumi-tab-close" })
       );
@@ -49,13 +51,12 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     }
     return item;
   };
-  const update = (item, tab) => {
-    const icon = gBrowser.getIcon(tab);
-    const img = item.querySelector(".lumi-tab-icon");
+  const update = (item, tab, hoverCard) => {
+    const icon = gBrowser.getIcon(tab), img = item.icon;
     if (img.getAttribute("src") != icon) icon ? img.setAttribute("src", icon) : img.removeAttribute("src");
-    item.querySelector(".lumi-tab-label").textContent = tab.label;
+    item.labelEl.textContent = tab.label;
     // родная подсказка-title дублировала бы карточку при наведении (js/lumi-hovercard.uc.js); без карточки — остаётся
-    if (Services.prefs.getBoolPref("luminoctis.tabs.hover-memory", true)) item.removeAttribute("title");
+    if (hoverCard) item.removeAttribute("title");
     else item.title = tab.label;
     item.toggleAttribute("selected", tab.selected);
     item.toggleAttribute("square", tab.pinned); // закреплённые вкладки пространства — квадратики
@@ -71,7 +72,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // Закрытие: вкладка улетает вверх и гаснет, потом освободившееся место схлопывается, соседи плавно занимают его.
   // Пока идёт анимация, элемент остаётся в ряду «призраком» (ghosts) на своём месте — render его не убирает.
   const ghosts = new Set();
-  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const calm = () => luminoctis.calm();
   const fly = (tab) => {
     dying.add(tab);
     const item = items.get(tab);
@@ -111,7 +112,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (++burst <= 3) fresh.add(event.target);
     else fresh.clear();
   });
-  const grow = (item, tab, rowFrom) => {
+  const grow = (item, rowFrom) => {
     const { width } = item.getBoundingClientRect();
     if (!width) return;
     const shrink = { flexGrow: 0, flexShrink: 0, minWidth: 0, paddingInline: "0px" };
@@ -137,7 +138,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const render = () => {
     queued = false;
     const tabs = stripTabs();
-    tabs.forEach(tab => update(itemFor(tab), tab));
+    const hoverCard = window.lumiHover?.enabled() ?? true;
+    tabs.forEach(tab => update(itemFor(tab), tab, hoverCard));
     const wanted = tabs.map(itemFor);
     for (const ghost of [...ghosts].sort((a, b) => a.lumiSlot - b.lumiSlot)) wanted.splice(Math.min(ghost.lumiSlot, wanted.length), 0, ghost);
     // «+» сразу за вкладками: ряд растёт вместе с новой вкладкой (прежняя ширина — до смены --lumi-tabs-w)
@@ -151,7 +153,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     strip.style.setProperty("--lumi-tabs-w", `${full}px`);
     strip.style.setProperty("--lumi-tabs-shrink", full ? (tabs.filter(tab => !tab.pinned).length * 210) / full : 1);
     if (gapPending) releaseGap(true);
-    if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !now.includes(items.get(tab))) grow(items.get(tab), tab, rowFrom);
+    if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !now.includes(items.get(tab))) grow(items.get(tab), rowFrom);
     fresh.clear();
     // к выбранной — только когда выбор сменился: иначе любая фоновая вкладка (загрузка, заголовок) сбивала прокрутку пользователя
     const selected = items.get(gBrowser.selectedTab);

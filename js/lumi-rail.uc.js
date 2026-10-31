@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: боковая рейка
-// @description    Рейка 56px слева: иконка Luminoctis, рабочие пространства Zen, закрепы (родные Essentials Zen) с мини-окном, плееры; меню по правой кнопке, панель настроек мода и таймер выгрузки вкладок.
+// @description    Рейка 48px слева: иконка Luminoctis, рабочие пространства Zen, закрепы (родные Essentials Zen) с мини-окном, плееры; меню по правой кнопке, панель настроек мода и таймер выгрузки вкладок.
 // ==/UserScript==
 
 (() => {
@@ -20,10 +20,11 @@
   // Панель грузится при первом открытии, потом только прячется: раздел и прокрутка остаются как были.
   const SETTINGS_URL = "chrome://userchrome/content/luminoctis/settings.html";
   let settings;
+  const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches; // «уменьшить анимацию» — общая для рейки и полосы
   window.luminoctis = {
-    // tab — раздел (sidebar, look, tabs…), anchor — место в нём (например "spaces": блок рабочих пространств)
-    openSettings(tab, anchor) {
-      const hash = tab && "#" + tab + (anchor ? "/" + anchor : "");
+    // tab — раздел (sidebar, look, tabs…)
+    openSettings(tab) {
+      const hash = tab && "#" + tab;
       if (!settings) {
         settings = h("div", "", { id: "lumi-settings" });
         settings.setAttribute("role", "dialog");
@@ -46,8 +47,8 @@
       if (settings) settings.hidden = true;
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
-    pins: pinTabs, addPin, pinTab, movePin, unpin, unloadPin, showPin, hidePin, migratePins, unloadIdleTabs,
-    unload, unloadShortcut, gap, clearGap, shiftOf,
+    pins: pinTabs, addPin, pinTab, movePin, unpin, showPin, hidePin, migratePins, unloadIdleTabs,
+    unload, unloadShortcut, gap, clearGap, shiftOf, calm,
   };
 
   // ---------- Перетаскивание: остальные расступаются, показывая место, куда встанет вкладка или закреп ----------
@@ -215,7 +216,7 @@
   async function unpin(tab) {
     if (tab.selected) hidePin();
     const btn = pinButtons.get(tab);
-    if (btn?.isConnected && !matchMedia("(prefers-reduced-motion: reduce)").matches) {
+    if (btn?.isConnected && !calm()) {
       btn.setAttribute("unpinning", "");
       await new Promise(r => setTimeout(r, 300));
     }
@@ -251,7 +252,7 @@
   // При «уменьшить анимацию» — сразу. smooth только у действий пользователя; программные hidePin() (выгрузка, открепление) — мгновенные.
   let leaving = false;
   async function leave(then, withPanel = true) {
-    if (!shown?.mini || leaving || matchMedia("(prefers-reduced-motion: reduce)").matches) return then();
+    if (!shown?.mini || leaving || calm()) return then();
     leaving = true;
     const cur = shown;
     const fade = (el, ms, easing, shift) => el.animate(
@@ -455,7 +456,6 @@
       });
       return i < 0 ? list.length : i;
     };
-    const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
     box.addEventListener("dragstart", event => {
       dragged = event.target.closest?.(".lumi-pin")?.tab ?? null;
       if (!dragged) return;
@@ -552,7 +552,7 @@
       pinButtons.set(tab, btn);
     }
     labeled(btn, tab.label);
-    if (Services.prefs.getBoolPref("luminoctis.tabs.hover-memory", true)) btn.removeAttribute("title"); // вместо подсказки — карточка (lumi-hovercard.uc.js)
+    if (window.lumiHover?.enabled() ?? true) btn.removeAttribute("title"); // вместо подсказки — карточка (lumi-hovercard.uc.js)
     const img = btn.firstChild, icon = pinIcon(tab);
     if (img.getAttribute("src") != icon) img.src = icon;
     btn.toggleAttribute("pending", tab.hasAttribute("pending"));

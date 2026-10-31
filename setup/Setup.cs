@@ -501,10 +501,10 @@ static class Program {
   }
 
   static void SavePng(FrameworkElement root, string path) {
-    var host = new Grid { Width = 600, Height = 460, Background = (Brush)new BrushConverter().ConvertFromString("#0d0d12") };
+    var host = new Grid { Width = 560, Height = 420, Background = (Brush)new BrushConverter().ConvertFromString("#0d0d12") };
     host.Children.Add(root);
-    host.Measure(new Size(600, 460)); host.Arrange(new Rect(0, 0, 600, 460)); host.UpdateLayout();
-    var rtb = new RenderTargetBitmap(1200, 920, 192, 192, PixelFormats.Pbgra32);
+    host.Measure(new Size(560, 420)); host.Arrange(new Rect(0, 0, 560, 420)); host.UpdateLayout();
+    var rtb = new RenderTargetBitmap(1120, 840, 192, 192, PixelFormats.Pbgra32);
     rtb.Render(host);
     var enc = new PngBitmapEncoder(); enc.Frames.Add(BitmapFrame.Create(rtb));
     using (var f = File.Create(path)) enc.Save(f);
@@ -535,7 +535,7 @@ static class Program {
     }
     var win = new Window {
       WindowStyle = WindowStyle.None, AllowsTransparency = true, Background = Brushes.Transparent, ResizeMode = ResizeMode.CanMinimize,
-      Width = 600, Height = 460, WindowStartupLocation = WindowStartupLocation.CenterScreen, Title = "Luminoctis Setup", Content = ui.Root, SnapsToDevicePixels = true
+      Width = 560, Height = 420, WindowStartupLocation = WindowStartupLocation.CenterScreen, Title = "Luminoctis Setup", Content = ui.Root, SnapsToDevicePixels = true
     };
     ui.Win = win;
     win.Closed += (s, e) => { try { Directory.Delete(ui.Tmp, true); } catch { } app.Shutdown(); };

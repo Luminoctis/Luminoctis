@@ -1,8 +1,6 @@
-// LumiNotes — доски внизу Home (#lumi-notes). Файлы и формат — home/notes-md.mjs.
-// Покой: из-под нижнего края видна шапка и первая карточка (pref luminoctis.notes.peek: 0/1/2 карточки).
-// Наведение: доска выезжает целиком и «парит» (CSS). Клик по доске — режим редактирования (#lumi-notes.editing):
-// все доски подняты, карточки правятся/перетаскиваются, доски добавляются/переименовываются/удаляются/переставляются.
-// Выход — клик по обоям или Esc. Смена режима — только класс: подъём/спуск доски — CSS-переход (~0.26 с).
+// LumiNotes — доски под первым экраном Home (#lumi-notes; до них долистывают прокруткой). Файлы и формат — home/notes-md.mjs.
+// Клик по доске — режим редактирования (#lumi-notes.editing): карточки правятся/перетаскиваются,
+// доски добавляются/переименовываются/удаляются/переставляются. Выход — клик по обоям или Esc. Смена режима — только класс.
 // render() пересобирает DOM — доски "летят" со старого места на новое (FLIP, Web Animations); при перетаскивании доски
 // остальные раздвигаются свойством translate, отпущенная встаёт на готовое место.
 // Сохранение: каждая доска пишется через 400 мс после правки (атомарно, store.js); ошибка — плашкой сверху, правка остаётся в памяти.
@@ -11,7 +9,7 @@ import * as md from "./notes-md.mjs";
 
 const root = document.getElementById("lumi-notes");
 const win = window.browsingContext.topChromeWindow;
-const PEEK = "luminoctis.notes.peek", DIR = "luminoctis.home.dir";
+const DIR = "luminoctis.home.dir";
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const btn = (text, cls, title) => { const b = el("button", cls, text); b.type = "button"; if (title) b.title = title; return b; };
 
@@ -24,19 +22,9 @@ errBox.title = "Скрыть";
 errBox.onclick = () => (errBox.hidden = true);
 root.replaceChildren(box, errBox);
 
-// Спрятать доски (pref luminoctis.home.notes.hidden, по умолчанию спрятаны): body[lumi-notes-hidden] уводит их вниз (notes.css).
-// Открыть/закрыть — плашка у нижнего края (.lumi-bar, home.css), невидимая, пока на неё не наведёшь мышь.
-const HIDDEN = "luminoctis.home.notes.hidden";
-const isHidden = () => Services.prefs.getBoolPref(HIDDEN, true);
-const bar = btn("", "lumi-bar lumi-bar-notes");
-bar.onclick = () => Services.prefs.setBoolPref(HIDDEN, !isHidden());
-const applyHidden = () => {
-  if (isHidden()) setEditing(false);
-  document.body.toggleAttribute("lumi-notes-hidden", isHidden());
-  bar.title = isHidden() ? "Открыть LumiNotes" : "Закрыть LumiNotes";
-  bar.setAttribute("aria-label", bar.title);
-};
-document.body.append(bar);
+// Блок выключается в настройках (luminoctis.home.show.notes): прячет его home.js; здесь только выход из режима правки.
+const SHOW = "luminoctis.home.show.notes";
+const applyHidden = () => { if (!Services.prefs.getBoolPref(SHOW, true)) setEditing(false); };
 
 function fail(e, what) {
   console.error("LumiNotes:", what, e);
@@ -144,24 +132,12 @@ function render() {
   const old = new Map([...box.querySelectorAll(".lumi-board")].map(s => [s._b, { x: s.getBoundingClientRect().left, t: getComputedStyle(s).transform }]));
   box.replaceChildren(...boards.map(boardEl), addBoardBtn);
   box.querySelectorAll(".lumi-cards").forEach((l, i) => (l.scrollTop = scroll[i] ?? 0));
-  peek();
   if (!calm()) for (const s of box.querySelectorAll(".lumi-board")) { // FLIP: с прежнего места (по горизонтали и высоте подъёма) на новое
     const o = old.get(s._b), t = getComputedStyle(s).transform;
     if (!o) continue;
     const dx = o.x - s.getBoundingClientRect().left;
     if (o.t == t && Math.abs(dx) < 1) continue;
     s.animate({ transform: [`translateX(${dx}px) ${o.t == "none" ? "" : o.t}`.trim(), t] }, { duration: 240, easing: "cubic-bezier(.2, .9, .25, 1)" });
-  }
-}
-// сколько доски видно в покое: шапка + N первых карточек (в покое карточки обрезаны до 3 строк)
-function peek() {
-  if (root.classList.contains("editing")) return;
-  const n = Number(Services.prefs.getStringPref(PEEK, "1")) || 0;
-  for (const s of box.querySelectorAll(".lumi-board")) {
-    const cards = s.querySelectorAll(".lumi-card");
-    const last = cards[Math.min(n, cards.length) - 1] ?? s.querySelector(".lumi-board-head");
-    const top = s.getBoundingClientRect().top;
-    s.style.setProperty("--peek", `${Math.ceil(last.getBoundingClientRect().bottom - top + 12)}px`);
   }
 }
 
@@ -363,7 +339,7 @@ box.addEventListener("dragend", () => { drag = null; clearMarks(); clearShift();
 // выход из редактирования: клик мимо досок (обои, часы) или Esc
 document.addEventListener("click", e => {
   // isConnected: клик по карточке, пересобранной после ввода, — не «мимо»
-  if (editing() && e.target.isConnected && !e.target.closest(".lumi-board, .lumi-add-board, .lumi-notes-error, #lumi-time")) setEditing(false);
+  if (editing() && e.target.isConnected && !e.target.closest(".lumi-board, .lumi-add-board, .lumi-notes-error")) setEditing(false);
 });
 document.addEventListener("keydown", e => {
   if (e.key == "Escape" && editing() && !e.defaultPrevented) setEditing(false);
@@ -373,24 +349,17 @@ document.addEventListener("keydown", e => {
 document.addEventListener("visibilitychange", () => (document.hidden ? flushAll() : reload()));
 window.addEventListener("focus", reload);
 window.addEventListener("pagehide", flushAll);
-// ширина досок меняется и без resize окна (столбец LumiTime выезжает/прячется), шрифт догружается — высота карточек другая, --peek пересчитать
-new ResizeObserver(() => peek()).observe(box);
-document.fonts.ready.then(peek);
-const onPeek = () => peek();
 const onDir = () => flushAll().then(() => { boards = []; reload(); });
 const onChanged = () => reload();
-Services.prefs.addObserver(PEEK, onPeek);
 Services.prefs.addObserver(DIR, onDir);
-Services.prefs.addObserver(HIDDEN, applyHidden);
-applyHidden();
+Services.prefs.addObserver(SHOW, applyHidden);
 Services.obs.addObserver(onChanged, md.CHANGED);
 window.addEventListener("unload", () => {
-  Services.prefs.removeObserver(PEEK, onPeek);
   Services.prefs.removeObserver(DIR, onDir);
-  Services.prefs.removeObserver(HIDDEN, applyHidden);
+  Services.prefs.removeObserver(SHOW, applyHidden);
   Services.obs.removeObserver(onChanged, md.CHANGED);
 });
 
 // для dev/check-home-notes.js
-window.lumiNotes = { get boards() { return boards; }, reload, flushAll, setEditing, editing, moveCard, moveBoard, peek };
+window.lumiNotes = { get boards() { return boards; }, reload, flushAll, setEditing, editing, moveCard, moveBoard };
 reload();

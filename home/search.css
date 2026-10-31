@@ -1,0 +1,23 @@
+/* Поиск на первом экране Home (home/search.js): строка по центру и список подсказок под ней */
+#lumi-search { position: relative; width: min(560px, 100%); }
+#lumi-search:empty { display: none; }
+.lumi-search-input {
+  box-sizing: border-box; width: 100%; height: 46px; padding: 0 20px; border-radius: 23px; font: 16px Inter, system-ui, sans-serif;
+  color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 78%, transparent); backdrop-filter: blur(14px);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 45%, transparent); outline: none;
+  &::placeholder { color: var(--lumi-muted, #a9b1d6); opacity: .75; }
+  &:focus { border-color: var(--lumi-accent, #7aa2f7); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lumi-accent, #7aa2f7) 28%, transparent); }
+}
+.lumi-search-list {
+  position: absolute; z-index: 5; left: 8px; right: 8px; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; border-radius: 16px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
+  &[hidden] { display: none; }
+}
+.lumi-search-item {
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
+  &:hover, &.sel { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); }
+}
+.lumi-search-icon { flex: none; width: 16px; height: 16px; text-align: center; line-height: 16px; background: center / 16px no-repeat; color: var(--lumi-muted, #a9b1d6); }
+.lumi-search-text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lumi-search-sub { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lumi-dim, #565f89); font-size: 12px; }

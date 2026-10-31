@@ -94,3 +94,16 @@
   .lumi-clock-flip .c.flip::after { animation: none; display: none; }
   .lumi-clock-terminal .lumi-clock-time::after { animation: none; }
 }
+
+/* Свой цвет текста (clock.js ставит --clock-color и .lumi-clock-tint): цвета палитры внутри часов подменяются, поэтому красятся все 10 стилей */
+.lumi-clock-tint {
+  --lumi-fg: var(--clock-color); --lumi-accent: var(--clock-color); --lumi-green: var(--clock-color);
+  --lumi-muted: color-mix(in srgb, var(--clock-color) 75%, transparent); --lumi-dim: color-mix(in srgb, var(--clock-color) 45%, transparent);
+  color: var(--clock-color);
+}
+/* Читаемость на светлых обоях: тень (настройка «Тень») и светлое свечение под тёмным текстом (авто-контраст) */
+.lumi-clock-shadow { filter: drop-shadow(0 .02em .05em rgb(0 0 0 / .85)) drop-shadow(0 .05em .25em rgb(0 0 0 / .7)); }
+.lumi-clock-dark { filter: drop-shadow(0 0 .08em rgb(255 255 255 / .6)); }
+.lumi-clock-dark .lumi-clock-time, .lumi-clock-dark .lumi-clock-date { text-shadow: 0 0 .2em rgb(255 255 255 / .55); }
+.lumi-clock-dark.lumi-clock-terminal .lumi-clock-time { background: rgb(255 255 255 / .5); }
+.lumi-clock-dark.lumi-clock-flip .c { background: rgb(255 255 255 / .55); }

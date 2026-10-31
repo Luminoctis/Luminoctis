@@ -1,37 +1,38 @@
-/* Luminoctis Home — каркас: фон (#lumi-wallpaper), часы в центре, доски LumiNotes снизу (LumiTime с Home убран на этапе 2A — вернётся в рейке).
+/* Luminoctis Home — каркас: фон (#lumi-wallpaper, fixed), первый экран (#lumi-first: часы, поиск, ярлыки) и под ним, прокруткой, доски LumiNotes.
+ * Прокручивается сам документ (полосу не показываем), поэтому обои остаются на месте. Блоки включаются в настройках (home.js).
  * Цвета — токены палитры (--lumi-*), их ставит js/lumi-palette.sys.mjs (home.js). Вид виджетов — в их собственных css. */
 :root {
   --lumi-mono: "JetBrains Mono", Consolas, monospace;
-  --lumi-notes-h: 180px;  /* высота полосы досок в покое */
   color-scheme: dark;
 }
-html, body { height: 100%; margin: 0; overflow: hidden; }
-body { background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c0caf5); font: 14px Inter, system-ui, sans-serif; }
+html { scroll-behavior: smooth; scroll-snap-type: y proximity; scrollbar-width: none; overflow-x: hidden; }
+body { margin: 0; background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c0caf5); font: 14px Inter, system-ui, sans-serif; }
 
 #lumi-wallpaper { position: fixed; inset: 0; z-index: 0;
   background: radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--lumi-accent, #7aa2f7) 18%, transparent), transparent 60%),
     var(--lumi-bg0, #16161e); }
 
-#lumi-home {
-  position: relative; z-index: 1; height: 100%;
-  display: grid; grid-template-columns: 1fr; grid-template-rows: 1fr var(--lumi-notes-h);
-  grid-template-areas: "clock" "notes";
-  pointer-events: none; /* пустые места — клики по обоям */
-  & > * { pointer-events: auto; min-width: 0; min-height: 0; }
+#lumi-home { position: relative; z-index: 1; pointer-events: none; /* пустые места — клики по обоям */ }
+#lumi-first {
+  position: relative; box-sizing: border-box; height: 100vh; padding: 0 24px 56px; scroll-snap-align: start;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px;
+  & > :not(#lumi-scroll-down) { pointer-events: auto; min-width: 0; }
 }
-#lumi-clock { grid-area: clock; place-self: center; text-align: center; user-select: none; }
-#lumi-notes { grid-area: notes; }
-#lumi-clock:empty, #lumi-notes:empty { pointer-events: none; }
-/* спрятанные доски (notes.js) схлопывают свою строку — часы встают в центр */
-#lumi-home { transition: grid-template-columns .35s cubic-bezier(.2, .8, .2, 1), grid-template-rows .35s cubic-bezier(.2, .8, .2, 1); }
+#lumi-clock { text-align: center; user-select: none; }
+#lumi-notes { height: 100vh; scroll-snap-align: start; }
+#lumi-clock:empty, #lumi-search:empty, #lumi-shortcuts:empty, #lumi-notes:empty { pointer-events: none; }
 
-/* плашка LumiNotes (у нижнего края): сплошная, цвета акцента, видна только при наведении; клик — открыть/закрыть */
-.lumi-bar {
-  position: fixed; z-index: 6; padding: 0; border: 0; border-radius: 0; background: var(--lumi-accent, #7aa2f7); cursor: pointer;
-  opacity: 0; transition: opacity .2s;
-  &:hover, &:focus-visible { opacity: 1; }
-  &:focus-visible { outline: 2px solid var(--lumi-fg, #c0caf5); outline-offset: 2px; }
-  }
-.lumi-bar-notes { left: 0; right: 0; bottom: 0; height: 12px; } /* на всю ширину окна */
-@media (prefers-reduced-motion: reduce) { #lumi-home, .lumi-bar { transition-duration: .01s; } }
+/* блоки, выключенные в настройках (home.js ставит body[lumi-hide-<блок>]) */
+body[lumi-hide-clock] #lumi-clock, body[lumi-hide-search] #lumi-search, body[lumi-hide-shortcuts] #lumi-shortcuts,
+body[lumi-hide-notes] #lumi-notes, body[lumi-hide-notes] .lumi-scroll { display: none; }
 
+/* стрелки: вниз к заметкам (низ первого экрана) и наверх (видна, когда прокрутили) */
+.lumi-scroll {
+  pointer-events: auto; width: 36px; height: 36px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; font: 22px/1 Inter, system-ui, sans-serif;
+  color: var(--lumi-muted, #a9b1d6); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 70%, transparent); backdrop-filter: blur(12px);
+  &:hover, &:focus-visible { color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-raised, #292e42) 85%, transparent); }
+}
+#lumi-scroll-down { position: absolute; left: 50%; bottom: 14px; translate: -50% 0; }
+#lumi-scroll-up { position: fixed; right: 20px; bottom: 20px; z-index: 6; opacity: 0; visibility: hidden; transition: opacity .2s, visibility 0s .2s; }
+body[lumi-scrolled] #lumi-scroll-up { opacity: 1; visibility: visible; transition: opacity .2s; }
+@media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } #lumi-scroll-up { transition-duration: .01s; } }

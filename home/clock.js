@@ -1,5 +1,6 @@
 // Часы Luminoctis Home: одна функция «время → DOM» и 10 стилей — CSS-классы lumi-clock-<стиль> (home/clock.css).
-// Настройки: luminoctis.home.clock.style / .h12 / .seconds / .date / .size (% от обычного размера, 50–150). Тот же модуль рисует превью стилей в настройках
+// Настройки: luminoctis.home.clock.style / .h12 / .seconds / .date / .size (% от обычного размера, 50–150) /
+// .color (palette|accent|white|custom + .custom «#rrggbb») / .legibility (off|shadow|auto) / .datefmt (long|medium|short|iso|off). Тот же модуль рисует превью стилей в настройках
 // (settings.js: new Clock(el, "flip")). Текст .lumi-clock-time — всегда «чч:мм[:сс]» (цифры сегментов и перелистывания — пустые <i> и attr()).
 const PREF = "luminoctis.home.clock.";
 export const STYLES = {
@@ -14,7 +15,40 @@ export function options() {
     seconds: Services.prefs.getBoolPref(PREF + "seconds", false),
     date: Services.prefs.getBoolPref(PREF + "date", true),
     size: Math.min(150, Math.max(50, Services.prefs.getIntPref(PREF + "size", 100))),
+    color: Services.prefs.getStringPref(PREF + "color", "palette"),
+    custom: Services.prefs.getStringPref(PREF + "custom", "#ffffff"),
+    legibility: Services.prefs.getStringPref(PREF + "legibility", "off"),
+    datefmt: Services.prefs.getBoolPref(PREF + "date", true) ? Services.prefs.getStringPref(PREF + "datefmt", "long") : "off",
   };
+}
+const DATE = {
+  long: { weekday: "long", day: "numeric", month: "long" },
+  medium: { weekday: "short", day: "numeric", month: "short" },
+  short: { day: "2-digit", month: "2-digit", year: "numeric" },
+};
+const dateText = (now, f) => f == "iso" ? `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` : now.toLocaleDateString("ru-RU", DATE[f] ?? DATE.long);
+
+// Авто-контраст: яркость обоев за часами (центр кадра с учётом затемнения) → тёмный текст на светлых обоях. Считает только страница Home.
+let wallTone = "light";
+export function retone() {
+  if (Services.prefs.getStringPref(PREF + "legibility", "off") != "auto") return (wallTone = "light"); // считаем только когда нужно
+  const w = window.lumiWallpaper, el = w?.current?.el;
+  const nw = el?.naturalWidth || el?.videoWidth, nh = el?.naturalHeight || el?.videoHeight;
+  if (!nw || !nh) return (wallTone = "light"); // цветной фон/рабочий стол/ещё не загружено
+  try {
+    const va = innerWidth / innerHeight, ia = nw / nh;
+    const vw = ia > va ? nh * va : nw, vh = ia > va ? nh : nw / va; // видимая при cover часть картинки
+    const c = document.createElement("canvas");
+    c.width = 32; c.height = 18;
+    const g = c.getContext("2d", { willReadFrequently: true });
+    g.drawImage(el, (nw - vw * 0.4) / 2, (nh - vh * 0.4) / 2, vw * 0.4, vh * 0.4, 0, 0, 32, 18);
+    const px = g.getImageData(0, 0, 32, 18).data;
+    let sum = 0;
+    for (let i = 0; i < px.length; i += 4) sum += (0.2126 * px[i] + 0.7152 * px[i + 1] + 0.0722 * px[i + 2]) / 255;
+    const dim = Math.min(Math.max(Services.prefs.getIntPref("luminoctis.home.wallpaper.dim", 25), 0), 90) / 100;
+    wallTone = (sum / (px.length / 4)) * (1 - dim) > 0.55 ? "dark" : "light";
+  } catch {}
+  return wallTone;
 }
 
 const SEGS = ["abcdef", "bc", "abdeg", "abcdg", "bcfg", "acdfg", "acdefg", "abc", "abcdefg", "abcdfg"]; // семь сегментов по цифрам
@@ -55,7 +89,16 @@ export class Clock {
       if (this.style) this.root.classList.remove("lumi-clock-" + this.style);
       this.root.classList.add("lumi-clock-" + (this.style = style));
     }
-    if (!this.fixed) this.root.style.setProperty("--clock-scale", o.size / 100); // превью стилей в настройках не масштабируются
+    if (!this.fixed) { // превью стилей в настройках не масштабируются и не красятся
+      this.root.style.setProperty("--clock-scale", o.size / 100);
+      const dark = o.legibility == "auto" && wallTone == "dark";
+      const col = dark ? "#14161c" : o.color == "accent" ? getComputedStyle(document.documentElement).getPropertyValue("--lumi-accent").trim()
+        : o.color == "white" ? "#ffffff" : o.color == "custom" && /^#[0-9a-f]{6}$/i.test(o.custom) ? o.custom : "";
+      if (col) this.root.style.setProperty("--clock-color", col); else this.root.style.removeProperty("--clock-color");
+      this.root.classList.toggle("lumi-clock-tint", !!col);
+      this.root.classList.toggle("lumi-clock-shadow", o.legibility == "shadow");
+      this.root.classList.toggle("lumi-clock-dark", dark);
+    }
     const h24 = now.getHours();
     const groups = [pad(o.h12 ? h24 % 12 || 12 : h24), pad(now.getMinutes())];
     if (o.seconds) groups.push(pad(now.getSeconds()));
@@ -80,8 +123,8 @@ export class Clock {
     hh.setAttribute("transform", `rotate(${h * 30})`);
     mm.setAttribute("transform", `rotate(${m * 6})`);
     ss.setAttribute("transform", `rotate(${now.getSeconds() * 6})`);
-    this.date.hidden = !o.date;
-    this.date.textContent = now.toLocaleDateString("ru-RU", { weekday: "long", day: "numeric", month: "long" });
+    this.date.hidden = o.datefmt == "off";
+    if (!this.date.hidden) this.date.textContent = dateText(now, o.datefmt);
   }
   build(count, h12) {
     this.digits = [];
@@ -110,17 +153,38 @@ export class Clock {
 }
 
 const clocks = new Set();
-let timer = 0;
+let timer = 0, started = false;
 const tickAll = () => { const now = new Date(), o = options(); for (const c of clocks) c.update(now, o); return now; };
-function start() {
-  if (timer) return;
+// не тикаем, пока страница скрыта (document.hidden); при показе — сразу сверить время
+const schedule = () => {
+  clearTimeout(timer);
+  timer = 0;
+  if (document.hidden) return;
   const tick = () => { const now = tickAll(); timer = setTimeout(tick, 1000 - now.getMilliseconds()); };
   timer = setTimeout(tick, 1000 - new Date().getMilliseconds());
-  const onPref = () => tickAll();
+};
+function start() {
+  if (started) return;
+  started = true;
+  schedule();
+  const onPref = () => { if (window.lumiClock) retone(); tickAll(); };
+  const onVis = () => { if (!document.hidden) { if (window.lumiClock) retone(); tickAll(); } schedule(); };
   Services.prefs.addObserver(PREF, onPref);
-  window.addEventListener("unload", () => { Services.prefs.removeObserver(PREF, onPref); clearTimeout(timer); });
+  document.addEventListener("visibilitychange", onVis);
+  window.addEventListener("unload", () => { Services.prefs.removeObserver(PREF, onPref); document.removeEventListener("visibilitychange", onVis); clearTimeout(timer); });
 }
 
 // на странице Home — часы в #lumi-clock
 const home = document.getElementById("lumi-clock");
-if (home) window.lumiClock = new Clock(home);
+if (home) {
+  window.lumiClock = new Clock(home);
+  // авто-контраст: заново считаем при смене обоев (слои в #lumi-wallpaper), затемнения и возврате на Home
+  const again = () => { const t = wallTone; retone(); if (t != wallTone) tickAll(); };
+  let later = 0;
+  new MutationObserver(() => { clearTimeout(later); later = setTimeout(again, 900); }).observe(document.getElementById("lumi-wallpaper"), { childList: true, subtree: true });
+  const onWall = () => { clearTimeout(later); later = setTimeout(again, 200); };
+  Services.prefs.addObserver("luminoctis.home.wallpaper.", onWall);
+  window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.home.wallpaper.", onWall));
+  window.lumiClock.retone = () => { retone(); tickAll(); };
+  setTimeout(again, 1500);
+}

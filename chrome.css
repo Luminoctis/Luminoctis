@@ -437,7 +437,7 @@
  * #lumi-tabstrip строит js/lumi-tabstrip.uc.js — зеркало gBrowser. Родной вертикальный список Zen
  * работает как прежде (пространства, контейнеры, Essentials, выгрузка), но спрятан за край окна. */
 :root:not([inDOMFullscreen="true"]):not([customizing]) #navigator-toolbox {
-  position: fixed !important; top: 0 !important; left: -10000px !important;
+  position: fixed !important; top: 0 !important; bottom: 0 !important; left: -10000px !important; /* bottom: без высоты список вкладок Zen бесконечно переключает overflow/underflow (~0.6 CPU) */
   opacity: 0 !important; pointer-events: none !important;
   /* Zen считает место под свою панель по ширине #navigator-toolbox (например, сдвиг сайта при открытой
    * библиотеке «Управление пространствами»). Панели на экране нет — ширина 0, а содержимое внутри своей ширины */

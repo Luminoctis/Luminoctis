@@ -657,13 +657,32 @@ renderPalette();
   $("#wp-color-reset").addEventListener("click", () => Services.prefs.clearUserPref(WP + "color"));
 }
 
-// ---------- LumiTime: «Открыть» — Home и панель настроек таймера (home/time.js) ----------
-$("#lumitime-settings")?.addEventListener("click", async () => {
-  const tab = win.lumiHome.open();
-  win.luminoctis.closeSettings();
-  for (let i = 0; i < 50; i++) { // Home могла только что создаться — ждём страницу
-    const lt = tab.linkedBrowser.contentWindow?.lumiTime;
-    if (lt) { if (lt.panelName() != "settings") lt.openPanel("settings"); return; }
-    await new Promise(r => setTimeout(r, 100));
-  }
-});
+// ---------- Luminoctis Home: свой цвет часов и папка закладок для ярлыков (home/clock.js, home/shortcuts.js) ----------
+{
+  const CC = "luminoctis.home.clock.", input = $("#clock-color");
+  watchPref(CC + "custom", () => (input.value = Services.prefs.getStringPref(CC + "custom", "#ffffff")));
+  input.addEventListener("input", () => { // выбрали цвет — значит, «Свой»
+    Services.prefs.setStringPref(CC + "custom", input.value);
+    Services.prefs.setStringPref(CC + "color", "custom");
+  });
+
+  const SC = "luminoctis.home.shortcuts.folder", sel = $("#shortcuts-folder");
+  const B = PlacesUtils.bookmarks, ROOT = { [B.toolbarGuid]: "Панель закладок", [B.menuGuid]: "Меню закладок", [B.unfiledGuid]: "Другие закладки" }; // у корневых папок название внутреннее
+  const folders = (node, depth, out) => { // все папки закладок деревом (кроме мобильных)
+    for (const c of node.children ?? []) {
+      if (c.type != PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER || c.guid == PlacesUtils.bookmarks.mobileGuid) continue;
+      out.push({ guid: c.guid, title: "\u00a0\u00a0".repeat(depth) + (ROOT[c.guid] || c.title || c.guid) });
+      folders(c, depth + 1, out);
+    }
+    return out;
+  };
+  const fill = async () => {
+    const list = folders(await PlacesUtils.promiseBookmarksTree(PlacesUtils.bookmarks.rootGuid), 0, []);
+    sel.replaceChildren(...list.map(f => el("option", { value: f.guid, textContent: f.title })));
+    sel.value = Services.prefs.getStringPref(SC, "") || PlacesUtils.bookmarks.toolbarGuid;
+  };
+  sel.addEventListener("change", () => Services.prefs.setStringPref(SC, sel.value));
+  watchPref(SC, () => { if (sel.options.length) sel.value = Services.prefs.getStringPref(SC, "") || PlacesUtils.bookmarks.toolbarGuid; });
+  window.addEventListener("focus", fill); // вернулись в окно — папки могли добавить
+  await fill();
+}

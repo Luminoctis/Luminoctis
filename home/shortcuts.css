@@ -1,0 +1,14 @@
+/* Ярлыки Home (home/shortcuts.js): ряд плиток под поиском */
+#lumi-shortcuts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: min(760px, 100%); }
+.lumi-tile {
+  display: flex; flex-direction: column; align-items: center; gap: 8px; width: 96px; padding: 12px 6px 10px; border-radius: 14px;
+  color: var(--lumi-fg, #c0caf5); text-decoration: none; font-size: 12px; user-select: none;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 62%, transparent); backdrop-filter: blur(12px);
+  transition: background .15s, translate .15s;
+  &:hover, &:focus-visible { background: color-mix(in srgb, var(--lumi-raised, #292e42) 88%, transparent); translate: 0 -2px; outline: none; }
+}
+.lumi-tile-icon { width: 28px; height: 28px; border-radius: 7px; object-fit: contain; }
+.lumi-tile-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lumi-shortcuts-hint { margin: 0; padding: 8px 16px; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--lumi-muted, #a9b1d6);
+  border-radius: 12px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); }
+@media (prefers-reduced-motion: reduce) { .lumi-tile { transition-duration: .01s; } }

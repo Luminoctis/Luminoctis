@@ -86,6 +86,32 @@
   &.drop-before { box-shadow: 0 -3px 0 var(--lumi-accent, #7aa2f7); }
 }
 .lumi-card-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
+.lumi-code { padding: 0 4px; border-radius: 4px; font: .92em ui-monospace, Consolas, monospace; background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
+.lumi-card-body del, .lumi-doc-text del { opacity: .7; }
+/* заголовок-разделитель внутри листа: без фона карточки (# … ######) */
+.lumi-card.lumi-heading { background: transparent; padding-left: 18px; cursor: grab; font-weight: 700;
+  &:hover { background: transparent; box-shadow: none; }
+  &[data-level="1"] { font-size: 1.35em; } &[data-level="2"] { font-size: 1.2em; } &[data-level="3"] { font-size: 1.1em; }
+  &[data-level="4"], &[data-level="5"], &[data-level="6"] { font-size: 1em; color: var(--lumi-muted, #a9b1d6); } }
+/* лист-документ */
+.lumi-doc { flex: 1; min-height: 0; gap: 4px; cursor: text; line-height: 1.5; font-size: 13px; overflow-wrap: anywhere; white-space: pre-wrap; }
+.lumi-doc-h { font-weight: 700; margin-top: 6px; &[data-level="1"] { font-size: 1.4em; } &[data-level="2"] { font-size: 1.22em; } &[data-level="3"] { font-size: 1.1em; }
+  &[data-level="4"], &[data-level="5"], &[data-level="6"] { font-size: 1em; color: var(--lumi-muted, #a9b1d6); } }
+.lumi-doc-p { margin: 0; }
+.lumi-doc-li { display: flex; gap: 6px; align-items: flex-start; margin-left: calc(var(--d, 0) * 16px);
+  & input[type="checkbox"] { margin: 3px 0 0; accent-color: var(--cc); }
+  &.done .lumi-doc-text { text-decoration: line-through; color: var(--lumi-dim, #565f89); } }
+.lumi-doc-bullet { flex: none; width: 13px; text-align: center; color: var(--lumi-muted, #a9b1d6); }
+.lumi-doc-empty { color: var(--lumi-dim, #565f89); }
+.lumi-doc-editor { flex: 1; min-height: 0; resize: none; font: 13px/1.5 ui-monospace, Consolas, monospace; padding: 6px 8px; border-radius: 9px; border: 1px solid transparent; outline: none;
+  background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 70%, transparent); color: inherit;
+  &:focus { border-color: color-mix(in srgb, var(--cc) 60%, transparent); } }
+/* плашка «Удалено … Отменить» */
+.lumi-undo { pointer-events: auto; position: fixed; bottom: 24px; left: 50%; translate: -50% 0; z-index: 10; display: flex; align-items: center; gap: 12px;
+  padding: 8px 8px 8px 16px; border-radius: 12px; font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5);
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 8px 28px rgb(0 0 0 / .4); }
+.lumi-undo-btn { height: 28px; padding: 0 12px; color: var(--lumi-accent, #7aa2f7) !important; }
 .lumi-card-link { color: var(--lumi-accent, #7aa2f7); text-decoration: none; &:hover { text-decoration: underline; } }
 .lumi-note-editor { flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.4; padding: 0; border: none; outline: none;
   background: transparent; color: inherit; }
@@ -119,12 +145,13 @@ span.lumi-fold { cursor: inherit; }
 /* строка добавления внизу листа */
 .lumi-sheet-foot { display: flex; }
 .lumi-add-input, .lumi-sub-input {
-  flex: 1; min-width: 0; height: 28px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; font: 13px Inter, system-ui, sans-serif;
+  flex: 1; min-width: 0; height: 28px; max-height: 140px; box-sizing: border-box; padding: 4px 10px; border-radius: 8px; font: 13px/18px Inter, system-ui, sans-serif;
+  resize: none; overflow-y: auto; scrollbar-width: none;
   border: 1px solid transparent; background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 70%, transparent); color: inherit;
   &:focus { outline: none; border-color: color-mix(in srgb, var(--cc) 60%, transparent); }
 }
 
-.lumi-row button, .lumi-add-row, .lumi-menu button {
+.lumi-row button, .lumi-add-row, .lumi-menu button, .lumi-undo button {
   border: none; border-radius: 7px; background: transparent; color: var(--lumi-muted, #a9b1d6); font: inherit; cursor: pointer;
   &:hover:not(:disabled) { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); color: var(--lumi-fg, #c0caf5); }
 }

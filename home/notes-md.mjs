@@ -119,7 +119,7 @@ export async function readLayout() {
   let raw = null;
   if (!files.length) {
     raw = DEFAULTS; // порядок по умолчанию, не по алфавиту
-    await writeSheet(DEFAULTS[0], [{ text: "Нажми на доску, чтобы редактировать", check: false, children: [] }]);
+    await writeSheet(DEFAULTS[0], [{ text: "Нажми на текст, чтобы изменить; новый пункт — внизу листа", check: false, children: [] }]);
     for (const n of DEFAULTS.slice(1)) await writeSheet(n, []);
     files.push(...DEFAULTS);
   }

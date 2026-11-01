@@ -19,7 +19,7 @@ body { margin: 0; background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c
   & > :not(#lumi-scroll-down) { pointer-events: auto; min-width: 0; }
 }
 #lumi-clock { text-align: center; user-select: none; }
-#lumi-notes { height: 100vh; scroll-snap-align: start; }
+#lumi-notes { min-height: 100vh; scroll-snap-align: start; }
 #lumi-clock:empty, #lumi-search:empty, #lumi-shortcuts:empty, #lumi-notes:empty { pointer-events: none; }
 
 /* блоки, выключенные в настройках (home.js ставит body[lumi-hide-<блок>]) */

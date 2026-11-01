@@ -1,85 +1,134 @@
-/* LumiNotes — доски под первым экраном Home (home/notes.js): отдельная страница высотой в окно, доски стоят сверху и видны целиком;
- * в режиме редактирования (#lumi-notes.editing) правятся, перетаскиваются. */
+/* LumiNotes — канбан-доска под первым экраном Home (home/notes.js): ряды → листы → пункты. Режима правки нет, всё правится сразу.
+ * Акцентные цвета листов/рядов — фиксированный набор (md.COLORS), задаются переменными --c (лист) и --rc (ряд) из notes.js. */
 #lumi-home > #lumi-notes { position: relative; pointer-events: none; } /* пустые места — клики к обоям */
 
 .lumi-boards {
-  position: absolute; inset: 0;
-  display: flex; align-items: flex-start; gap: 14px; padding: 56px 24px 0;
+  box-sizing: border-box; min-height: 100vh; padding: 56px 24px 72px;
+  display: flex; flex-direction: column; align-items: stretch; gap: 14px;
+}
+
+/* ряд */
+.lumi-row {
+  pointer-events: auto; position: relative; flex: none; min-height: 140px; border-radius: 16px;
+  background: color-mix(in srgb, var(--rc, transparent) 9%, transparent);
+  box-shadow: inset 4px 0 0 var(--rc, transparent);
+  transition: background-color .15s;
+}
+.lumi-row-scroll {
+  box-sizing: border-box; height: 100%; padding: 10px 12px 10px 16px; display: flex; gap: 12px;
   overflow-x: auto; overflow-y: hidden; scrollbar-width: thin;
 }
-
-.lumi-board {
-  pointer-events: auto; position: relative;
-  flex: 1 1 0; min-width: 220px; max-width: 320px;
-  max-height: min(62vh, calc(100vh - 170px)); display: flex;
-  transition: transform .26s cubic-bezier(.2, .9, .25, 1), translate .22s cubic-bezier(.2, .9, .25, 1);
-  &.dragging { opacity: .5; }
+.lumi-row-grip { /* нижний край ряда: тянуть вверх/вниз */
+  position: absolute; left: 16px; right: 16px; top: 100%; height: 12px; cursor: ns-resize; touch-action: none; z-index: 2;
+  &::after { content: ""; position: absolute; left: 0; right: 0; top: 4px; height: 3px; border-radius: 2px; opacity: 0;
+    background: var(--lumi-accent, #7aa2f7); transition: opacity .15s; }
+  &:hover::after, &.active::after { opacity: .6; }
 }
 
-.lumi-board-body {
-  flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; gap: 8px;
-  padding: 10px 10px 14px; border-radius: 14px;
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent);
-  backdrop-filter: blur(16px);
+/* лист */
+.lumi-sheet {
+  --cc: var(--c, var(--lumi-accent, #7aa2f7)); /* цвет листа → цвет ряда → акцент темы мода */
+  --base: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent);
+  position: relative; box-sizing: border-box; flex: 0 0 var(--w, 280px); min-width: 0; height: 100%;
+  display: flex; flex-direction: column; gap: 8px; padding: 10px 10px 8px; border-radius: 14px;
+  background: var(--base); backdrop-filter: blur(16px);
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent);
   box-shadow: 0 -4px 18px rgb(0 0 0 / .25);
-  transition: box-shadow .5s;
+  transition: border-color .15s, box-shadow .15s, background-color .15s;
+  &.colored::before { content: ""; position: absolute; left: 14px; right: 14px; top: -1px; height: 3px; border-radius: 0 0 3px 3px; background: var(--cc); }
+  &:hover {
+    background: color-mix(in srgb, var(--cc) 9%, var(--base));
+    border-color: color-mix(in srgb, var(--cc) 55%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--cc) 22%, transparent), 0 -4px 18px rgb(0 0 0 / .25);
+  }
+  &.dragging { opacity: .5; }
+  &.drop-left { box-shadow: -5px 0 0 -1px var(--lumi-accent, #7aa2f7); }
+  &.drop-right { box-shadow: 5px 0 0 -1px var(--lumi-accent, #7aa2f7); }
 }
-#lumi-notes:not(.editing) .lumi-board:hover .lumi-board-body {
-  box-shadow: 0 -16px 44px rgb(0 0 0 / .45), 0 0 0 1px color-mix(in srgb, var(--lumi-accent, #7aa2f7) 35%, transparent);
+.lumi-row.fill .lumi-sheet { flex: 1 1 0; min-width: 140px; }
+.lumi-sheet-grip { /* правый край листа: тянуть вправо/влево (в режиме fill скрыт) */
+  position: absolute; top: 12px; bottom: 12px; right: -8px; width: 10px; cursor: ew-resize; touch-action: none; z-index: 2;
+  &::after { content: ""; position: absolute; top: 0; bottom: 0; left: 4px; width: 3px; border-radius: 2px; opacity: 0;
+    background: var(--cc); transition: opacity .15s; }
+  &:hover::after, &.active::after { opacity: .7; }
+  .lumi-row.fill & { display: none; }
 }
 
-.lumi-board-head {
-  display: flex; align-items: center; gap: 6px; padding: 2px 4px 0; cursor: pointer; user-select: none;
-  #lumi-notes.editing & { cursor: grab; }
-}
-.lumi-board-title { margin: 0; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; letter-spacing: .02em;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-  #lumi-notes.editing & { cursor: text; } }
-.lumi-board-count { font-size: 11px; color: var(--lumi-dim, #565f89); }
-.lumi-board-rename { flex: 1; min-width: 0; font: 600 13px Inter, system-ui, sans-serif; }
+.lumi-sheet-head { display: flex; align-items: center; gap: 6px; padding: 2px 4px 0; cursor: grab; user-select: none; }
+.lumi-sheet-title { margin: 0; flex: 1; min-width: 0; font-size: 13px; font-weight: 600; letter-spacing: .02em;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lumi-sheet-count { font-size: 11px; color: var(--lumi-dim, #565f89); }
+.lumi-sheet-rename { flex: 1; min-width: 0; font: 600 13px Inter, system-ui, sans-serif; }
+.lumi-sheet-tools, .lumi-card-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
+.lumi-sheet:hover .lumi-sheet-tools, .lumi-sheet-tools:focus-within, .lumi-card:hover .lumi-card-tools, .lumi-card-tools:focus-within { opacity: 1; }
+.lumi-sheet-color { color: var(--cc) !important; }
 
+/* пункты */
 .lumi-cards {
-  list-style: none; margin: 0; padding: 0 2px 0 0; min-height: 0; overflow-y: auto; scrollbar-width: thin;
+  flex: 1; list-style: none; margin: 0; padding: 0 2px 0 0; min-height: 0; overflow-y: auto; scrollbar-width: thin;
   display: flex; flex-direction: column; gap: 6px;
-  &.drop-end { box-shadow: inset 0 -3px 0 var(--lumi-accent, #7aa2f7); min-height: 24px; }
+  &.drop-end { box-shadow: inset 0 -3px 0 var(--lumi-accent, #7aa2f7); }
 }
 .lumi-card {
   position: relative; display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0;
-  padding: 8px 10px; border-radius: 9px; line-height: 1.4; font-size: 13px;
+  padding: 8px 10px; border-radius: 9px; line-height: 1.4; font-size: 13px; cursor: grab;
   background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent);
-  & input[type="checkbox"] { margin: 2px 0 0; accent-color: var(--lumi-accent, #7aa2f7); }
+  border: 1px solid transparent;
+  transition: border-color .15s, background-color .15s, box-shadow .15s;
+  & input[type="checkbox"] { margin: 2px 0 0; accent-color: var(--cc); }
   &.done .lumi-card-text { text-decoration: line-through; color: var(--lumi-dim, #565f89); }
+  &:hover {
+    background: color-mix(in srgb, var(--cc) 14%, color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent));
+    border-color: color-mix(in srgb, var(--cc) 50%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--cc) 18%, transparent);
+  }
   &.dragging { opacity: .4; }
   &.drop-before { box-shadow: 0 -3px 0 var(--lumi-accent, #7aa2f7); }
-  #lumi-notes.editing & { cursor: grab; }
-  #lumi-notes.editing &:hover { background: color-mix(in srgb, var(--lumi-raised, #292e42) 85%, transparent); }
 }
-.lumi-card-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere;
-  #lumi-notes.editing & { cursor: text; } }
+.lumi-card-text { flex: 1; min-width: 0; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
 .lumi-card-link { color: var(--lumi-accent, #7aa2f7); text-decoration: none; &:hover { text-decoration: underline; } }
 .lumi-note-editor { flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.4; padding: 0; border: none; outline: none;
   background: transparent; color: inherit; }
+.lumi-sub { margin: 4px 0 0; padding-left: 16px; list-style: none; opacity: .85; }
+.lumi-sub li.done { text-decoration: line-through; }
+.lumi-card-dates { opacity: .6; font-size: .85em; }
 
-.lumi-card-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .15s;
-  .lumi-card:hover & { opacity: 1; } }
-
-.lumi-board button, .lumi-add-board {
-  border: none; border-radius: 7px; background: transparent; color: var(--lumi-muted, #a9b1d6); font: inherit; cursor: pointer;
-  &:hover { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); color: var(--lumi-fg, #c0caf5); }
+/* строка добавления внизу листа */
+.lumi-sheet-foot { display: flex; gap: 6px; align-items: center; }
+.lumi-add-input {
+  flex: 1; min-width: 0; height: 28px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; font: 13px Inter, system-ui, sans-serif;
+  border: 1px solid transparent; background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 70%, transparent); color: inherit;
+  &:focus { outline: none; border-color: color-mix(in srgb, var(--cc) 60%, transparent); }
 }
-.lumi-card-tools button, .lumi-board-del { width: 22px; height: 22px; padding: 0; font-size: 14px; line-height: 1; }
-.lumi-board-foot { display: flex; gap: 6px; & button { flex: 1; height: 28px; font-size: 12px; } }
-.lumi-add-board {
-  pointer-events: auto; flex-shrink: 0; align-self: flex-start; margin-top: 4px; height: 34px; padding: 0 14px;
+
+.lumi-row button, .lumi-add-row, .lumi-menu button {
+  border: none; border-radius: 7px; background: transparent; color: var(--lumi-muted, #a9b1d6); font: inherit; cursor: pointer;
+  &:hover:not(:disabled) { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); color: var(--lumi-fg, #c0caf5); }
+}
+.lumi-card-tools button, .lumi-sheet-tools button, .lumi-add-kind { width: 22px; height: 22px; padding: 0; font-size: 14px; line-height: 1; }
+.lumi-add-sheet, .lumi-add-row {
+  pointer-events: auto; flex: none; align-self: flex-start; height: 34px; padding: 0 14px;
   background: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent); backdrop-filter: blur(12px);
 }
+.lumi-add-row { margin-top: 2px; }
 .lumi-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding: 8px; border-radius: 9px; font-size: 12px;
   background: color-mix(in srgb, var(--lumi-red, #f7768e) 18%, transparent);
   & span { flex-basis: 100%; }
   & .lumi-confirm-yes { color: var(--lumi-red, #f7768e); } }
 
-#lumi-notes:not(.editing) .lumi-edit-only { display: none; }
+/* контекстное меню ряда/листа */
+.lumi-menu {
+  position: fixed; z-index: 20; min-width: 200px; max-width: 260px; padding: 6px; display: flex; flex-direction: column; gap: 2px; border-radius: 14px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
+  font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5);
+}
+.lumi-menu-item { text-align: left; padding: 7px 12px; border-radius: 9px !important; &:disabled { opacity: .4; cursor: default; } }
+.lumi-menu-text { padding: 6px 12px; font-size: 12px; color: var(--lumi-muted, #a9b1d6); }
+.lumi-swatches { display: grid; grid-template-columns: repeat(5, 28px); gap: 8px; padding: 8px; }
+.lumi-swatch { width: 28px; height: 28px; padding: 0; border-radius: 50% !important; border: 2px solid transparent !important;
+  &.on { border-color: var(--lumi-fg, #c0caf5) !important; }
+  &.none { background: transparent; border: 2px dashed var(--lumi-dim, #565f89) !important; line-height: 1; } }
 
 .lumi-notes-error {
   pointer-events: auto; position: fixed; top: 16px; left: 50%; translate: -50% 0; z-index: 10; max-width: 60vw;
@@ -88,10 +137,5 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lumi-board { transition-duration: .01s; }
+  .lumi-row, .lumi-sheet, .lumi-card, .lumi-sheet-tools, .lumi-card-tools, .lumi-row-grip::after, .lumi-sheet-grip::after { transition: none; }
 }
-
-/* подпункты и даты (этап 3A: просто показаны; вид и правка — 3B/3C) */
-.lumi-sub { margin: 4px 0 0; padding-left: 16px; list-style: none; opacity: .85; }
-.lumi-sub li.done { text-decoration: line-through; }
-.lumi-card-dates { opacity: .6; font-size: .85em; }

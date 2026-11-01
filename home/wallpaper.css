@@ -61,7 +61,7 @@ html[lumi-through] { & body, & #lumi-wallpaper { background: transparent; } }
 /* панель ⚙ (wallpaper.js): громкость обоев — под кнопками, прокручивается */
 .lumi-wp-panel {
   position: absolute; top: 56px; left: 16px; z-index: 2; display: none; width: 300px; box-sizing: border-box;
-  max-height: calc(100% - var(--lumi-notes-h, 180px) - 72px); overflow: auto; padding: 10px 12px 12px; border-radius: 12px;
+  max-height: calc(100% - 180px - 72px); overflow: auto; padding: 10px 12px 12px; border-radius: 12px;
   border: 1px solid color-mix(in srgb, var(--lumi-fg, #c0caf5) 16%, transparent);
   background: color-mix(in srgb, var(--lumi-bg0, #16161e) 82%, transparent); backdrop-filter: blur(14px);
   color: var(--lumi-fg, #c0caf5); font: 12.5px/1.35 system-ui, sans-serif;

@@ -1,4 +1,4 @@
-/* Luminoctis — мод для Zen Browser 1.23.4b. Tokyo Night, compact mode, окно сайта вплотную к краям, серые выгруженные вкладки; рейка (см. js/); вкладки полосой сверху. */
+/* Luminoctis — мод для Zen Browser 1.24b. Tokyo Night, compact mode, окно сайта вплотную к краям, серые выгруженные вкладки; рейка (см. js/); вкладки полосой сверху. */
 
 /* ---------- 1. Палитра (17 токенов) ----------
  * Значения ниже — Tokyo Night, запасные: js/lumi-palette.sys.mjs ставит цвета выбранной палитры
@@ -30,7 +30,6 @@
   --zen-themed-toolbar-bg-transparent: var(--lumi-bg0) !important;
   --zen-colors-border: color-mix(in srgb, var(--lumi-dim) 40%, transparent) !important;
   --zen-dialog-background: var(--lumi-bg1) !important;
-  --zen-urlbar-background: var(--lumi-bg1) !important;
 
   --toolbox-textcolor: var(--lumi-fg) !important;
   --toolbar-color: var(--lumi-fg) !important;
@@ -44,17 +43,12 @@
   --toolbar-field-focus-background-color: var(--lumi-raised) !important;
   --toolbar-field-color: var(--lumi-fg) !important;
   --toolbar-field-focus-color: var(--lumi-fg) !important;
-  --toolbar-field-focus-border-color: var(--lumi-accent) !important;
   --urlbar-box-hover-bgcolor: var(--lumi-raised) !important;
   --urlbar-box-active-bgcolor: var(--lumi-raised) !important;
 
   --arrowpanel-background: var(--lumi-bg1) !important;
-  --arrowpanel-color: var(--lumi-fg) !important;
   --arrowpanel-border-color: var(--lumi-raised) !important;
   --panel-separator-color: var(--lumi-raised) !important;
-  --menu-background-color: var(--lumi-bg1) !important;
-  --menu-color: var(--lumi-fg) !important;
-  --menuitem-hover-background-color: var(--lumi-raised) !important;
   --focus-outline-color: var(--lumi-accent) !important;
   --color-accent-primary: var(--lumi-accent) !important;
 }
@@ -664,7 +658,6 @@ zen-library {
  * Меню рейки и закрепа, меню вкладки, страницы, адресной строки, панелей, меню «⋯» и остальные: фон, рамка, скругление,
  * отступы, наведение и черты — из токенов палитры, без прозрачной подложки Windows (в прозрачном режиме — с ней, раздел 14). Выпадающие списки сайтов (<select>) — в цветах сайта. */
 :root {
-  --arrowpanel-border-radius: 12px !important;
   --arrowpanel-menuitem-border-radius: 8px !important;
   --arrowpanel-menuitem-padding-block: 7px !important;
   --arrowpanel-menuitem-padding-inline: 10px !important;
@@ -988,7 +981,6 @@ zen-library {
   --organizer-separator-color: var(--lumi-line) !important;
   --organizer-border-color: var(--lumi-line) !important;
   --organizer-pane-field-border-color: var(--lumi-line) !important;
-  --input-text-background-color: var(--lumi-surface) !important;
   --button-background-color: var(--lumi-surface) !important;
   --button-background-color-hover: var(--lumi-raised) !important;
   background: var(--lumi-bg0) !important;

@@ -41,6 +41,8 @@ async function searchUrl(term) {
 async function go(item, background = false) {
   const { url, postData } = item.url ? item : await searchUrl(item.term);
   win.openTrustedLinkIn(url, "tab", { postData, inBackground: background });
+  clearTimeout(timer);
+  input.value = ""; // после перехода строка пустая
   close();
 }
 const goText = async text => { // Enter без выбранной подсказки

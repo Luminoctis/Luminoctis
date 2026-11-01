@@ -68,6 +68,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (hoverCard) item.removeAttribute("title");
     else item.title = tab.label;
     item.toggleAttribute("selected", tab.selected);
+    item.toggleAttribute("multiselected", tab.multiselected || (tab.selected && gBrowser.multiSelectedTabsCount > 0)); // Ctrl/Shift+клик
     item.toggleAttribute("unloadable", unloadable(tab));
     item.toggleAttribute("square", tab.pinned); // закреплённые вкладки пространства — квадратики
     for (const attr of ["pending", "soundplaying", "muted", "busy"]) {
@@ -109,6 +110,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (!chip) {
       chip = document.createElement("div");
       chip.className = "lumi-tab lumi-folder";
+      chip.draggable = true; // папку можно переставлять по полосе, как вкладку
       chip.folder = folder;
       chip.icon = Object.assign(document.createElement("img"), { className: "lumi-tab-icon", alt: "", src: FOLDER_ICON });
       chip.labelEl = Object.assign(document.createElement("span"), { className: "lumi-tab-label" });
@@ -186,7 +188,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     ], timing).finished.then(done, done);
   };
   // перетаскивание вкладок (ниже): расступившиеся остаются сдвинутыми после броска, пока render не пересоберёт ряд
-  let dragged = null, dragFrom = -1, gapPending = false;
+  let dragged = null, dragSet = [], dragGhost = null, gapPending = false; // dragSet: тянущиеся вкладки в порядке полосы или [папка]
   const liveItems = () => [...row.children].filter(el => !el.hasAttribute("closing"));
   function releaseGap(instant) {
     gapPending = false;
@@ -233,7 +235,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     }
   };
   for (const type of ["TabOpen", "TabClose", "TabSelect", "TabMove", "TabAttrModified", "TabPinned",
-    "TabUnpinned", "TabHide", "TabShow", "TabAddedToEssentials", "TabRemovedFromEssentials", "ZenWorkspacesUIUpdate",
+    "TabUnpinned", "TabMultiSelect", "TabHide", "TabShow", "TabAddedToEssentials", "TabRemovedFromEssentials", "ZenWorkspacesUIUpdate",
     // папки Zen: вложение/выход вкладок, создание/удаление, имя, подпапки, смена пространства папки
     "TabGrouped", "TabUngrouped", "TabGroupCreate", "TabGroupRemoved", "TabGroupUpdate", "TabGroupCollapse", "TabGroupExpand",
     "FolderGrouped", "FolderUngrouped", "ZenFolderRenamed", "ZenFolderChangedWorkspace"]) {
@@ -378,6 +380,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const renameChip = chip => {
       if (chip.editing) return;
       chip.editing = true;
+      chip.draggable = false;
       const { folder } = chip;
       const input = Object.assign(document.createElement("input"), { className: "lumi-folder-edit", value: folder.label });
       chip.labelEl.hidden = true;
@@ -385,6 +388,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       const finish = save => {
         if (!chip.editing) return;
         chip.editing = false;
+        chip.draggable = true;
         const name = input.value.trim() || "Folder";
         input.remove();
         chip.labelEl.hidden = false;
@@ -442,8 +446,24 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       if (unloadable(tab)) unloadTab(tab);
       else gBrowser.removeTab(tab, { animate: true });
     } else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
-    else gBrowser.selectedTab = tab;
+    else if (event.ctrlKey || event.metaKey) toggleSelect(tab);
+    else if (event.shiftKey) selectRange(tab);
+    else {
+      gBrowser.clearMultiSelectedTabs();
+      gBrowser.selectedTab = tab;
+    }
   });
+  // Выделение нескольких вкладок — родное (gBrowser.selectedTabs): Ctrl+клик добавляет/убирает, Shift+клик — диапазон от выбранной
+  const toggleSelect = tab => {
+    if (tab.multiselected) gBrowser.removeFromMultiSelectedTabs(tab);
+    else if (!tab.selected) (gBrowser.addToMultiSelectedTabs(tab), (gBrowser.lastMultiSelectedTab = tab));
+  };
+  const selectRange = tab => {
+    const list = stripTabs(), anchor = list.indexOf(list.includes(gBrowser.selectedTab) ? gBrowser.selectedTab : gBrowser.lastMultiSelectedTab), to = list.indexOf(tab);
+    gBrowser.clearMultiSelectedTabs();
+    if (anchor < 0) return toggleSelect(tab);
+    for (const t of list.slice(Math.min(anchor, to), Math.max(anchor, to) + 1)) if (!t.selected) gBrowser.addToMultiSelectedTabs(t);
+  };
   row.addEventListener("auxclick", event => {
     const tab = tabOf(event);
     if (tab && event.button == 1) gBrowser.removeTab(tab, { animate: true });
@@ -474,37 +494,69 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       return x < r.left - luminoctis.shiftOf(el, "x") + r.width / 2;
     });
     if (i < 0) i = list.length;
-    // обычная вкладка (в т.ч. вышедшая из папки) не встаёт среди закрепов и фишек — они всегда левее обычных
-    if (dragged && (!dragged.pinned || folderOf(dragged))) {
-      const first = list.findIndex(el => el.tab && !el.tab.pinned);
-      i = Math.max(i, first < 0 ? list.length : first);
+    // обычная вкладка (в т.ч. вышедшая из папки) не встаёт среди закрепов и фишек — они всегда левее обычных; папка и закреп — наоборот, не правее
+    if (dragged) {
+      const first = list.findIndex(el => el.tab && !el.tab.pinned), end = first < 0 ? list.length : first;
+      i = dragged.isZenFolder || (dragged.pinned && !folderOf(dragged)) ? Math.min(i, end) : Math.max(i, end);
     }
     return i;
   };
   // фишка под курсором, если бросок на неё положит вкладку в папку (та же папка — нет)
   const folderTarget = event => {
-    const chip = dragged && chipOf(event);
+    const chip = dragged && !dragged.isZenFolder && chipOf(event);
     if (!chip || folderOf(dragged) === chip.folder) return null;
     const r = chip.getBoundingClientRect(), edge = Math.min(12, r.width / 4);
     return event.clientX > r.left + edge && event.clientX < r.right - edge ? chip : null;
   };
   const clearTarget = () => row.querySelectorAll("[drop-into]").forEach(el => el.removeAttribute("drop-into"));
-  const beginDrag = (event, tab, from) => {
-    dragged = tab;
-    dragFrom = from;
-    setTimeout(() => dragged && (from < 0 ? rowEls.get(dragged) : items.get(dragged))?.setAttribute("dragging", "")); // гаснет, когда снимок для курсора уже сделан
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", dragged.linkedBrowser.currentURI.spec);
-    event.dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", dragged, 0); // родной тип вкладки: по нему рейка делает её закрепом
+  // Выделенные вкладки тянутся вместе (одна из них — за курсором); не из выделения — выделение снимается. В полосе-источнике уже нет папок и Home
+  const dragGroup = tab => {
+    const sel = gBrowser.selectedTabs;
+    if (gBrowser.multiSelectedTabsCount && !sel.includes(tab)) gBrowser.clearMultiSelectedTabs();
+    const group = gBrowser.multiSelectedTabsCount ? stripTabs().filter(t => sel.includes(t) && t.pinned == tab.pinned) : [];
+    return group.length > 1 && group.includes(tab) ? group : [tab];
+  };
+  const beginDrag = (event, primary, set, inPanel) => {
+    dragged = primary;
+    dragSet = set;
+    setTimeout(() => dragged && dragSet.forEach(e => (inPanel ? rowEls.get(e) : entryItem(e))?.setAttribute("dragging", ""))); // гаснет, когда снимок для курсора уже сделан
+    const dt = event.dataTransfer;
+    dt.effectAllowed = "move";
+    dt.setData("text/plain", primary.isZenFolder ? primary.label : primary.linkedBrowser.currentURI.spec);
+    if (!primary.isZenFolder) dt.mozSetDataAt("application/x-moz-tabbrowser-tab", primary, 0); // родной тип вкладки: по нему рейка делает её закрепом
+    if (set.length > 1) { // у курсора — вкладка с числом тянущихся
+      dragGhost = Object.assign(document.createElement("div"), { id: "lumi-drag-ghost", textContent: primary.label });
+      dragGhost.dataset.count = set.length;
+      strip.append(dragGhost);
+      dt.setDragImage(dragGhost, 16, 14);
+    }
   };
   row.addEventListener("dragstart", event => {
-    const tab = tabOf(event);
-    if (tab) beginDrag(event, tab, liveItems().indexOf(items.get(tab)));
+    const chip = chipOf(event), tab = tabOf(event);
+    if (chip && !chip.editing) beginDrag(event, chip.folder, [chip.folder], false);
+    else if (tab) beginDrag(event, tab, dragGroup(tab), false);
   });
   fList.addEventListener("dragstart", event => {
     const tab = event.target.closest?.(".lumi-fr")?.tab;
-    if (tab) beginDrag(event, tab, -1); // -1: не из полосы — остальные просто раздвигаются
+    if (tab) beginDrag(event, tab, [tab], true); // не из полосы — остальные просто раздвигаются
   });
+  // Остальные расступаются: сдвиг = место тянущихся, которое оказалось слева от элемента после броска, минус то, что было слева до.
+  // movers — тянущиеся элементы ряда (пусто — тянут из списка папки, тогда место extra); возвращает центр дыры на месте броска
+  const spread = (list, movers, i, extra) => {
+    const size = el => el.getBoundingClientRect().width + 6;
+    const total = extra + [...movers].reduce((w, el) => w + size(el), 0);
+    const t = list.slice(0, i).filter(el => !movers.has(el)).length; // перед каким из остальных встанут
+    const rest = list.filter(el => !movers.has(el));
+    let before = 0, k = 0, hole = null;
+    for (const el of list) {
+      if (movers.has(el)) { before += size(el); el.style.translate = ""; continue; }
+      const d = (k++ < t ? 0 : total) - before, r = el.getBoundingClientRect(), base = r.left - luminoctis.shiftOf(el, "x");
+      el.style.translate = d ? `${d}px 0` : "";
+      if (el === rest[t]) hole = base + d - total / 2 - 3;
+      else if (!rest[t] && el === rest.at(-1)) hole = base + d + r.width + 6 + total / 2 - 3;
+    }
+    return hole ?? list.at(-1).getBoundingClientRect().right;
+  };
   row.addEventListener("dragover", event => {
     if (!dragged) return;
     event.preventDefault();
@@ -521,11 +573,16 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const i = dropIndex(event.clientX);
     const ref = list[i] ?? list.at(-1);
     const r = ref.getBoundingClientRect();
-    const x = list[i] ? r.left - 3 : r.right + 3;
+    let x = list[i] ? r.left - 3 : r.right + 3;
+    const movers = new Set(dragSet.map(entryItem).filter(el => list.includes(el)));
+    if (!calm()) {
+      const hole = spread(list, movers, i, movers.size ? 0 : 216); // 216 — место под вкладку из списка папки
+      if (dragSet.length > 1) x = hole; // число у метки — по центру дыры
+    }
     dropLine.style.left = `${x - strip.getBoundingClientRect().left}px`;
     dropLine.hidden = false;
     dropLine.toggleAttribute("quiet", !calm()); // с расступанием черта не нужна — остаётся при «уменьшить анимацию»
-    if (!calm()) luminoctis.gap(list, "x", (items.get(dragged)?.getBoundingClientRect().width || 210) + 6, dragFrom, i);
+    dropLine.dataset.count = dragSet.length > 1 ? dragSet.length : ""; // у нескольких вкладок на метке число
   });
   row.addEventListener("dragleave", event => {
     if (row.contains(event.relatedTarget)) return;
@@ -541,17 +598,32 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     clearTarget();
     endHover();
     if (into) {
-      const tab = dragged;
+      const tabs = dragSet;
       dragged = null; // у вкладки, ушедшей в папку, из полосы пропадёт элемент — dragend до row не дойдёт
+      dragSet = [];
+      dragGhost?.remove();
       dropLine.hidden = true;
       releaseGap(true);
-      into.folder.addTabs([tab]);
+      into.folder.addTabs(tabs);
       folderPanel.hidePopup();
       return;
     }
     if (dragOpened) hideFolder(); // список раскрылся наведением, бросили на полосу — закрываем
     const visible = stripEntries();
     const i = dropIndex(event.clientX);
+    if (dragSet.length > 1 || dragged.isZenFolder) { // папка или несколько вкладок: встают подряд перед первым из остальных правее места броска
+      const rest = visible.filter(e => !dragSet.includes(e)), target = rest[visible.slice(0, i).filter(e => !dragSet.includes(e)).length];
+      gapPending = row.querySelector("[style*=translate]") != null;
+      if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500);
+      // папка живёт только среди закрепов: перед первой обычной вкладкой её ставят после последнего закрепа, а не перед обычной
+      const pinnedEnd = dragged.isZenFolder && target && !target.isZenFolder && !target.pinned;
+      if (target && !pinnedEnd) dragSet.forEach(e => gBrowser.moveTabBefore(e, target));
+      else {
+        let at = pinnedEnd ? rest[rest.indexOf(target) - 1] : rest.at(-1);
+        for (const e of dragSet) if (at) (gBrowser.moveTabAfter(e, at), (at = e));
+      }
+      return;
+    }
     const target = visible[i] ?? visible.at(-1);
     if (folderOf(dragged)) { // из папки — в обычные вкладки того же пространства (Zen оставил бы их закреплёнными)
       gBrowser.ungroupTab(dragged);
@@ -570,20 +642,22 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const dragEnd = event => {
     clearTarget();
     dropLine.hidden = true;
-    const tab = dragged;
+    const tab = dragged, set = dragSet;
     dragged = null;
+    dragSet = [];
+    dragGhost?.remove();
     if (!gapPending) releaseGap(false); // отмена или ушли за пределы окна
     else row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
     fList.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
     endHover();
     if (!panelGapPending) releasePanelGap(false);
     if (dragOpened) hideFolder(); // отмена (Esc, мимо) — список, раскрытый наведением, закрывается
-    if (!tab || event.dataTransfer.dropEffect != "none") return;
+    if (!tab || tab.isZenFolder || event.dataTransfer.dropEffect != "none") return;
     // отпустили за пределами окна — вкладка уезжает в новое окно, как в Firefox
     const outside =
       event.screenX < window.screenX || event.screenX > window.screenX + window.outerWidth ||
       event.screenY < window.screenY || event.screenY > window.screenY + window.outerHeight;
-    if (outside) gBrowser.replaceTabWithWindow(tab);
+    if (outside) set.length > 1 ? gBrowser.replaceTabsWithWindow(set) : gBrowser.replaceTabWithWindow(tab);
   };
   row.addEventListener("dragend", dragEnd);
   fList.addEventListener("dragend", dragEnd);
@@ -609,7 +683,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const shown = chip && folderPanel.chip === chip && folderPanel.state != "closed";
     if (shown) disarmClose();
     else armClose();
-    if (!chip || shown || folderOf(dragged) === chip.folder) {
+    if (!chip || shown || dragged?.isZenFolder || folderOf(dragged) === chip.folder) {
       clearTimeout(hoverTimer);
       hoverTimer = 0;
       hoverChip = null;
@@ -650,7 +724,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const kids = panelKids(), to = panelDropIndex(event.clientY), own = rowEls.get(dragged);
     clearMarks();
     if (calm()) (kids[to] ?? kids.at(-1)).toggleAttribute(kids[to] ? "drop-before" : "drop-after", true);
-    else luminoctis.gap(kids, "y", (own?.offsetHeight || 32) + 2, kids.indexOf(own), to);
+    else luminoctis.gap(kids, "y", ((own?.offsetHeight || 32) + 2) * dragSet.length, kids.indexOf(own), to);
   });
   folderPanel.addEventListener("dragleave", event => {
     if (!dragged || folderPanel.contains(event.relatedTarget)) return;
@@ -658,20 +732,23 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     armClose();
   });
   // вкладку на место `to` (индекс строки списка): сначала в папку (addTabs закрепляет, как Zen), затем на место перед следующей строкой
-  const placeInFolder = (tab, folder, data, to) => {
-    const next = data.map((d, i) => ({ ...d, i })).find(d => d.i >= to && d.tab !== tab);
-    if (tab.group !== folder) folder.addTabs([tab]);
-    if (next) return gBrowser.moveTabBefore(tab, next.tab ?? next.folder);
-    const last = folder.allItems.filter(item => item !== tab).at(-1);
-    if (last) gBrowser.moveTabAfter(tab, last);
+  const placeInFolder = (tabs, folder, data, to) => {
+    const next = data.map((d, i) => ({ ...d, i })).find(d => d.i >= to && !tabs.includes(d.tab));
+    const fresh = tabs.filter(tab => tab.group !== folder);
+    if (fresh.length) folder.addTabs(fresh);
+    if (next) return tabs.forEach(tab => gBrowser.moveTabBefore(tab, next.tab ?? next.folder));
+    let at = folder.allItems.filter(item => !tabs.includes(item)).at(-1);
+    if (at) for (const tab of tabs) (gBrowser.moveTabAfter(tab, at), (at = tab));
   };
   folderPanel.addEventListener("drop", event => {
     if (!dragged || !folderPanel.chip) return;
     event.preventDefault();
-    const tab = dragged, { folder } = folderPanel.chip;
+    const tabs = dragSet, { folder } = folderPanel.chip;
     const listed = inPanelList();
     const to = listed ? panelDropIndex(event.clientY) : 0, data = listed ? folderRows(folder) : [];
     dragged = null; // строка/плитка вкладки пересоберётся — dragend может не прийти
+    dragSet = [];
+    dragGhost?.remove();
     clearTarget();
     dropLine.hidden = true;
     releaseGap(true);
@@ -679,7 +756,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     clearMarks();
     panelGapPending = listed && !calm() && panelKids().some(el => el.style.translate); // сдвиги стоят, пока render не пересоберёт список
     if (panelGapPending) setTimeout(() => panelGapPending && releasePanelGap(false), 500);
-    placeInFolder(tab, folder, data, to);
+    placeInFolder(tabs, folder, data, to);
     if (dragOpened) hideFolder();
   });
 

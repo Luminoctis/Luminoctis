@@ -3,7 +3,7 @@
 // Настройки — luminoctis.home.wallpaper.*; ключи: key.wallhaven (необязательный, нужен для NSFW), key.unsplash, key.pexels.
 // Сеть идёт через net.json — в проверках (dev/check-wallpaper-sources.js) он подменяется заглушкой.
 // Безопасность: Yande.re, Konachan, Safebooru — только safe (в запросе и фильтром), Reddit — без over_18, Wallhaven — SFW (+ Sketchy;
-// NSFW только если задан ключ Wallhaven и включена отметка).
+// NSFW — только при включённом luminoctis.home.wallpaper.nsfw (nsfwOn(): никогда в приватном окне и при режиме окна «Обои»); Wallhaven — ещё и с ключом).
 import * as store from "./store.js";
 
 const P = "luminoctis.home.wallpaper.", prefs = Services.prefs;
@@ -12,6 +12,13 @@ export const IMG = /\.(jpe?g|png|webp|gif|apng|avif|bmp|svg)$/i, VID = /\.(mp4|w
 const words = () => str("query").trim();
 const sorting = () => str("sorting", "random"); // random | toplist | hot
 const key = name => str("key." + name).trim();
+// NSFW (переключатель в настройках «Обои»): не показывать в приватном окне и когда обои видны сквозь интерфейс браузера (режим окна «Обои»)
+export const env = { isPrivate: () => !!globalThis.window?.browsingContext?.usePrivateBrowsing };
+export const nsfwOn = () => bool("nsfw") && prefs.getStringPref("luminoctis.look.window", "opaque") != "wallpaper" && !env.isPrivate();
+// главные страницы источников (кнопка ↗ в настройках)
+export const HOMES = { wallhaven: "https://wallhaven.cc", unsplash: "https://unsplash.com", pexels: "https://www.pexels.com", reddit: "https://www.reddit.com/r/wallpapers",
+  konachan: "https://konachan.net", yandere: "https://yande.re", safebooru: "https://safebooru.org", apod: "https://apod.nasa.gov",
+  wikimedia: "https://commons.wikimedia.org/wiki/Commons:Picture_of_the_day", bing: "https://www.bing.com" };
 
 export const net = {
   async json(url, headers) {
@@ -32,14 +39,14 @@ export const sources = {
     const cats = [bool("wh.general", legacy != "anime"), bool("wh.anime", legacy != "general"), bool("wh.people")].map(Number).join("");
     const k = key("wallhaven");
     const q = new URLSearchParams({ q: words(), categories: cats == "000" ? "100" : cats,
-      purity: `1${Number(bool("wh.sketchy"))}${Number(!!k && bool("wh.nsfw"))}`, sorting: sorting() == "hot" ? "hot" : sorting() == "toplist" ? "toplist" : "random" });
+      purity: `1${Number(bool("wh.sketchy"))}${Number(!!k && nsfwOn())}`, sorting: sorting() == "hot" ? "hot" : sorting() == "toplist" ? "toplist" : "random" });
     if (sorting() == "toplist") q.set("topRange", "1M");
     const ratios = str("wh.ratios") || "landscape", atleast = str("wh.atleast"); // пусто = горизонтальные, any = любые
     if (ratios != "any") q.set("ratios", ratios);
     if (atleast) q.set("atleast", atleast);
     if (k) q.set("apikey", k);
     const { data } = await net.json("https://wallhaven.cc/api/v1/search?" + q);
-    return data.map(w => ({ source: "wallhaven", id: w.id, kind: "image", url: w.path, page: w.url }));
+    return data.map(w => ({ source: "wallhaven", id: w.id, kind: "image", url: w.path, page: w.url, nsfw: w.purity == "nsfw" }));
   },
   async unsplash() {
     const k = key("unsplash");
@@ -67,15 +74,17 @@ export const sources = {
       return !s || landscape(s); // размер известен — только горизонтальные
     }).map(d => ({ source: "reddit", id: d.id, kind: "image", url: d.url, page: "https://www.reddit.com" + d.permalink, author: d.author })));
   },
-  async konachan() { // konachan.net — безопасное зеркало
-    const posts = await net.json(`https://konachan.net/post.json?limit=40&tags=${tagsOf("rating:safe")}`);
-    return posts.filter(p => p.rating == "s" && landscape(p)).map(p => ({ source: "konachan", id: String(p.id), kind: "image",
-      url: new URL(p.jpeg_url || p.file_url, "https://konachan.net").href, page: `https://konachan.net/post/show/${p.id}`, author: p.author }));
+  async konachan() { // konachan.net — безопасное зеркало; с NSFW — konachan.com (все рейтинги)
+    const nsfw = nsfwOn(), host = nsfw ? "https://konachan.com" : "https://konachan.net";
+    const posts = await net.json(`${host}/post.json?limit=40&tags=${tagsOf(...(nsfw ? [] : ["rating:safe"]))}`);
+    return posts.filter(p => (nsfw || p.rating == "s") && landscape(p)).map(p => ({ source: "konachan", id: String(p.id), kind: "image",
+      url: new URL(p.jpeg_url || p.file_url, host).href, page: `${host}/post/show/${p.id}`, author: p.author, nsfw: p.rating != "s" }));
   },
   async yandere() {
-    const posts = await net.json(`https://yande.re/post.json?limit=40&tags=${tagsOf("rating:s")}`);
-    return posts.filter(p => p.rating == "s" && landscape(p)).map(p => ({ source: "yandere", id: String(p.id), kind: "image",
-      url: p.jpeg_url || p.file_url, page: `https://yande.re/post/show/${p.id}`, author: p.author }));
+    const nsfw = nsfwOn(); // с NSFW — без фильтра рейтинга
+    const posts = await net.json(`https://yande.re/post.json?limit=40&tags=${tagsOf(...(nsfw ? [] : ["rating:s"]))}`);
+    return posts.filter(p => (nsfw || p.rating == "s") && landscape(p)).map(p => ({ source: "yandere", id: String(p.id), kind: "image",
+      url: p.jpeg_url || p.file_url, page: `https://yande.re/post/show/${p.id}`, author: p.author, nsfw: p.rating != "s" }));
   },
   async safebooru() { // dapi: случайная «страница» вместо order:random; теги по умолчанию — scenery, иначе пусто = новые подряд
     const tags = encodeURIComponent((words().split(/\s+/).filter(Boolean).slice(0, 4).join(" ") || "scenery") + " rating:general");

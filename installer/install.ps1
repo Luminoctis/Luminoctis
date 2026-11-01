@@ -268,7 +268,9 @@ $prefsBefore = [ordered]@{}
 if ($state -and $state.prefsBefore) { foreach ($p in $state.prefsBefore.PSObject.Properties) { $prefsBefore[$p.Name] = $p.Value } }
 # настройки, добавленные в новых версиях, запоминаем при обновлении
 $cur = if (Test-Path $prefsFile) { [IO.File]::ReadAllLines($prefsFile, $utf8) } else { @() }
-foreach ($k in $prefDefs.Keys) { if (-not $prefsBefore.Contains($k)) { $prefsBefore[$k] = Get-PrefRaw $cur $k } }
+# при повторной установке ставим только такие новые настройки; выбор пользователя в старых не трогаем
+$newPrefs = [ordered]@{}
+foreach ($k in $prefDefs.Keys) { if (-not $prefsBefore.Contains($k)) { $prefsBefore[$k] = Get-PrefRaw $cur $k; $newPrefs[$k] = $prefDefs[$k] } }
 [IO.File]::WriteAllText((Join-Path $bk 'prefs-before.json'), ($prefsBefore | ConvertTo-Json), $utf8)
 
 # --- 6. Профильная часть ---
@@ -337,7 +339,7 @@ Write-Mods $mods $modsFile
 
 # --- настройки Zen ---
 Step 6 $total 'prefs'
-Set-Prefs $prefsFile @($prefDefs.Keys) $prefDefs
+Set-Prefs $prefsFile @($newPrefs.Keys) $newPrefs
 foreach ($c in $cacheDirs) { Remove-Item $c -Recurse -Force -ErrorAction SilentlyContinue }
 
 # --- 8. Состояние ---

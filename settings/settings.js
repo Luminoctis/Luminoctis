@@ -657,7 +657,35 @@ renderPalette();
     watchPref(kp, () => { const has = !!Services.prefs.getStringPref(kp, "").trim(); box.disabled = !has; hint.hidden = has; });
   }
   // своя папка: состояние, превью файлов, «Открыть в проводнике»
-  const { IMG, VID, localDir } = await import("../home/wallpaper-sources.js");
+  const { IMG, VID, localDir, HOMES } = await import("../home/wallpaper-sources.js");
+  // ↗ у источника: его сайт — в новой вкладке (клик не переключает флажок)
+  const ARROW = '<svg viewBox="0 0 12 12"><path d="M4.5 2H2v8h8V7.5M7 2h3v3M10 2 5.5 6.5"/></svg>';
+  for (const box of document.querySelectorAll('input[data-pref*="wallpaper.src."]')) {
+    const url = HOMES[box.dataset.pref.split(".src.")[1]];
+    if (!url) continue;
+    const a = el("a", { className: "src-link", href: url, title: "Открыть сайт", role: "button", tabIndex: 0 });
+    a.dataset.src = box.dataset.pref.split(".src.")[1];
+    a.innerHTML = ARROW;
+    a.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); win.openTrustedLinkIn(url, "tab"); });
+    box.closest("label").append(a);
+  }
+  // NSFW: включение — только после подтверждения; отказ оставляет переключатель выключенным
+  const nsfw = $("#wp-nsfw"), NS = WP + "nsfw", nsfwBox = $("#nsfw-confirm");
+  const nsfwHint = () => {
+    const on = Services.prefs.getBoolPref(NS, false), hasKey = !!Services.prefs.getStringPref(WP + "key.wallhaven", "").trim();
+    nsfw.checked = on;
+    $("#nsfw-hint").textContent = on && !hasKey ? "Wallhaven покажет 18+ только с ключом доступа (в «Ещё»). Yande.re и Konachan — без ключа" : "Не показывается в приватном окне и в режиме окна «Обои»";
+  };
+  nsfw.addEventListener("change", () => {
+    if (!nsfw.checked) return Services.prefs.clearUserPref(NS);
+    nsfw.checked = false; // пока не подтвердили — выключен
+    const yes = el("button", { id: "nsfw-yes", className: "danger", textContent: "Включить" }), no = el("button", { id: "nsfw-no", textContent: "Отмена" });
+    yes.addEventListener("click", () => { nsfwBox.replaceChildren(); Services.prefs.setBoolPref(NS, true); });
+    no.addEventListener("click", () => nsfwBox.replaceChildren());
+    nsfwBox.replaceChildren(el("div", { className: "confirm" }, el("span", { textContent: "Обои 18+. Включить?" }), yes, no));
+  });
+  watchPref(NS, nsfwHint);
+  watchPref(WP + "key.wallhaven", nsfwHint);
   const grid = $("#wp-previews"), info = $("#wp-folder-state");
   let seen = "";
   const previews = async () => {
@@ -758,6 +786,79 @@ upd.installedVersion().then(v => {
   $("#update-none").hidden = !!v;
   if (!v) for (const el of [$("#update-title"), $("#update-row"), $("#update-auto").closest("label")]) el.style.display = "none";
 });
+
+// ---------- сохранить настройки в файл / загрузить из файла (вкладка «О моде») ----------
+// Формат: { luminoctis: версия, date, prefs: { имя: bool | число | строка } }. Служебное (миграции, пути, ключи доступа, состояние обновлений) не входит.
+{
+  const pr = Services.prefs, ZEN = ["zen.view.compact.hide-toolbar"]; // Zen-настройки, которые меняются в «Автоскрытии»
+  const SKIP = /\.(migrated|seeded)$|-cut$|\.key\.|^luminoctis\.(toolbar\.layout|settings\.tab|home\.dir|home\.wallpaper\.folder|notes\.trash-dir)$|^luminoctis\.(dev|update)\./;
+  const allowed = name => ZEN.includes(name) || name == "luminoctis.update.auto-check" || (name.startsWith("luminoctis.") && !SKIP.test(name));
+  const read = name => {
+    switch (pr.getPrefType(name)) {
+      case pr.PREF_BOOL: return pr.getBoolPref(name);
+      case pr.PREF_INT: return pr.getIntPref(name);
+      case pr.PREF_STRING: return pr.getStringPref(name);
+    }
+  };
+  const mine = () => [...new Set([...pr.getChildList("luminoctis."), ...ZEN, "luminoctis.update.auto-check"])].filter(n => allowed(n) && (ZEN.includes(n) ? pr.getPrefType(n) != pr.PREF_INVALID : pr.prefHasUserValue(n))); // Zen-настройки — всегда: значение «как по умолчанию» тоже выбор
+  const status = text => ($("#backup-status").textContent = text);
+  const confirmBox = $("#backup-confirm");
+  const backup = window.lumiBackup = {
+    allowed,
+    async build() {
+      const prefs = {};
+      for (const n of mine().sort()) prefs[n] = read(n);
+      return { luminoctis: (await upd.installedVersion()) || "", date: new Date().toISOString(), prefs };
+    },
+    async saveTo(path) {
+      await IOUtils.writeUTF8(path, JSON.stringify(await backup.build(), null, 2));
+      status("Сохранено: " + path);
+    },
+    // проверка формата и типов; ошибка — понятная строка
+    parse(text) {
+      let data;
+      try { data = JSON.parse(text); } catch { return { error: "Это не файл настроек Luminoctis: не читается как JSON" }; }
+      if (!data || typeof data != "object" || !("luminoctis" in data) || !data.prefs || typeof data.prefs != "object" || Array.isArray(data.prefs))
+        return { error: "Это не файл настроек Luminoctis: нет раздела prefs" };
+      const prefs = {};
+      for (const [name, v] of Object.entries(data.prefs)) {
+        if (!allowed(name)) return { error: "В файле неизвестная настройка: " + name };
+        const t = pr.getPrefType(name), type = typeof v;
+        const ok = t == pr.PREF_BOOL ? type == "boolean" : t == pr.PREF_INT ? Number.isInteger(v) : t == pr.PREF_STRING ? type == "string"
+          : type == "boolean" || Number.isInteger(v) || (type == "string" && v.length < 100000);
+        if (!ok) return { error: "Неверный тип значения у настройки " + name };
+        prefs[name] = v;
+      }
+      return { prefs };
+    },
+    async loadFrom(path) {
+      confirmBox.replaceChildren();
+      let text;
+      try { text = await IOUtils.readUTF8(path); } catch { return status("Не удалось прочитать файл"); }
+      const r = backup.parse(text);
+      if (r.error) return status(r.error);
+      status("");
+      const yes = el("button", { id: "backup-yes", className: "danger", textContent: "Заменить" }), no = el("button", { id: "backup-no", textContent: "Отмена" });
+      yes.addEventListener("click", () => { confirmBox.replaceChildren(); backup.apply(r.prefs); });
+      no.addEventListener("click", () => confirmBox.replaceChildren());
+      confirmBox.replaceChildren(el("div", { className: "confirm" }, el("span", { textContent: `Заменить текущие настройки? В файле: ${Object.keys(r.prefs).length}` }), yes, no));
+    },
+    apply(prefs) { // чего в файле нет — возвращается к значению по умолчанию; страница сама подхватывает новые значения (наблюдатели настроек)
+      for (const n of mine()) if (!(n in prefs)) pr.clearUserPref(n);
+      for (const [n, v] of Object.entries(prefs)) typeof v == "boolean" ? pr.setBoolPref(n, v) : typeof v == "number" ? pr.setIntPref(n, v) : pr.setStringPref(n, v);
+      status(`Загружено настроек: ${Object.keys(prefs).length}`);
+    },
+  };
+  const pick = (save, done) => {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, save ? "Сохранить настройки Luminoctis" : "Загрузить настройки Luminoctis", save ? Ci.nsIFilePicker.modeSave : Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter("Настройки Luminoctis (*.json)", "*.json");
+    fp.defaultString = "luminoctis-settings.json"; fp.defaultExtension = "json";
+    fp.open(r => { if (r == Ci.nsIFilePicker.returnOK || r == Ci.nsIFilePicker.returnReplace) done(fp.file.path); });
+  };
+  $("#backup-save").addEventListener("click", () => pick(true, p => backup.saveTo(p).catch(e => status("Ошибка: " + e.message))));
+  $("#backup-load").addEventListener("click", () => pick(false, p => backup.loadFrom(p)));
+}
 
 // ---------- «Сбросить вкладку»: в конце каждого раздела, кроме «О моде» ----------
 // Возвращает флажки, ползунки и выборы раздела (data-pref, data-int-pref, select[data-str-pref], [data-reset], шорткаты).

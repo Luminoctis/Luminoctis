@@ -219,6 +219,9 @@ kbd {
 .clock-styles .lumi-clock-analog .lumi-clock-dial { width: 1.8em; height: 1.8em; }
 .clock-styles .lumi-clock-stacked { --clock-size: 22px; }
 #wp-folder { flex: 1; min-width: 0; }
+.src-link { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 5px; color: var(--lumi-muted); flex-shrink: 0;
+  & svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  &:hover { color: var(--lumi-accent); background: var(--lumi-bg1); } }
 .need-key { color: var(--lumi-muted); font-size: 11px; &[hidden] { display: none; } }
 .checks label:has(:disabled) { opacity: 0.6; }
 input.keyfield { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--lumi-bg1); color: var(--lumi-fg); font: 500 12.5px Inter, system-ui, sans-serif; }

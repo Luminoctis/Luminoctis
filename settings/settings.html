@@ -234,6 +234,11 @@
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local">Своя папка</label>
       </div>
     </div>
+    <div class="row stack" id="nsfw-row" data-reset="luminoctis.home.wallpaper.nsfw" title="Обои 18+ из Wallhaven (нужен ключ доступа), Yande.re и Konachan. Никогда не показываются в приватном окне и когда окно браузера в режиме «Обои»">
+      <label class="slider"><input type="checkbox" id="wp-nsfw">Показывать NSFW</label>
+      <div class="text"><span id="nsfw-hint"></span></div>
+      <div id="nsfw-confirm"></div>
+    </div>
     <div class="row stack" title="Теги или тема для Wallhaven, Unsplash, Pexels и аниме-сайтов, например «night city» или «landscape». Пусто — любые">
       <div class="text"><b>Поиск в сети</b><span>Теги или тема, например «night city». Пусто — любые</span></div>
       <input id="wp-query" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.query" placeholder="любые">
@@ -248,14 +253,13 @@
 
     <details class="more">
       <summary>Ещё <span class="more-hint">· Wallhaven, Reddit, ключи доступа</span></summary>
-      <div class="row stack" title="Что искать: категории, чистота и размер. NSFW включается только при заданном ключе Wallhaven (ниже)">
+      <div class="row stack" title="Что искать: категории, чистота и размер. NSFW включается переключателем «Показывать NSFW» в источниках (для Wallhaven ещё нужен ключ)">
         <div class="text"><b>Wallhaven</b><span>Категории, чистота и размер</span></div>
         <div class="checks">
           <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.general" data-default="true">Общие</label>
           <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.anime" data-default="true">Аниме</label>
           <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.people">Люди</label>
           <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.sketchy">Sketchy (полуоткровенные)</label>
-          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.nsfw" data-need-key="wallhaven">NSFW <span class="need-key">нужен ключ</span></label>
         </div>
         <label class="slider">Не меньше <select data-str-pref="luminoctis.home.wallpaper.wh.atleast"><option value="">любой размер</option><option value="1280x720">1280×720</option><option value="1920x1080">1920×1080 (Full HD)</option><option value="2560x1440">2560×1440</option><option value="3840x2160">3840×2160 (4K)</option></select></label>
         <label class="slider">Пропорции <select data-str-pref="luminoctis.home.wallpaper.wh.ratios"><option value="">горизонтальные</option><option value="16x9">16:9</option><option value="16x10">16:10</option><option value="21x9">21:9</option><option value="any">любые</option></select></label>
@@ -264,7 +268,7 @@
         <div class="text"><b>Reddit</b><span>Сабреддиты через запятую (до 5)</span></div>
         <input type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.reddit.subs" placeholder="wallpapers, wallpaper">
       </div>
-      <div class="row stack" title="Unsplash (Access Key) и Pexels (API key) бесплатны на сайтах сервисов; без ключа источник выключен. Ключ Wallhaven — по желанию (нужен для NSFW). Ключи хранятся в настройках профиля Zen">
+      <div class="row stack" title="Unsplash (Access Key) и Pexels (API key) бесплатны на сайтах сервисов; без ключа источник выключен. Ключ Wallhaven — по желанию (нужен для NSFW на Wallhaven). Ключи хранятся в настройках профиля Zen">
         <div class="text"><b>Ключи доступа</b><span>Без ключа Unsplash и Pexels выключены</span></div>
         <label class="slider">Unsplash<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.unsplash"></label>
         <label class="slider">Pexels<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.pexels"></label>
@@ -340,6 +344,13 @@
     </div>
     <label class="row" title="Раз в сутки запрашивает GitHub; обновить без вашего нажатия мод не может"><div class="text"><b>Проверять раз в сутки</b><span>Сам мод без вашего нажатия не обновится</span></div><input type="checkbox" id="update-auto" data-pref="luminoctis.update.auto-check" data-default="true"></label>
     <p id="update-none" class="note" hidden>Обновления недоступны: мод поставлен не установщиком (под Sine его обновляет сам Sine).</p>
+
+    <h2>Настройки мода <span class="hint">· перенос на другой компьютер или профиль</span></h2>
+    <div class="row stack" title="В файл попадают настройки мода и автоскрытие адресной строки. Пути, ключи доступа к обоям и служебные данные — нет">
+      <div class="text"><b>Резервная копия настроек</b><span id="backup-status">Сохраните настройки в файл или загрузите из него</span></div>
+      <div class="key"><button id="backup-save">Сохранить настройки в файл…</button><button id="backup-load">Загрузить из файла…</button></div>
+      <div id="backup-confirm"></div>
+    </div>
 
     <h2>Ссылки</h2>
     <a class="row link" id="about-github" href="https://github.com/LaithsShadow/Luminoctis"><div class="text"><b>GitHub</b><span>Исходники, релизы и сообщения об ошибках</span></div><span class="arrow">↗</span></a>

@@ -7,7 +7,7 @@
 // Панель ⚙ (.lumi-wp-panel): громкость локальных видео-обоев (volume/muted).
 import { JS } from "./paths.js";
 import * as store from "./store.js";
-import { sources, SOURCES, sourceOn, net } from "./wallpaper-sources.js";
+import { sources, SOURCES, sourceOn, net, nsfwOn, env } from "./wallpaper-sources.js";
 
 const P = "luminoctis.home.wallpaper.", ACCENT = "luminoctis.home.accentFromWallpaper", OVERRIDE = "luminoctis.palette.accentOverride";
 const prefs = Services.prefs;
@@ -16,6 +16,7 @@ const win = window.browsingContext.topChromeWindow;
 const FAV = "wallpapers/favorites.json", BANS = "wallpapers/bans.json", STATE = "wallpapers/state.json";
 const key = it => it && `${it.source}:${it.id}`;
 const transparent = () => str("mode", "wallpaper") == "transparent";
+const hidden = it => !!it?.nsfw && !nsfwOn(); // NSFW-картинка, которую сейчас нельзя показывать (переключатель выключен, приватное окно, режим окна «Обои»)
 
 // ---------- виды обоев: как элемент получается из адреса ----------
 const kinds = {
@@ -40,7 +41,7 @@ async function refill() {
   const on = SOURCES.filter(sourceOn);
   if (bool("favoritesOnly")) { // избранное — плейлист: по порядку, начиная с обоев после текущих (или вперемешку)
     const all = (favs ?? []).map(fromFav), i = all.findIndex(f => key(f) == key(state.current));
-    const fresh = (bool("favShuffle") ? shuffle(all) : i < 0 ? all : [...all.slice(i + 1), ...all.slice(0, i + 1)]).filter(f => !bans.has(key(f)));
+    const fresh = (bool("favShuffle") ? shuffle(all) : i < 0 ? all : [...all.slice(i + 1), ...all.slice(0, i + 1)]).filter(f => !bans.has(key(f)) && !hidden(f));
     noSources = !fresh.length;
     return void (state.queue = fresh);
   }
@@ -49,7 +50,7 @@ async function refill() {
     if (r.status == "rejected") console.warn("Luminoctis обои: источник недоступен", r.reason);
     return r.value ?? [];
   });
-  const fresh = list.filter(i => !bans.has(key(i)));
+  const fresh = list.filter(i => !bans.has(key(i)) && !hidden(i));
   state.queue = shuffle(fresh.length > 1 ? fresh.filter(i => key(i) != key(state.current)) : fresh);
 }
 async function nextItem() {
@@ -134,11 +135,11 @@ export function next() {
       for (let tries = 0; tries < 4; tries++) {
         const layer = await (pending ?? preload());
         pending = null;
-        if (layer && !bans.has(key(layer.item))) { show(layer); preload(); return true; }
+        if (layer && !bans.has(key(layer.item)) && !hidden(layer.item)) { show(layer); preload(); return true; }
         if (layer) drop(layer);
         if (!state.queue.length) break; // источники пусты или недоступны
       }
-      if (noSources && current) { clearWall(); state.current = null; save(); } // все источники выключены — вместо старой картинки цвет
+      if ((noSources || hidden(current?.item)) && current) { clearWall(); state.current = null; save(); } // все источники выключены — вместо старой картинки цвет
       return false;
     } finally { busy = null; }
   })();
@@ -167,7 +168,7 @@ export async function favorite() {
     if (current.blob) await IOUtils.write(dest, new Uint8Array(await current.blob.arrayBuffer()), { tmpPath: dest + ".tmp" });
     else if (it.file != dest) await IOUtils.copy(it.file, dest);
     favs.push({ source: it.source, id: it.id, kind: it.kind, url: it.url ?? null, page: it.page ?? null, author: it.author ?? null,
-      file: name, added: new Date().toISOString() });
+      file: name, nsfw: !!it.nsfw, added: new Date().toISOString() });
     await store.writeJSON(FAV, favs);
   }
   syncButtons();
@@ -460,7 +461,7 @@ async function readData() {
 export const ready = (async () => {
   await readData();
   if (transparent()) return liveWant(); // прозрачная Home — свои обои не грузим
-  const keep = state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current));
+  const keep = state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current)) && !hidden(state.current);
   if (!(keep && await load(state.current).then(l => (show(l), preload(), true), () => false))) await next();
   schedule();
 })();
@@ -469,14 +470,14 @@ let soon = 0;
 const onPref = (_, __, name) => {
   if (name.endsWith(".mode")) transparent() ? clearWall() : current ? (liveWant(), applyAccent(), syncButtons()) : next();
   else if (/\.(volume|muted)$/.test(name)) applyVolume();
-  else if (/\.(src\.|query|category|sorting|folder|favoritesOnly|favShuffle|wh\.|key\.|reddit\.)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
+  else if (/\.(src\.|nsfw|query|category|sorting|folder|favoritesOnly|favShuffle|wh\.|key\.|reddit\.)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
   else if (name.endsWith(".rotate") || name.endsWith(".interval")) schedule();
   else if (name == ACCENT) applyAccent();
   else effects();
 };
 prefs.addObserver(P, onPref);
 prefs.addObserver(ACCENT, onPref);
-const onLook = () => effects(); // режим окна и прозрачность обоев (настройки «Внешний вид»)
+const onLook = () => { if (hidden(current?.item)) { reset(); next(); } effects(); }; // режим окна и прозрачность обоев (настройки «Внешний вид»)
 prefs.addObserver("luminoctis.look.", onLook);
 prefs.addObserver("luminoctis.palette.", onLook); // цвет фона без своего цвета — акцент палитры
 window.addEventListener("unload", () => {
@@ -494,5 +495,5 @@ window.addEventListener("unload", () => {
 });
 
 // для проверок (dev/check-home-wallpaper.js) и будущих виджетов
-window.lumiWallpaper = { next, favorite, ban, sources, sourceOn, net, ready,
+window.lumiWallpaper = { next, favorite, ban, sources, sourceOn, net, nsfwOn, env, ready,
   get current() { return current; }, get state() { return state; }, get favs() { return favs; }, get bans() { return bans; } };

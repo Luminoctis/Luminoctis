@@ -13,7 +13,8 @@
     let body = text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
     if (!body) return false;
     if (/^https?:/.test(url)) body += `\n— [${(title || url).replace(/[\[\]\n]/g, " ").trim()}](${url.replace(/[ )]/g, encodeURIComponent)})`;
-    await notes.addItem(board, { text: body, check: null });
+    // задача или заметка — как в настройке «Новые пункты в заметках»
+    await notes.addItem(board, { text: body, check: Services.prefs.getStringPref("luminoctis.home.notes.new", "task") == "note" ? null : false });
     return true;
   }
 

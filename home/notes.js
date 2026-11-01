@@ -2,19 +2,23 @@
 // Доска = ряды (горизонтальные полосы) → листы (колонки, файлы notes\<лист>.md) → пункты. Всё правится сразу, режима правки нет:
 // галочки, строка добавления внизу листа, клик по тексту пункта — поле, перетаскивание пунктов и листов (HTML5 DnD),
 // ПКМ по пустому месту ряда — меню ряда, ПКМ по листу — меню листа, высота ряда и ширина листа тянутся за край.
+// Пункт — задача (check — bool, есть галочка и даты) или заметка (check — null). Подпункты — любой глубины: на экране дерево лежит плоским
+// списком (.lumi-card, отступ --d), путь пункта — индексы от корня листа ("0.2.1" в data-p). Свёрнутые пункты помнит только память.
 // Раскладка (высота/цвет/fill ряда, цвет/ширина листа) — notes\boards.json (writeLayout). Сохранение листа: через 400 мс после правки
 // (атомарно, store.js); ошибка — плашкой сверху, правка остаётся в памяти. Файлы, изменённые снаружи, перечитываются при возврате на Home.
 import * as md from "./notes-md.mjs";
+import { JS } from "./paths.js";
+const { locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
 const root = document.getElementById("lumi-notes");
 const win = window.browsingContext.topChromeWindow;
-const DIR = "luminoctis.home.dir";
+const DIR = "luminoctis.home.dir", NEW = "luminoctis.home.notes.new"; // NEW: "task" | "note" — чем становится новый пункт
 const MIN_H = 140, MIN_W = 180;
 const NAMES = { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", teal: "Бирюзовый", blue: "Синий", purple: "Фиолетовый", pink: "Розовый", gray: "Серый" };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const btn = (text, cls, title) => { const b = el("button", cls, text); b.type = "button"; if (title) b.title = title; return b; };
 
-let boards = []; // все листы всех рядов подряд: [{ name, meta, cards: [{ text, check, start?, due?, children }], dirty, timer, saving, confirm, addCheck }]
+let boards = []; // все листы всех рядов подряд: [{ name, meta, cards: [{ text, check, start?, due?, children }], dirty, timer, saving, confirm, kind, draft }]
 let layout = null; // раскладка boards.json; meta листа — его запись в layout.rows[].sheets
 let byMeta = new Map(); // meta → лист
 const box = el("div", "lumi-boards");
@@ -54,7 +58,7 @@ const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 // ---------- чтение ----------
 let loading = null;
 async function load() {
-  if (root.querySelector(".lumi-note-editor, .lumi-sheet-rename, .lumi-add-input:not(:placeholder-shown)") || drag) return; // идёт ввод — не мешаем
+  if (root.querySelector(".lumi-note-editor, .lumi-sheet-rename, .lumi-sub-input, .lumi-add-input:not(:placeholder-shown)") || drag) return; // идёт ввод — не мешаем
   try {
     await lp;
     const lay = await md.readLayout();
@@ -63,7 +67,8 @@ async function load() {
       const b = old.get(meta.name);
       if (b?.dirty) return map.set(meta, Object.assign(b, { meta }));
       const cards = await md.readSheet(meta.name);
-      map.set(meta, b ? Object.assign(b, { cards, meta }) : { name: meta.name, meta, cards });
+      const same = b && md.serialize(cards) == md.serialize(b.cards); // не менялось — оставить объекты (на них держится «свёрнуто»)
+      map.set(meta, b ? Object.assign(b, { cards: same ? b.cards : cards, meta }) : { name: meta.name, meta, cards });
     }));
     layout = lay;
     byMeta = map;
@@ -87,19 +92,51 @@ function linkify(node, text) { // [подпись](https://…) — ссылка
   }
   node.append(text.slice(at));
 }
-function subList(items) { // подпункты пока только показываются (правка — этап 3C)
-  const ul = el("ul", "lumi-sub");
-  for (const c of items) {
-    const li = el("li", c.check ? "done" : null, (c.check == null ? "" : c.check ? "☑ " : "☐ ") + c.text);
-    if (c.children?.length) li.append(subList(c.children));
-    ul.append(li);
-  }
-  return ul;
+// ---------- дерево пунктов: пути, даты ----------
+const collapsed = new WeakSet(); // свёрнутые пункты (только память)
+const pathOf = li => li.dataset.p.split(".").map(Number);
+const inside = (p, root) => root.every((v, i) => p[i] === v); // p — это root или его потомок
+const listAt = (b, p) => p.reduce((l, i) => l[i].children, b.cards); // список, в котором лежит пункт с путём p + [i]
+const itemAt = (b, p) => listAt(b, p.slice(0, -1))[p.at(-1)];
+function flat(items, path = [], depth = 0, out = []) { // дерево → строки экрана (свёрнутые потомки пропущены)
+  items.forEach((c, i) => {
+    out.push([c, [...path, i], depth]);
+    if (!collapsed.has(c)) flat(c.children, [...path, i], depth + 1, out);
+  });
+  return out;
 }
-function cardEl(c, j) {
+function tally(c) { // [выполнено, всего] задач среди всех потомков
+  let done = 0, all = 0;
+  for (const k of c.children) {
+    if (k.check != null) { all++; if (k.check) done++; }
+    const [d, a] = tally(k);
+    done += d; all += a;
+  }
+  return [done, all];
+}
+const pad2 = n => String(n).padStart(2, "0");
+const todayStr = () => { const d = new Date(); return `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}`; };
+function fmtDate(s) { // «5 нояб.», год — только если не текущий
+  const [y, m, d] = s.split("-").map(Number);
+  return new Intl.DateTimeFormat(locale, { day: "numeric", month: "short", ...(y != new Date().getFullYear() && { year: "numeric" }) }).format(new Date(y, m - 1, d));
+}
+// цвет меток: off — задача выполнена; late — срок прошёл (красный); today — сегодня срок (жёлтый); wait — начало впереди (серый); go — идёт (голубой)
+function dateState(c, today) {
+  if (c.check === true) return "off";
+  if (c.due && today > c.due) return "late";
+  if (c.due && today == c.due) return "today";
+  return c.start && today < c.start ? "wait" : "go";
+}
+const wantTask = () => Services.prefs.getStringPref(NEW, "task") != "note";
+const freshDraft = b => ({ task: b.kind ?? wantTask(), start: "", due: "" });
+const newItem = (text, d) => ({ text, check: d.task ? false : null, ...(d.task && d.start && { start: d.start }), ...(d.task && d.due && { due: d.due }), children: [] });
+
+function cardEl(c, p, depth, today) {
   const li = el("li", "lumi-card");
-  li.dataset.j = j;
+  li.dataset.p = p.join(".");
+  li.style.setProperty("--d", depth);
   li.draggable = true;
+  li.append(c.children.length ? btn(collapsed.has(c) ? "▸" : "▾", "lumi-fold", collapsed.has(c) ? "Развернуть" : "Свернуть") : el("span", "lumi-fold"));
   if (c.check != null) {
     const cb = el("input");
     cb.type = "checkbox";
@@ -107,16 +144,63 @@ function cardEl(c, j) {
     li.append(cb);
     li.classList.toggle("done", c.check);
   }
-  const t = el("div", "lumi-card-text");
-  linkify(t, c.text);
-  const dates = [c.start && "🛫 " + c.start, c.due && "📅 " + c.due].filter(Boolean).join(" ");
-  if (dates) t.append(el("span", "lumi-card-dates", " " + dates));
-  if (c.children?.length) t.append(subList(c.children));
+  const t = el("div", "lumi-card-text"), body = el("span", "lumi-card-body");
+  linkify(body, c.text);
+  t.append(body);
+  if (c.start || c.due) {
+    const dates = el("span", "lumi-card-dates");
+    dates.dataset.state = dateState(c, today);
+    for (const [k, icon] of [["start", "🛫"], ["due", "📅"]]) if (c[k]) { const s = el("span", null, `${icon} ${fmtDate(c[k])}`); s.title = c[k]; dates.append(s); }
+    t.append(dates);
+  }
+  const [done, all] = c.check == null ? [0, 0] : tally(c);
+  if (all) t.append(el("span", "lumi-card-count", `${done}/${all}`));
   const tools = el("span", "lumi-card-tools");
-  tools.append(btn(c.check == null ? "☐" : "≡", "lumi-card-kind", c.check == null ? "Сделать пунктом с галочкой" : "Сделать обычной заметкой"),
-    btn("×", "lumi-card-del", "Удалить пункт"));
+  tools.append(btn("+", "lumi-card-add-sub", "Добавить подпункт"), btn("×", "lumi-card-del", "Удалить пункт"));
   li.append(t, tools);
   return li;
+}
+
+// строка ввода (новый пункт внизу листа, подпункт, поле правки): переключатель задача ↔ заметка, у задачи — кнопки дат.
+// d = { task, start, due } меняется на месте; field — input или textarea; onKind(task) — запомнить выбор.
+function composer(d, field, onKind) {
+  const wrap = el("div", "lumi-comp"), main = el("div", "lumi-comp-main"), dates = el("div", "lumi-comp-dates");
+  const kind = btn("", "lumi-kind"), parts = [];
+  main.append(kind, field);
+  for (const [key, icon, name] of [["start", "🛫", "начало"], ["due", "📅", "срок"]]) {
+    const w = el("span", "lumi-date"), b = btn("", "lumi-date-btn"), clear = btn("×", "lumi-date-clear", "Убрать дату"), inp = el("input");
+    inp.type = "date";
+    inp.tabIndex = -1;
+    b.onclick = () => { try { inp.showPicker(); } catch { inp.focus(); } };
+    inp.onchange = () => { d[key] = inp.value; refresh(); field.focus(); };
+    clear.onclick = () => { d[key] = ""; refresh(); };
+    w.append(b, inp, clear);
+    dates.append(w);
+    parts.push({ key, icon, name, b, inp, clear });
+  }
+  function refresh() {
+    kind.textContent = d.task ? "☐" : "•";
+    kind.title = d.task ? "Задача с галочкой. Нажми — сделать заметкой" : "Заметка без галочки. Нажми — сделать задачей";
+    dates.hidden = !d.task;
+    wrap.classList.toggle("has-date", !!(d.task && (d.start || d.due)));
+    for (const { key, icon, name, b, inp, clear } of parts) {
+      b.textContent = d[key] ? `${icon} ${fmtDate(d[key])}` : `${icon} ${name}`;
+      b.title = d[key] ? `${name[0].toUpperCase()}${name.slice(1)}: ${d[key]}` : `Дата: ${name}`;
+      inp.value = d[key];
+      clear.hidden = !d[key];
+    }
+  }
+  kind.onclick = () => {
+    d.task = !d.task;
+    if (!d.task) d.start = d.due = ""; // у заметок дат нет
+    onKind?.(d.task);
+    refresh();
+    field.focus();
+  };
+  wrap.addEventListener("mousedown", e => { if (e.target.closest("button")) e.preventDefault(); }); // фокус остаётся в поле
+  wrap.append(main, dates);
+  refresh();
+  return wrap;
 }
 const grip = (cls, title) => { const g = el("div", cls); g.title = title; return g; };
 function sheetEl(b, row) {
@@ -137,12 +221,23 @@ function sheetEl(b, row) {
     c.append(el("span", null, `Удалить лист «${b.name}» вместе с файлом?`), btn("Удалить", "lumi-confirm-yes"), btn("Отмена", "lumi-confirm-no"));
     s.append(c);
   }
-  const list = el("ul", "lumi-cards");
-  list.append(...b.cards.map(cardEl));
-  const foot = el("footer", "lumi-sheet-foot"), input = el("input", "lumi-add-input");
+  const list = el("ul", "lumi-cards"), today = todayStr();
+  list.append(...flat(b.cards).map(([c, p, depth]) => cardEl(c, p, depth, today)));
+  const foot = el("footer", "lumi-sheet-foot"), input = el("input", "lumi-add-input"), d = (b.draft ??= freshDraft(b));
   input.placeholder = "Новый пункт…";
   input.spellcheck = false;
-  foot.append(btn(b.addCheck ? "☐" : "≡", "lumi-add-kind", b.addCheck ? "Добавлять пункты с галочкой (нажми — заметки)" : "Добавлять заметки (нажми — пункты с галочкой)"), input);
+  input.addEventListener("keydown", e => {
+    const text = input.value.trim();
+    if (e.key != "Enter" || !text) return;
+    b.cards.push(newItem(text, d));
+    b.draft = null;
+    save(b);
+    render();
+    const s = sheetNode(b);
+    s.querySelector(".lumi-add-input").focus();
+    s.querySelector(".lumi-cards").scrollTop = 1e6;
+  });
+  foot.append(composer(d, input, task => (b.kind = task)));
   s.append(list, foot, grip("lumi-sheet-grip", "Ширина листа"));
   return s;
 }
@@ -215,30 +310,94 @@ function sheetMenu(b, x, y) {
 }
 
 // ---------- правка ----------
-function openEditor(b, j) {
-  const li = sheetNode(b)?.querySelector(`.lumi-card[data-j="${j}"]`);
-  if (!li) return;
-  const ta = el("textarea", "lumi-note-editor");
-  ta.value = b.cards[j].text;
+const cardLi = (b, p) => sheetNode(b)?.querySelector(`.lumi-card[data-p="${p.join(".")}"]`);
+function indent(b, p) { // подпункт предыдущего соседа; новый путь или null
+  const i = p.at(-1);
+  if (!i) return null;
+  const sib = listAt(b, p.slice(0, -1)), [c] = sib.splice(i, 1), host = sib[i - 1];
+  host.children.push(c);
+  collapsed.delete(host);
+  return [...p.slice(0, -1), i - 1, host.children.length - 1];
+}
+function outdent(b, p) { // соседом родителя сразу после него; новый путь или null
+  if (p.length < 2) return null;
+  const up = p.slice(0, -1), [c] = listAt(b, up).splice(p.at(-1), 1);
+  listAt(b, up.slice(0, -1)).splice(up.at(-1) + 1, 0, c);
+  return [...up.slice(0, -1), up.at(-1) + 1];
+}
+
+function openEditor(b, p, keep) { // keep — { text } черновик, который переезжает вместе с пунктом (Tab / Shift+Tab)
+  const c = itemAt(b, p), li = cardLi(b, p);
+  if (!c || !li) return;
+  const ta = el("textarea", "lumi-note-editor"), d = { task: c.check != null, start: c.start ?? "", due: c.due ?? "" };
+  ta.value = keep?.text ?? c.text;
   ta.rows = Math.min(8, ta.value.split("\n").length + 1);
   li.draggable = false;
-  li.querySelector(".lumi-card-text").replaceWith(ta);
+  const comp = composer(d, ta);
+  li.querySelector(".lumi-card-text").replaceWith(comp);
   let done = false;
+  const clean = () => ta.value.replace(/\s+$/, "").replace(/^\n+/, "");
+  const apply = text => {
+    c.text = text;
+    c.check = d.task ? c.check ?? false : null;
+    for (const k of ["start", "due"]) if (d[k]) c[k] = d[k]; else delete c[k];
+  };
   const commit = () => {
     if (done) return;
     done = true;
-    const text = ta.value.replace(/\s+$/, "").replace(/^\n+/, "");
-    if (text) b.cards[j].text = text; else b.cards.splice(j, 1);
+    const text = clean();
+    if (text) apply(text);
+    else if (!c.children.length) listAt(b, p.slice(0, -1)).splice(p.at(-1), 1); // пустой текст убирает пункт, но не целое дерево
     save(b);
     render();
   };
-  ta.addEventListener("blur", commit);
+  const move = fn => { // Tab / Shift+Tab: правка сохраняется и поле открывается на новом месте
+    const text = clean();
+    if (!text) return;
+    apply(text);
+    const np = fn(b, p);
+    if (!np) return; // некуда двигаться — поле остаётся открытым
+    done = true;
+    save(b);
+    render();
+    openEditor(b, np, { text: ta.value });
+  };
+  ta.addEventListener("blur", e => { if (!comp.contains(e.relatedTarget)) commit(); });
   ta.addEventListener("input", () => (ta.rows = Math.min(8, ta.value.split("\n").length + 1)));
   ta.addEventListener("keydown", e => {
-    if ((e.key == "Enter" && !e.shiftKey) || e.key == "Escape") { e.preventDefault(); e.stopPropagation(); commit(); }
+    if (e.key == "Tab") { e.preventDefault(); e.stopPropagation(); move(e.shiftKey ? outdent : indent); }
+    else if ((e.key == "Enter" && !e.shiftKey) || e.key == "Escape") { e.preventDefault(); e.stopPropagation(); commit(); }
   });
   ta.focus();
   ta.setSelectionRange(ta.value.length, ta.value.length);
+}
+
+function openAdd(b, p) { // строка ввода подпункта под пунктом p (и под всеми его подпунктами)
+  const c = itemAt(b, p);
+  if (collapsed.delete(c)) render();
+  let li = cardLi(b, p);
+  if (!c || !li) return;
+  const depth = Number(li.style.getPropertyValue("--d")) + 1, prefix = p.join(".") + ".";
+  while (li.nextElementSibling?.dataset.p?.startsWith(prefix)) li = li.nextElementSibling;
+  const row = el("li", "lumi-card-adding"), input = el("input", "lumi-sub-input"), d = freshDraft(b);
+  row.style.setProperty("--d", depth);
+  input.placeholder = "Подпункт…";
+  input.spellcheck = false;
+  row.append(composer(d, input));
+  li.after(row);
+  let done = false;
+  const finish = again => {
+    if (done) return;
+    done = true;
+    const text = input.value.trim();
+    if (text) { c.children.push(newItem(text, d)); save(b); render(); if (again) openAdd(b, p); } else row.remove();
+  };
+  input.addEventListener("blur", e => { if (!row.contains(e.relatedTarget)) finish(false); });
+  input.addEventListener("keydown", e => {
+    if (e.key == "Enter") { e.preventDefault(); if (input.value.trim()) finish(true); }
+    else if (e.key == "Escape") { e.preventDefault(); e.stopPropagation(); input.value = ""; finish(false); }
+  });
+  input.focus();
 }
 
 function openRename(b) {
@@ -311,10 +470,11 @@ function deleteRow(r) { // листы не пропадают: уезжают в
   changed();
 }
 
-function moveCard(from, j, to, k) {
-  const [c] = from.cards.splice(j, 1);
-  if (from == to && k > j) k--;
-  to.cards.splice(k, 0, c);
+function moveItem(from, p, to, tp) { // пункт p (с подпунктами) встаёт соседом перед пунктом tp листа to; tp = null — в конец верхнего уровня
+  if (from == to && tp && inside(tp, p)) return; // в самого себя или своего потомка нельзя
+  const target = tp ? itemAt(to, tp) : null, list = tp ? listAt(to, tp.slice(0, -1)) : to.cards; // ссылки до удаления: индексы сдвинутся
+  const [c] = listAt(from, p.slice(0, -1)).splice(p.at(-1), 1);
+  list.splice(target ? list.indexOf(target) : list.length, 0, c);
   save(from);
   if (to != from) save(to);
   render();
@@ -338,11 +498,21 @@ box.addEventListener("click", e => {
   const row = t.closest(".lumi-row")?._r, s = t.closest(".lumi-sheet"), b = s?._b;
   if (t.closest(".lumi-add-sheet")) return addSheet(row);
   if (!b || t.matches("input, textarea")) return;
-  const j = Number(t.closest(".lumi-card")?.dataset.j);
-  if (t.closest(".lumi-card-del")) { b.cards.splice(j, 1); save(b); render(); }
-  else if (t.closest(".lumi-card-kind")) { b.cards[j].check = b.cards[j].check == null ? false : null; save(b); render(); }
-  else if (t.closest(".lumi-card-text")) openEditor(b, j);
-  else if (t.closest(".lumi-add-kind")) { b.addCheck = !b.addCheck; render(); sheetNode(b).querySelector(".lumi-add-input").focus(); }
+  const li = t.closest(".lumi-card"), p = li && pathOf(li), c = p && itemAt(b, p);
+  if (t.closest(".lumi-fold")) { if (c.children.length) { if (!collapsed.delete(c)) collapsed.add(c); render(); } }
+  else if (t.closest(".lumi-card-add-sub")) openAdd(b, p);
+  else if (t.closest(".lumi-card-del")) {
+    const del = t.closest(".lumi-card-del");
+    if (c.children.length && !del.classList.contains("armed")) { // дерево удаляется целиком — второй клик подтверждает
+      del.classList.add("armed");
+      del.textContent = "Удалить с подпунктами?";
+      return;
+    }
+    listAt(b, p.slice(0, -1)).splice(p.at(-1), 1);
+    save(b);
+    render();
+  }
+  else if (t.closest(".lumi-card-text")) openEditor(b, p);
   else if (t.closest(".lumi-sheet-color")) { const r = t.getBoundingClientRect(); openMenu(r.left, r.bottom + 4, palette(b.meta.color, k => { b.meta.color = k; changed(); })); }
   else if (t.closest(".lumi-sheet-del")) { b.confirm = true; render(); }
   else if (t.closest(".lumi-confirm-yes")) deleteSheet(b);
@@ -354,21 +524,10 @@ box.addEventListener("dblclick", e => {
 });
 box.addEventListener("change", e => {
   if (!e.target.matches(".lumi-card input[type=checkbox]")) return;
-  const b = e.target.closest(".lumi-sheet")._b, j = Number(e.target.closest(".lumi-card").dataset.j);
-  b.cards[j].check = e.target.checked;
-  e.target.closest(".lumi-card").classList.toggle("done", e.target.checked);
+  const b = e.target.closest(".lumi-sheet")._b;
+  itemAt(b, pathOf(e.target.closest(".lumi-card"))).check = e.target.checked;
   save(b);
-});
-box.addEventListener("keydown", e => { // строка добавления внизу листа
-  if (e.key != "Enter" || !e.target.matches(".lumi-add-input")) return;
-  const b = e.target.closest(".lumi-sheet")._b, text = e.target.value.trim();
-  if (!text) return;
-  b.cards.push({ text, check: b.addCheck ? false : null, children: [] });
-  save(b);
-  render();
-  const s = sheetNode(b);
-  s.querySelector(".lumi-add-input").focus();
-  s.querySelector(".lumi-cards").scrollTop = 1e6;
+  render(); // зачёркивание, счётчики и цвет дат зависят от галочки
 });
 box.addEventListener("contextmenu", e => {
   if (e.target.matches("input, textarea")) return;
@@ -406,16 +565,16 @@ box.addEventListener("pointerdown", e => {
 });
 
 // перетаскивание: пункты — внутри листа, между листами и рядами; листы — за шапку, внутри ряда и в другой ряд
-let drag = null; // { card: true, b, j } | { b }
+let drag = null; // { card: true, b, p (путь) } | { b }
 const clearMarks = () => box.querySelectorAll(".drop-before, .drop-end, .drop-left, .drop-right, .dragging").forEach(n => n.classList.remove("drop-before", "drop-end", "drop-left", "drop-right", "dragging"));
 function dropTarget(e) {
   if (drag.card) {
     const s = e.target.closest?.(".lumi-sheet");
     if (!s) return null;
     const lis = [...s.querySelectorAll(".lumi-card")];
-    let k = lis.findIndex(li => e.clientY < li.getBoundingClientRect().top + li.offsetHeight / 2);
-    if (k < 0) k = lis.length;
-    return { to: s._b, k, mark: lis[k] ?? s.querySelector(".lumi-cards"), cls: lis[k] ? "drop-before" : "drop-end" };
+    const li = lis.find(li => e.clientY < li.getBoundingClientRect().top + li.offsetHeight / 2), tp = li && pathOf(li);
+    if (tp && s._b == drag.b && inside(tp, drag.p)) return null; // внутрь самого себя нельзя
+    return { to: s._b, tp: tp ?? null, mark: li ?? s.querySelector(".lumi-cards"), cls: li ? "drop-before" : "drop-end" };
   }
   const row = e.target.closest?.(".lumi-row");
   if (!row) return null;
@@ -427,10 +586,11 @@ function dropTarget(e) {
 box.addEventListener("dragstart", e => {
   const li = e.target.closest?.(".lumi-card"), b = e.target.closest?.(".lumi-sheet")?._b;
   if (!b || (!li && !e.target.closest?.(".lumi-sheet-head"))) return e.preventDefault();
-  drag = li ? { card: true, b, j: Number(li.dataset.j) } : { b };
-  e.dataTransfer.setData("text/plain", li ? b.cards[drag.j].text : b.name);
+  drag = li ? { card: true, b, p: pathOf(li) } : { b };
+  e.dataTransfer.setData("text/plain", li ? itemAt(b, drag.p).text : b.name);
   e.dataTransfer.effectAllowed = "move";
-  (li ?? e.target.closest(".lumi-sheet")).classList.add("dragging");
+  if (!li) return e.target.closest(".lumi-sheet").classList.add("dragging");
+  for (const o of li.parentNode.querySelectorAll(".lumi-card")) if (inside(pathOf(o), drag.p)) o.classList.add("dragging"); // пункт и его подпункты
 });
 box.addEventListener("dragover", e => {
   if (!drag) return;
@@ -448,7 +608,7 @@ box.addEventListener("drop", e => {
   drag = null;
   clearMarks();
   if (!t) return;
-  if (d.card) moveCard(d.b, d.j, t.to, t.k); else moveSheet(d.b, t.r, t.k);
+  if (d.card) moveItem(d.b, d.p, t.to, t.tp); else moveSheet(d.b, t.r, t.k);
 });
 box.addEventListener("dragend", () => { drag = null; clearMarks(); });
 
@@ -458,13 +618,16 @@ window.addEventListener("focus", reload);
 window.addEventListener("pagehide", flushAll);
 const onDir = () => flushAll().then(() => { boards = []; reload(); });
 const onChanged = () => reload();
+const onNew = () => { for (const b of boards) { b.kind = undefined; b.draft = null; } reload(); }; // новый вид по умолчанию — всем строкам ввода
 Services.prefs.addObserver(DIR, onDir);
+Services.prefs.addObserver(NEW, onNew);
 Services.obs.addObserver(onChanged, md.CHANGED);
 window.addEventListener("unload", () => {
   Services.prefs.removeObserver(DIR, onDir);
+  Services.prefs.removeObserver(NEW, onNew);
   Services.obs.removeObserver(onChanged, md.CHANGED);
 });
 
 // для dev/check-home-notes.js
-window.lumiNotes = { get boards() { return boards; }, get layout() { return layout; }, reload, flushAll, moveCard, moveSheet };
+window.lumiNotes = { get boards() { return boards; }, get layout() { return layout; }, reload, flushAll, moveItem, moveSheet };
 reload();

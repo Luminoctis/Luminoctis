@@ -70,13 +70,13 @@
   &.drop-end { box-shadow: inset 0 -3px 0 var(--lumi-accent, #7aa2f7); }
 }
 .lumi-card {
-  position: relative; display: flex; gap: 8px; align-items: flex-start; flex-shrink: 0;
-  padding: 8px 10px; border-radius: 9px; line-height: 1.4; font-size: 13px; cursor: grab;
+  position: relative; display: flex; gap: 6px; align-items: flex-start; flex-shrink: 0; margin-left: calc(var(--d, 0) * 16px); /* подпункты: 16px на уровень */
+  padding: 8px 10px 8px 4px; border-radius: 9px; line-height: 1.4; font-size: 13px; cursor: grab;
   background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent);
   border: 1px solid transparent;
   transition: border-color .15s, background-color .15s, box-shadow .15s;
   & input[type="checkbox"] { margin: 2px 0 0; accent-color: var(--cc); }
-  &.done .lumi-card-text { text-decoration: line-through; color: var(--lumi-dim, #565f89); }
+  &.done .lumi-card-body { text-decoration: line-through; color: var(--lumi-dim, #565f89); }
   &:hover {
     background: color-mix(in srgb, var(--cc) 14%, color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent));
     border-color: color-mix(in srgb, var(--cc) 50%, transparent);
@@ -89,13 +89,36 @@
 .lumi-card-link { color: var(--lumi-accent, #7aa2f7); text-decoration: none; &:hover { text-decoration: underline; } }
 .lumi-note-editor { flex: 1; min-width: 0; resize: none; font: inherit; line-height: 1.4; padding: 0; border: none; outline: none;
   background: transparent; color: inherit; }
-.lumi-sub { margin: 4px 0 0; padding-left: 16px; list-style: none; opacity: .85; }
-.lumi-sub li.done { text-decoration: line-through; }
-.lumi-card-dates { opacity: .6; font-size: .85em; }
+.lumi-fold { flex: none; width: 14px; height: 18px; padding: 0; font-size: 10px; line-height: 18px; text-align: center; cursor: pointer; }
+span.lumi-fold { cursor: inherit; }
+.lumi-card-count { margin-left: 6px; font-size: .85em; color: var(--lumi-muted, #a9b1d6); }
+/* метки дат: цвет по сегодняшнему дню (notes.js dateState) */
+.lumi-card-dates { display: inline-flex; flex-wrap: wrap; gap: 4px; margin-left: 6px; font-size: .85em; white-space: nowrap; vertical-align: baseline;
+  & > span { padding: 0 6px; border-radius: 6px; background: color-mix(in srgb, currentColor 14%, transparent); }
+  &[data-state="wait"] { color: var(--lumi-dim, #565f89); }
+  &[data-state="go"] { color: var(--lumi-cyan, #7dcfff); }
+  &[data-state="today"] { color: var(--lumi-yellow, #e0af68); }
+  &[data-state="late"] { color: var(--lumi-red, #f7768e); }
+  &[data-state="off"] { color: var(--lumi-dim, #565f89); opacity: .7; & > span { background: transparent; } }
+}
+.lumi-card-adding { display: flex; margin-left: calc(var(--d, 0) * 16px); flex-shrink: 0; padding-left: 18px; }
+.lumi-card-tools button.armed { width: auto; padding: 0 8px; font-size: 11px; white-space: nowrap; color: var(--lumi-red, #f7768e); }
+
+/* строка ввода: переключатель задача ↔ заметка, кнопки дат (notes.js composer) */
+.lumi-comp { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.lumi-comp-main { display: flex; gap: 6px; align-items: flex-start; }
+.lumi-comp-dates { display: flex; flex-wrap: wrap; gap: 6px; padding-left: 28px; &[hidden] { display: none; } }
+.lumi-sheet-foot .lumi-comp:not(:focus-within):not(.has-date) .lumi-comp-dates { display: none; } /* внизу листа кнопки дат — пока вводишь */
+.lumi-date { position: relative; display: inline-flex; align-items: center;
+  & input { position: absolute; inset: 0; width: 100%; opacity: 0; pointer-events: none; } }
+.lumi-date-btn, .lumi-date-clear { height: 22px; padding: 0 8px; font-size: 11px; line-height: 1; white-space: nowrap; }
+.lumi-date-btn { border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 45%, transparent) !important; }
+.lumi-date-clear { width: 20px; padding: 0; }
+.lumi-date-clear[hidden] { display: none; }
 
 /* строка добавления внизу листа */
-.lumi-sheet-foot { display: flex; gap: 6px; align-items: center; }
-.lumi-add-input {
+.lumi-sheet-foot { display: flex; }
+.lumi-add-input, .lumi-sub-input {
   flex: 1; min-width: 0; height: 28px; box-sizing: border-box; padding: 0 10px; border-radius: 8px; font: 13px Inter, system-ui, sans-serif;
   border: 1px solid transparent; background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 70%, transparent); color: inherit;
   &:focus { outline: none; border-color: color-mix(in srgb, var(--cc) 60%, transparent); }
@@ -105,7 +128,7 @@
   border: none; border-radius: 7px; background: transparent; color: var(--lumi-muted, #a9b1d6); font: inherit; cursor: pointer;
   &:hover:not(:disabled) { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); color: var(--lumi-fg, #c0caf5); }
 }
-.lumi-card-tools button, .lumi-sheet-tools button, .lumi-add-kind { width: 22px; height: 22px; padding: 0; font-size: 14px; line-height: 1; }
+.lumi-card-tools button, .lumi-sheet-tools button, .lumi-kind { width: 22px; height: 22px; padding: 0; font-size: 14px; line-height: 1; }
 .lumi-add-sheet, .lumi-add-row {
   pointer-events: auto; flex: none; align-self: flex-start; height: 34px; padding: 0 14px;
   background: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent); backdrop-filter: blur(12px);

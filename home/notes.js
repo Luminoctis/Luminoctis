@@ -1,11 +1,11 @@
 // LumiNotes — канбан-доска под первым экраном Home (#lumi-notes; до неё долистывают прокруткой). Файлы и формат — home/notes-md.mjs.
 // Доска = ряды (горизонтальные полосы) → листы (колонки, файлы notes\<лист>.md) → пункты. Всё правится сразу, режима правки нет:
 // галочки, строка добавления внизу листа, клик по тексту пункта — поле, перетаскивание пунктов и листов (HTML5 DnD),
-// ПКМ по пустому месту ряда — меню ряда, ПКМ по листу — меню листа, высота ряда и ширина листа тянутся за край.
-// Markdown в тексте пунктов рисует renderInline (md.inline → createElement). Лист в режиме "doc" (меню листа) — цельный Markdown-текст: оформленный вид, клик — правка всего листа. Удаление пункта/листа — плашка «Отменить» (pushUndo, Ctrl+Z); файл листа уходит в Корзину.
+// ПКМ по пустому месту ряда — меню ряда, ПКМ по листу — меню листа, размер листа тянется за правый край, нижний край и угол (у каждого листа своя высота, ряд — по самому высокому).
+// Markdown в тексте пунктов рисует renderInline (md.inline → createElement). Лист в режиме "doc" (меню листа) — цельный Markdown-текст: оформленный вид, клик — правка всего листа. Удаление пункта/листа — плашка «Отменить» (pushUndo, Ctrl+Z); файл листа уходит в Корзину (или в папку из pref luminoctis.notes.trash-dir — для проверок).
 // Пункт — задача (check — bool, есть галочка и даты) или заметка (check — null). Подпункты — любой глубины: на экране дерево лежит плоским
 // списком (.lumi-card, отступ --d), путь пункта — индексы от корня листа ("0.2.1" в data-p). Свёрнутые пункты помнит только память.
-// Раскладка (высота/цвет/fill ряда, цвет/ширина листа) — notes\boards.json (writeLayout). Сохранение листа: через 400 мс после правки
+// Раскладка (цвет/fill ряда, цвет/ширина/высота листа) — notes\boards.json (writeLayout). Сохранение листа: через 400 мс после правки
 // (атомарно, store.js); ошибка — плашкой сверху, правка остаётся в памяти. Файлы, изменённые снаружи, перечитываются при возврате на Home.
 import * as md from "./notes-md.mjs";
 import { JS } from "./paths.js";
@@ -14,10 +14,26 @@ const { locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 const root = document.getElementById("lumi-notes");
 const win = window.browsingContext.topChromeWindow;
 const DIR = "luminoctis.home.dir", NEW = "luminoctis.home.notes.new"; // NEW: "task" | "note" — чем становится новый пункт
-const MIN_H = 140, MIN_W = 180;
+const MIN_H = 140, MIN_W = 180, DEF_W = 320, DEF_H = 420, IND = 28; // IND — отступ подпункта, как --ind в notes.css
 const NAMES = { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", teal: "Бирюзовый", blue: "Синий", purple: "Фиолетовый", pink: "Розовый", gray: "Серый" };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const btn = (text, cls, title) => { const b = el("button", cls, text); b.type = "button"; if (title) b.title = title; return b; };
+// значки — встроенные SVG (контуры 24x24, цвет — currentColor из notes.css), без внешних файлов
+const ICONS = {
+  x: ["M6 6l12 12M18 6L6 18"], plus: ["M12 5v14M5 12h14"], chev: ["M9 6l6 6-6 6"],
+  start: ["M6 21V4M6 5h11l-2.5 4 2.5 4H6"],
+  due: ["M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4"],
+  task: ["M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zM8.5 12.2l2.4 2.4 4.6-5"],
+  note: ["M5 7h14M5 12h14M5 17h9"],
+};
+function svg(name) {
+  const NS = "http://www.w3.org/2000/svg", s = document.createElementNS(NS, "svg");
+  s.setAttribute("viewBox", "0 0 24 24");
+  s.setAttribute("class", "lumi-ico");
+  for (const d of ICONS[name]) { const p = document.createElementNS(NS, "path"); p.setAttribute("d", d); s.append(p); }
+  return s;
+}
+const ibtn = (icon, cls, title, text) => { const b = btn("", cls, title); b.append(svg(icon)); if (text) b.append(text); return b; };
 
 let boards = []; // все листы всех рядов подряд: [{ name, meta, cards: [{ text, check, start?, due?, children }], dirty, timer, saving, confirm, kind, draft }]
 let layout = null; // раскладка boards.json; meta листа — его запись в layout.rows[].sheets
@@ -101,10 +117,11 @@ const pathOf = li => li.dataset.p.split(".").map(Number);
 const inside = (p, root) => root.every((v, i) => p[i] === v); // p — это root или его потомок
 const listAt = (b, p) => p.reduce((l, i) => l[i].children, b.cards); // список, в котором лежит пункт с путём p + [i]
 const itemAt = (b, p) => listAt(b, p.slice(0, -1))[p.at(-1)];
-function flat(items, path = [], depth = 0, out = []) { // дерево → строки экрана (свёрнутые потомки пропущены)
+function flat(items, path = [], depth = 0, out = [], more = []) { // дерево → строки экрана (свёрнутые потомки пропущены); more[k] — у предка на уровне k (у самого пункта — more[depth]) есть следующий сосед: нужен линиям дерева
   items.forEach((c, i) => {
-    out.push([c, [...path, i], depth]);
-    if (!collapsed.has(c)) flat(c.children, [...path, i], depth + 1, out);
+    const m = [...more, i < items.length - 1];
+    out.push([c, [...path, i], depth, m]);
+    if (!collapsed.has(c)) flat(c.children, [...path, i], depth + 1, out, m);
   });
   return out;
 }
@@ -136,7 +153,7 @@ const newItem = (text, d) => ({ text, check: d.task ? false : null, ...(d.task &
 // текст из поля ввода → пункты: список/заголовки (в том числе вставленные) раскладываются через parse, иначе один пункт (многострочный)
 const itemsFrom = (text, d) => (md.listLike(text) ? md.parse(text) : [newItem(text, d)]);
 const unhead = items => { for (const c of items) { if (c.heading) { c.text = "#".repeat(c.heading) + " " + c.text; delete c.heading; } unhead(c.children); } return items; }; // подпункты заголовками быть не могут
-const grow = ta => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, 140) + "px"; };
+const grow = ta => { ta.style.height = "auto"; ta.style.height = Math.min(ta.scrollHeight + 2, 160) + "px"; };
 function inputBox(cls) { // строка ввода: textarea в одну строку, растёт по тексту; Enter — добавить, Shift+Enter — перенос
   const ta = el("textarea", cls);
   ta.rows = 1;
@@ -145,7 +162,7 @@ function inputBox(cls) { // строка ввода: textarea в одну стр
   return ta;
 }
 
-function cardEl(c, p, depth, today) {
+function cardEl(c, p, depth, today, more) {
   const li = el("li", "lumi-card");
   li.dataset.p = p.join(".");
   li.style.setProperty("--d", depth);
@@ -157,11 +174,19 @@ function cardEl(c, p, depth, today) {
     renderInline(body, c.text);
     t.append(body);
     const tools = el("span", "lumi-card-tools");
-    tools.append(btn("×", "lumi-card-del", "Удалить заголовок"));
+    tools.append(ibtn("x", "lumi-card-del", "Удалить заголовок"));
     li.append(t, tools);
     return li;
   }
-  li.append(c.children.length ? btn(collapsed.has(c) ? "▸" : "▾", "lumi-fold", collapsed.has(c) ? "Развернуть" : "Свернуть") : el("span", "lumi-fold"));
+  for (let j = 0; j < depth; j++) { // линии дерева: колонка j — вертикаль детей предка j; последняя колонка — ветка к самому пункту
+    if (j < depth - 1 && !more[j + 1]) continue;
+    const g = el("span", "lumi-guide" + (j == depth - 1 ? " elbow" : ""));
+    g.style.setProperty("--j", j);
+    g.style.setProperty("--dd", depth);
+    li.append(g);
+    if (j == depth - 1 && more[depth]) { const v = el("span", "lumi-guide"); v.style.setProperty("--j", j); v.style.setProperty("--dd", depth); li.append(v); }
+  }
+  li.append(c.children.length ? ibtn("chev", "lumi-fold" + (collapsed.has(c) ? "" : " open"), collapsed.has(c) ? "Развернуть" : "Свернуть") : el("span", "lumi-fold"));
   if (c.check != null) {
     const cb = el("input");
     cb.type = "checkbox";
@@ -175,13 +200,13 @@ function cardEl(c, p, depth, today) {
   if (c.start || c.due) {
     const dates = el("span", "lumi-card-dates");
     dates.dataset.state = dateState(c, today);
-    for (const [k, icon] of [["start", "🛫"], ["due", "📅"]]) if (c[k]) { const s = el("span", null, `${icon} ${fmtDate(c[k])}`); s.title = c[k]; dates.append(s); }
+    for (const k of ["start", "due"]) if (c[k]) { const s = el("span"); s.append(svg(k), fmtDate(c[k])); s.title = c[k]; dates.append(s); }
     t.append(dates);
   }
   const [done, all] = c.check == null ? [0, 0] : tally(c);
   if (all) t.append(el("span", "lumi-card-count", `${done}/${all}`));
   const tools = el("span", "lumi-card-tools");
-  tools.append(btn("+", "lumi-card-add-sub", "Добавить подпункт"), btn("×", "lumi-card-del", "Удалить пункт"));
+  tools.append(ibtn("plus", "lumi-card-add-sub", "Добавить подпункт"), ibtn("x", "lumi-card-del", "Удалить пункт"));
   li.append(t, tools);
   return li;
 }
@@ -192,8 +217,8 @@ function composer(d, field, onKind) {
   const wrap = el("div", "lumi-comp"), main = el("div", "lumi-comp-main"), dates = el("div", "lumi-comp-dates");
   const kind = btn("", "lumi-kind"), parts = [];
   main.append(kind, field);
-  for (const [key, icon, name] of [["start", "🛫", "начало"], ["due", "📅", "срок"]]) {
-    const w = el("span", "lumi-date"), b = btn("", "lumi-date-btn"), clear = btn("×", "lumi-date-clear", "Убрать дату"), inp = el("input");
+  for (const [key, icon, name] of [["start", "start", "начало"], ["due", "due", "срок"]]) {
+    const w = el("span", "lumi-date"), b = btn("", "lumi-date-btn"), clear = ibtn("x", "lumi-date-clear", "Убрать дату"), inp = el("input");
     inp.type = "date";
     inp.tabIndex = -1;
     b.onclick = () => { try { inp.showPicker(); } catch { inp.focus(); } };
@@ -204,12 +229,13 @@ function composer(d, field, onKind) {
     parts.push({ key, icon, name, b, inp, clear });
   }
   function refresh() {
-    kind.textContent = d.task ? "☐" : "•";
+    kind.replaceChildren(svg(d.task ? "task" : "note"));
+    kind.dataset.kind = d.task ? "task" : "note";
     kind.title = d.task ? "Задача с галочкой. Нажми — сделать заметкой" : "Заметка без галочки. Нажми — сделать задачей";
     dates.hidden = !d.task;
     wrap.classList.toggle("has-date", !!(d.task && (d.start || d.due)));
     for (const { key, icon, name, b, inp, clear } of parts) {
-      b.textContent = d[key] ? `${icon} ${fmtDate(d[key])}` : `${icon} ${name}`;
+      b.replaceChildren(svg(icon), d[key] ? fmtDate(d[key]) : name);
       b.title = d[key] ? `${name[0].toUpperCase()}${name.slice(1)}: ${d[key]}` : `Дата: ${name}`;
       inp.value = d[key];
       clear.hidden = !d[key];
@@ -227,7 +253,8 @@ function composer(d, field, onKind) {
   refresh();
   return wrap;
 }
-const grip = (cls, title) => { const g = el("div", cls); g.title = title; return g; };
+function grip(cls, title) { const g = el("div", cls); g.title = title; return g; }
+const grips = s => s.append(grip("lumi-sheet-grip", "Ширина листа"), grip("lumi-sheet-grip-b", "Высота листа"), grip("lumi-sheet-grip-c", "Размер листа"));
 const isDoc = b => b.meta.mode == "doc";
 function docEl(b) { // оформленный текст листа: заголовки, абзацы, списки с галочками (data-line — строка текста для docToggle)
   const doc = el("div", "lumi-cards lumi-doc");
@@ -284,12 +311,15 @@ function sheetEl(b, row) {
   s._b = b;
   const color = b.meta.color ?? row.color;
   if (color) { s.classList.add("colored"); s.style.setProperty("--c", md.COLORS[color]); }
-  s.style.setProperty("--w", (b.meta.width ?? 280) + "px");
+  s.style.setProperty("--w", (b.meta.width ?? DEF_W) + "px");
+  s.style.setProperty("--h", (b.meta.height ?? DEF_H) + "px");
   const head = el("header", "lumi-sheet-head");
   head.draggable = true;
   const tools = el("span", "lumi-sheet-tools");
-  tools.append(btn("●", "lumi-sheet-color", "Цвет листа"));
-  if (boards.length > 1) tools.append(btn("×", "lumi-sheet-del", "Удалить лист"));
+  const dot = btn("", "lumi-sheet-color", "Цвет листа");
+  dot.append(el("span", "lumi-dot"));
+  tools.append(dot);
+  if (boards.length > 1) tools.append(ibtn("x", "lumi-sheet-del", "Удалить лист"));
   head.append(el("h3", "lumi-sheet-title", b.name), el("span", "lumi-sheet-count", b.cards.length || ""), tools);
   s.append(head);
   if (b.confirm) {
@@ -299,11 +329,12 @@ function sheetEl(b, row) {
   }
   if (isDoc(b)) { // лист-документ: цельный оформленный текст, без строки добавления
     s.classList.add("is-doc");
-    s.append(docEl(b), grip("lumi-sheet-grip", "Ширина листа"));
+    s.append(docEl(b));
+    grips(s);
     return s;
   }
   const list = el("ul", "lumi-cards"), today = todayStr();
-  list.append(...flat(b.cards).map(([c, p, depth]) => cardEl(c, p, depth, today)));
+  list.append(...flat(b.cards).map(([c, p, depth, more]) => cardEl(c, p, depth, today, more)));
   const foot = el("footer", "lumi-sheet-foot"), input = inputBox("lumi-add-input"), d = (b.draft ??= freshDraft(b));
   input.placeholder = "Новый пункт…";
   input.addEventListener("keydown", e => {
@@ -320,7 +351,8 @@ function sheetEl(b, row) {
     s.querySelector(".lumi-cards").scrollTop = 1e6;
   });
   foot.append(composer(d, input, task => (b.kind = task)));
-  s.append(list, foot, grip("lumi-sheet-grip", "Ширина листа"));
+  s.append(list, foot);
+  grips(s);
   return s;
 }
 function rowEl(r) {
@@ -328,15 +360,14 @@ function rowEl(r) {
   row._r = r;
   row.classList.toggle("fill", r.fill);
   row.style.setProperty("--rc", r.color ? md.COLORS[r.color] : "transparent");
-  row.style.height = (r.height ?? 360) + "px";
-  scroll.append(...r.sheets.map(m => sheetEl(byMeta.get(m), r)), btn("+ лист", "lumi-add-sheet", "Новый лист в этом ряду"));
-  row.append(scroll, grip("lumi-row-grip", "Высота ряда"));
+  scroll.append(...r.sheets.map(m => sheetEl(byMeta.get(m), r)), ibtn("plus", "lumi-add-sheet", "Новый лист в этом ряду", "лист"));
+  row.append(scroll);
   return row;
 }
 function render() {
   const keep = new Map([...box.querySelectorAll(".lumi-sheet")].map(s => [s._b, s.querySelector(".lumi-cards")?.scrollTop ?? 0]));
   const left = new Map([...box.querySelectorAll(".lumi-row")].map(r => [r._r, r.firstChild.scrollLeft]));
-  box.replaceChildren(...layout.rows.map(rowEl), btn("+ ряд", "lumi-add-row", "Новый ряд"));
+  box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", "Новый ряд", "ряд"));
   for (const s of box.querySelectorAll(".lumi-sheet")) { const c = s.querySelector(".lumi-cards"); if (c) c.scrollTop = keep.get(s._b) ?? 0; }
   for (const r of box.querySelectorAll(".lumi-row")) r.firstChild.scrollLeft = left.get(r._r) ?? 0;
 }
@@ -525,7 +556,7 @@ async function newSheet() {
   let name = "Новый лист";
   for (let k = 2; boards.some(b => b.name.toLowerCase() == name.toLowerCase()); k++) name = `Новый лист ${k}`;
   await md.writeSheet(name, []);
-  const meta = { name, color: null, width: null }, b = { name, meta, cards: [] };
+  const meta = { name, color: null, width: null, height: null }, b = { name, meta, cards: [] };
   byMeta.set(meta, b);
   return b;
 }
@@ -533,7 +564,7 @@ async function addSheet(r, newRow) {
   closeMenu();
   let b;
   try { b = await newSheet(); } catch (e) { return fail(e, "создать лист"); }
-  if (newRow) layout.rows.push((r = { height: null, color: null, fill: false, sheets: [] }));
+  if (newRow) layout.rows.push((r = { color: null, fill: false, sheets: [] }));
   r.sheets.push(b.meta);
   sync();
   saveLayout();
@@ -648,7 +679,7 @@ box.addEventListener("click", e => {
     const del = t.closest(".lumi-card-del");
     if (c.children.length && !del.classList.contains("armed")) { // дерево удаляется целиком — второй клик подтверждает
       del.classList.add("armed");
-      del.textContent = "Удалить с подпунктами?";
+      del.replaceChildren("Удалить с подпунктами?");
       return;
     }
     const up = p.slice(0, -1), at = p.at(-1);
@@ -683,9 +714,11 @@ box.addEventListener("change", e => {
   }
   if (!e.target.matches(".lumi-card input[type=checkbox]")) return;
   const b = e.target.closest(".lumi-sheet")._b;
-  itemAt(b, pathOf(e.target.closest(".lumi-card"))).check = e.target.checked;
+  const path = pathOf(e.target.closest(".lumi-card"));
+  itemAt(b, path).check = e.target.checked;
   save(b);
   render(); // зачёркивание, счётчики и цвет дат зависят от галочки
+  cardLi(b, path)?.querySelector("input[type=checkbox]")?.classList.add("pop");
 });
 box.addEventListener("contextmenu", e => {
   if (e.target.matches("input, textarea")) return;
@@ -702,75 +735,164 @@ document.addEventListener("keydown", e => {
   if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey && e.code == "KeyZ" && undoStack.length && !f.matches?.("input, textarea, [contenteditable]")) { e.preventDefault(); undo(); }
 });
 
-// растягивание: высота ряда — за нижний край, ширина листа — за правый (pointer events, значение пишется в раскладку по отпусканию)
+// растягивание листа: правый край — ширина, нижний — высота, угол — обе (pointer events, размер пишется в раскладку по отпусканию)
 box.addEventListener("pointerdown", e => {
-  const g = e.target.closest(".lumi-row-grip, .lumi-sheet-grip");
+  const g = e.target.closest(".lumi-sheet-grip, .lumi-sheet-grip-b, .lumi-sheet-grip-c");
   if (!g || e.button) return;
   e.preventDefault();
-  const rowG = g.classList.contains("lumi-row-grip"), node = g.parentNode, x0 = e.clientX, y0 = e.clientY;
-  const size0 = rowG ? node.offsetHeight : node.offsetWidth, set = rowG ? node._r : node._b.meta;
-  let v = size0;
+  const wide = !g.matches(".lumi-sheet-grip-b"), tall = !g.matches(".lumi-sheet-grip"), node = g.parentNode, meta = node._b.meta;
+  const x0 = e.clientX, y0 = e.clientY, w0 = node.offsetWidth, h0 = node.offsetHeight;
+  let w = w0, h = h0, moved = false;
   try { g.setPointerCapture(e.pointerId); } catch {} // синтетические события проверок не имеют активного указателя
   g.classList.add("active");
   g.onpointermove = ev => {
-    v = Math.round(Math.max(rowG ? MIN_H : MIN_W, size0 + (rowG ? ev.clientY - y0 : ev.clientX - x0)));
-    if (rowG) node.style.height = v + "px"; else node.style.setProperty("--w", v + "px");
+    moved = true;
+    if (wide) { w = Math.round(Math.max(MIN_W, w0 + ev.clientX - x0)); node.style.setProperty("--w", w + "px"); }
+    if (tall) { h = Math.round(Math.max(MIN_H, h0 + ev.clientY - y0)); node.style.setProperty("--h", h + "px"); }
   };
   g.onpointerup = g.onpointercancel = () => {
     g.onpointermove = g.onpointerup = g.onpointercancel = null;
     g.classList.remove("active");
-    if (rowG) set.height = v; else set.width = v;
+    if (!moved) return;
+    if (wide) meta.width = w;
+    if (tall) meta.height = h;
     saveLayout();
   };
 });
 
-// перетаскивание: пункты — внутри листа, между листами и рядами; листы — за шапку, внутри ряда и в другой ряд
-let drag = null; // { card: true, b, p (путь) } | { b }
-const clearMarks = () => box.querySelectorAll(".drop-before, .drop-end, .drop-left, .drop-right, .dragging").forEach(n => n.classList.remove("drop-before", "drop-end", "drop-left", "drop-right", "dragging"));
-function dropTarget(e) {
-  if (drag.card) {
-    const s = e.target.closest?.(".lumi-sheet");
-    if (!s || isDoc(s._b)) return null; // в документ карточки не кладутся
-    const lis = [...s.querySelectorAll(".lumi-card")];
-    const li = lis.find(li => e.clientY < li.getBoundingClientRect().top + li.offsetHeight / 2), tp = li && pathOf(li);
-    if (tp && s._b == drag.b && inside(tp, drag.p)) return null; // внутрь самого себя нельзя
-    return { to: s._b, tp: tp ?? null, mark: li ?? s.querySelector(".lumi-cards"), cls: li ? "drop-before" : "drop-end" };
+// перетаскивание (HTML5 DnD): пункты — внутри листа, между листами и рядами; листы — за шапку, внутри ряда и в другой ряд.
+// Под курсором — копия (setDragImage); исходное место — невидимая «дырка» (.lumi-hole); соседи раздвигаются через translate (150 мс), место вставки — рамка .lumi-slot.
+// Место вставки считается по естественным координатам (offsetTop/Left), а не по сдвинутым — иначе пункты «убегали» бы из-под курсора. prefers-reduced-motion: без сдвигов, место — тонкая линия.
+let drag = null; // { card: true, b, p (путь), nodes (пункт и его подпункты на экране), h (высота с зазором), heading } | { b, node, w }
+let slot = null, shifted = new Map(), lastKey = ""; // shifted: узел → сдвиг в px
+const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+const after = (a, n) => !!(a.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); // n идёт после a
+function shiftTo(next, axis) {
+  for (const n of shifted.keys()) if (!next.has(n)) n.style.translate = "";
+  for (const [n, v] of next) n.style.translate = v ? (axis == "y" ? `0 ${v}px` : `${v}px 0`) : "";
+  shifted = next;
+}
+function endDrag() {
+  shiftTo(new Map());
+  slot?.remove();
+  slot = null;
+  lastKey = "";
+  box.querySelectorAll(".lumi-hole").forEach(n => n.classList.remove("lumi-hole"));
+  drag = null;
+}
+function setImage(dt, g, e, from) { // копия под курсором: клон элемента вне экрана
+  document.body.append(g);
+  const r = from.getBoundingClientRect();
+  try { dt.setDragImage(g, Math.max(0, e.clientX - r.left), Math.max(0, e.clientY - r.top)); } catch {}
+  setTimeout(() => g.remove());
+}
+function cardGhost(nodes, s) {
+  const g = el("section", "lumi-ghost"), ul = el("ul", "lumi-cards"), d0 = Number(nodes[0].style.getPropertyValue("--d"));
+  if (s.classList.contains("colored")) g.style.setProperty("--c", s.style.getPropertyValue("--c"));
+  g.style.width = nodes[0].offsetWidth + "px";
+  for (const n of nodes) {
+    const c = n.cloneNode(true);
+    c.classList.remove("lumi-hole");
+    c.style.setProperty("--d", Number(n.style.getPropertyValue("--d")) - d0);
+    c.querySelectorAll(".lumi-guide").forEach(x => x.remove());
+    ul.append(c);
   }
+  g.append(ul);
+  return g;
+}
+function sheetGhost(s) {
+  const g = s.cloneNode(true);
+  g.classList.add("lumi-ghost");
+  g.style.width = s.offsetWidth + "px";
+  g.style.height = s.offsetHeight + "px";
+  return g;
+}
+function cardTarget(e) { // лист, в который бросаем, и пункт, перед которым встанет перетаскиваемый (null — в конец верхнего уровня)
+  const s = e.target.closest?.(".lumi-sheet");
+  if (!s || isDoc(s._b)) return null; // в документ карточки не кладутся
+  const ul = s.querySelector(".lumi-cards"), y = e.clientY - ul.getBoundingClientRect().top + ul.scrollTop, all = [...ul.querySelectorAll(".lumi-card")];
+  const mine = s._b == drag.b, last = drag.nodes.at(-1);
+  if (mine && y >= drag.nodes[0].offsetTop && y <= last.offsetTop + last.offsetHeight) return null; // над своей «дыркой» (и своими подпунктами) — никуда
+  const li = all.find(n => !(mine && drag.nodes.includes(n)) && y < n.offsetTop + n.offsetHeight / 2) ?? null;
+  return { all, li, to: s._b, tp: li && pathOf(li), ul };
+}
+function sheetTarget(e) {
   const row = e.target.closest?.(".lumi-row");
   if (!row) return null;
-  const secs = [...row.querySelectorAll(".lumi-sheet")];
-  let k = secs.findIndex(s => { const r = s.getBoundingClientRect(); return e.clientX < r.left + r.width / 2; });
-  if (k < 0) k = secs.length;
-  return { r: row._r, k, mark: secs[k] ?? secs.at(-1), cls: secs[k] ? "drop-left" : "drop-right" };
+  const scroll = row.querySelector(".lumi-row-scroll"), x = e.clientX - scroll.getBoundingClientRect().left + scroll.scrollLeft;
+  const items = [...scroll.children].filter(n => n.matches(".lumi-sheet, .lumi-add-sheet")), secs = items.filter(n => n.matches(".lumi-sheet"));
+  const nxt = secs.find(n => n != drag.node && x < n.offsetLeft + n.offsetWidth / 2) ?? null;
+  return { row, scroll, items, nxt, r: row._r, k: nxt ? secs.indexOf(nxt) : secs.length }; // k считается с самим перетаскиваемым листом
+}
+function showSlot(parent, css, line) {
+  slot ??= el("div", "lumi-slot");
+  slot.classList.toggle("line", line);
+  if (slot.parentNode != parent) parent.append(slot);
+  Object.assign(slot.style, css);
+}
+function showDrag(t) { // сдвиги соседей и метка места под текущую цель (null — всё на место)
+  const key = !t ? "" : drag.card ? `${t.to.name}|${t.tp?.join(".") ?? "end"}` : `${layout.rows.indexOf(t.r)}:${t.k}`;
+  if (key == lastKey) return;
+  lastKey = key;
+  const map = new Map(), moving = !calm();
+  if (!t) { shiftTo(map); slot?.remove(); slot = null; return; }
+  const dy = n => map.get(n) ?? 0;
+  if (drag.card) {
+    const H = drag.h, first = drag.nodes[0], last = drag.nodes.at(-1), depth = t.tp ? (drag.heading && t.tp.length > 1 ? 0 : t.tp.length - 1) : 0;
+    if (moving) {
+      for (const n of first.parentNode.querySelectorAll(".lumi-card")) if (after(last, n)) map.set(n, -H); // исходное место смыкается
+      if (t.li) for (const n of t.all) if (!drag.nodes.includes(n) && (n == t.li || after(t.li, n))) map.set(n, dy(n) + H); // место вставки раскрывается
+    }
+    shiftTo(map, "y");
+    let top;
+    if (t.li) top = t.li.offsetTop + dy(t.li) - (moving ? H : 5);
+    else { const e = t.all.findLast(n => !drag.nodes.includes(n)); top = e ? e.offsetTop + e.offsetHeight + dy(e) + (moving ? 6 : 2) : 0; }
+    showSlot(t.ul, { left: depth * IND + "px", right: "2px", width: "auto", top: top + "px", height: moving ? H - 6 + "px" : "3px" }, !moving);
+  } else {
+    const W = drag.w, node = drag.node;
+    if (moving) {
+      for (const n of [...node.parentNode.children]) if (n.matches(".lumi-sheet, .lumi-add-sheet") && after(node, n)) map.set(n, -W);
+      for (const n of t.items) if (n != node && (t.nxt ? n == t.nxt || after(t.nxt, n) : n.matches(".lumi-add-sheet"))) map.set(n, dy(n) + W);
+    }
+    shiftTo(map, "x");
+    let left;
+    if (t.nxt) left = t.nxt.offsetLeft + dy(t.nxt) - (moving ? W : 9);
+    else { const e = t.items.findLast(n => n != node && n.matches(".lumi-sheet")); left = e ? e.offsetLeft + e.offsetWidth + dy(e) + (moving ? 14 : 5) : 20; }
+    showSlot(t.scroll, { left: left + "px", right: "auto", top: "12px", width: moving ? W - 14 + "px" : "3px", height: node.offsetHeight + "px" }, !moving);
+  }
 }
 box.addEventListener("dragstart", e => {
-  const li = e.target.closest?.(".lumi-card"), b = e.target.closest?.(".lumi-sheet")?._b;
+  const li = e.target.closest?.(".lumi-card"), s = e.target.closest?.(".lumi-sheet"), b = s?._b;
   if (!b || (!li && !e.target.closest?.(".lumi-sheet-head"))) return e.preventDefault();
-  drag = li ? { card: true, b, p: pathOf(li) } : { b };
-  e.dataTransfer.setData("text/plain", li ? itemAt(b, drag.p).text : b.name);
+  e.dataTransfer.setData("text/plain", li ? itemAt(b, pathOf(li)).text : b.name);
   e.dataTransfer.effectAllowed = "move";
-  if (!li) return e.target.closest(".lumi-sheet").classList.add("dragging");
-  for (const o of li.parentNode.querySelectorAll(".lumi-card")) if (inside(pathOf(o), drag.p)) o.classList.add("dragging"); // пункт и его подпункты
+  if (li) {
+    const p = pathOf(li), nodes = [...li.parentNode.querySelectorAll(".lumi-card")].filter(o => inside(pathOf(o), p)), last = nodes.at(-1);
+    drag = { card: true, b, p, nodes, h: last.offsetTop + last.offsetHeight - li.offsetTop + 6, heading: !!itemAt(b, p).heading };
+    setImage(e.dataTransfer, cardGhost(nodes, s), e, li);
+    nodes.forEach(n => n.classList.add("lumi-hole"));
+  } else {
+    drag = { b, node: s, w: s.offsetWidth + 14 };
+    setImage(e.dataTransfer, sheetGhost(s), e, s);
+    s.classList.add("lumi-hole");
+  }
 });
 box.addEventListener("dragover", e => {
   if (!drag) return;
-  const t = dropTarget(e);
-  if (!t) return;
-  e.preventDefault();
-  e.dataTransfer.dropEffect = "move";
-  box.querySelectorAll(".drop-before, .drop-end, .drop-left, .drop-right").forEach(n => n.classList.remove("drop-before", "drop-end", "drop-left", "drop-right"));
-  t.mark.classList.add(t.cls);
+  const t = drag.card ? cardTarget(e) : sheetTarget(e);
+  if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
+  showDrag(t);
 });
+box.addEventListener("dragleave", e => { if (drag && !box.contains(e.relatedTarget)) showDrag(null); });
 box.addEventListener("drop", e => {
   if (!drag) return;
-  const t = dropTarget(e), d = drag;
+  const d = drag, t = d.card ? cardTarget(e) : sheetTarget(e);
   e.preventDefault();
-  drag = null;
-  clearMarks();
+  endDrag();
   if (!t) return;
   if (d.card) moveItem(d.b, d.p, t.to, t.tp); else moveSheet(d.b, t.r, t.k);
 });
-box.addEventListener("dragend", () => { drag = null; clearMarks(); });
+box.addEventListener("dragend", endDrag); // Esc или мимо — всё плавно возвращается
 
 // возврат на Home — перечитать (файл могли поправить снаружи); уход — дописать несохранённое
 document.addEventListener("visibilitychange", () => (document.hidden ? flushAll() : reload()));

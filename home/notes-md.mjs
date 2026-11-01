@@ -18,6 +18,7 @@ import * as store from "./store.js";
 export const DIR = "notes";
 export const ORDER = "notes/boards.json";
 export const DEFAULTS = ["Сегодня", "Дела", "Идеи"];
+export const TRASH_DIR = "luminoctis.notes.trash-dir"; // скрытый pref: папка вместо Корзины Windows (для проверок)
 export const CHANGED = "lumi-notes-changed"; // Services.obs: файлы листов изменены не страницей Home
 export const SAVED = "lumi-notes-saved"; // Services.obs: лист записан или Home его перечитала (слушает рейка); Home на него не реагирует — петли нет
 // фиксированные цвета листов/рядов: не зависят от темы браузера, читаются и на тёмном, и на светлом фоне
@@ -92,24 +93,24 @@ export function serialize(items) {
 }
 
 // ---------- раскладка boards.json ----------
-// { version: 2, rows: [ { height, color, fill, sheets: [ { name, color, width } ] } ] }; старый вид — массив имён листов
+// { version: 2, rows: [ { color, fill, sheets: [ { name, color, width, height, mode? } ] } ] }; старый вид — массив имён листов; у старого ряда была height — переезжает в его листы без своей высоты
 export function normalizeLayout(raw, files) {
   const have = new Set(files), seen = new Set();
   const num = v => (typeof v == "number" && v > 0 && isFinite(v) ? Math.round(v) : null);
   const color = v => (typeof v == "string" && Object.hasOwn(COLORS, v) ? v : null);
-  const sheet = s => {
+  const sheet = (s, rowH) => {
     const o = typeof s == "string" ? { name: s } : s;
     if (typeof o?.name != "string" || !have.has(o.name) || seen.has(o.name)) return null; // записи без файла выбрасываются
     seen.add(o.name);
-    return { name: o.name, color: color(o.color), width: num(o.width), ...(o.mode === "doc" && { mode: "doc" }) };
+    return { name: o.name, color: color(o.color), width: num(o.width), height: num(o.height) ?? rowH, ...(o.mode === "doc" && { mode: "doc" }) };
   };
   let rows = [];
   if (Array.isArray(raw)) rows = [{ sheets: raw }];
   else if (Array.isArray(raw?.rows)) rows = raw.rows.filter(r => r && typeof r == "object");
-  rows = rows.map(r => ({ height: num(r.height), color: color(r.color), fill: r.fill === true, sheets: (Array.isArray(r.sheets) ? r.sheets : []).map(sheet).filter(Boolean) }))
+  rows = rows.map(r => ({ color: color(r.color), fill: r.fill === true, sheets: (Array.isArray(r.sheets) ? r.sheets : []).map(x => sheet(x, num(r.height))).filter(Boolean) }))
     .filter(r => r.sheets.length);
-  if (!rows.length) rows.push({ height: null, color: null, fill: false, sheets: [] });
-  rows.at(-1).sheets.push(...files.filter(f => !seen.has(f)).sort().map(name => ({ name, color: null, width: null }))); // файлы снаружи — в конец последнего ряда
+  if (!rows.length) rows.push({ color: null, fill: false, sheets: [] });
+  rows.at(-1).sheets.push(...files.filter(f => !seen.has(f)).sort().map(name => ({ name, color: null, width: null, height: null }))); // файлы снаружи — в конец последнего ряда
   return { version: 2, rows };
 }
 // ---------- Markdown внутри строки и вид документа ----------
@@ -200,9 +201,14 @@ export async function renameSheet(from, to) {
   return layout;
 }
 // файл листа — в Корзину Windows (у Firefox нет своего вызова: PowerShell + Microsoft.VisualBasic SendToRecycleBin через Subprocess; путь — в переменной окружения,
-// без кавычек); не вышло — в notes/.trash/<имя> <время>.md. Возвращает "bin" | "folder"
+// без кавычек); не вышло — в notes/.trash/<имя> <время>.md. Возвращает "bin" | "folder" | "dir" (pref luminoctis.notes.trash-dir)
 export async function trashSheet(name) {
-  const p = store.path(file(name));
+  const p = store.path(file(name)), dir = Services.prefs.getStringPref(TRASH_DIR, "");
+  if (dir) { // скрытая настройка (проверки): удалённые листы уходят в эту папку, настоящая Корзина не трогается
+    await IOUtils.makeDirectory(dir, { createAncestors: true });
+    await IOUtils.move(p, PathUtils.join(dir, `${name} ${Date.now()}.md`));
+    return "dir";
+  }
   try {
     const { Subprocess } = ChromeUtils.importESModule("resource://gre/modules/Subprocess.sys.mjs");
     const ps = PathUtils.join(Services.dirsvc.get("WinD", Ci.nsIFile).path, "System32", "WindowsPowerShell", "v1.0", "powershell.exe");
@@ -220,7 +226,7 @@ export async function removeSheet(name, hard = false) { // hard — стерет
   if (hard) await IOUtils.remove(store.path(file(name))); else await trashSheet(name);
   for (const r of layout.rows) r.sheets = r.sheets.filter(s => s.name != name);
   layout.rows = layout.rows.filter(r => r.sheets.length);
-  if (!layout.rows.length) layout.rows.push({ height: null, color: null, fill: false, sheets: [] });
+  if (!layout.rows.length) layout.rows.push({ color: null, fill: false, sheets: [] });
   await writeLayout(layout);
   Services.obs.notifyObservers(null, SAVED, name);
   return layout;

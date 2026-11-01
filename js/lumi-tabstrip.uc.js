@@ -45,13 +45,14 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
         item.icon,
         item.labelEl,
         Object.assign(document.createElement("span"), { className: "lumi-tab-audio" }),
-        Object.assign(document.createElement("span"), { className: "lumi-tab-close" })
+        Object.assign(document.createElement("span"), { className: "lumi-tab-unload", title: "Выгрузить из памяти" }),
+        Object.assign(document.createElement("span"), { className: "lumi-tab-close", title: "Закрыть вкладку" })
       );
       items.set(tab, item);
     }
     return item;
   };
-  // Кнопка вкладки: «−» (выгрузить; выбранную — после перехода на Home) у загруженной, «×» (закрыть) у выгруженной и той, что Zen выгрузить не умеет
+  // Кнопки вкладки: «×» (закрыть) всегда, «−» (выгрузить; выбранную — после перехода на Home) слева от неё, только если вкладку можно выгрузить
   // (about:-страницы, кроме about:blank; нет процесса)
   const unloadable = tab => {
     if (tab.hasAttribute("pending")) return false;
@@ -442,10 +443,9 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (chip) return event.button == 0 && openFolder(chip);
     const tab = tabOf(event);
     if (!tab || event.button != 0) return;
-    if (event.target.classList.contains("lumi-tab-close")) {
-      if (unloadable(tab)) unloadTab(tab);
-      else gBrowser.removeTab(tab, { animate: true });
-    } else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
+    if (event.target.classList.contains("lumi-tab-close")) gBrowser.removeTab(tab, { animate: true });
+    else if (event.target.classList.contains("lumi-tab-unload")) { if (unloadable(tab)) unloadTab(tab); }
+    else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
     else if (event.ctrlKey || event.metaKey) toggleSelect(tab);
     else if (event.shiftKey) selectRange(tab);
     else {

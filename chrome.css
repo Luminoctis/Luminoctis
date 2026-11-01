@@ -506,14 +506,15 @@ zen-library {
   & > * { pointer-events: none; flex-shrink: 0; }
   & .lumi-tab-icon { width: 16px; height: 16px; margin-left: 9px; }
   & .lumi-tab-label { flex: 1; min-width: 0; flex-shrink: 1; white-space: nowrap; overflow: hidden; mask-image: linear-gradient(to left, transparent, black 16px); }
-  & :is(.lumi-tab-close, .lumi-tab-audio) {
+  & :is(.lumi-tab-close, .lumi-tab-unload, .lumi-tab-audio) {
     pointer-events: auto; width: 20px; height: 20px; border-radius: min(6px, var(--lumi-tab-radius));
     background: center / 12px no-repeat; -moz-context-properties: fill; fill: currentColor;
     &:hover { background-color: color-mix(in srgb, var(--lumi-fg) 15%, transparent); }
   }
   & .lumi-tab-close { background-image: url("chrome://global/skin/icons/close.svg"); opacity: 0.8; }
-  /* загруженная невыбранная, которую Zen умеет выгрузить ([unloadable]) — «−» (выгрузить из памяти), выгруженная и выбранная — «×» (закрыть); см. клик в js/lumi-tabstrip.uc.js */
-  &[unloadable] .lumi-tab-close { background-image: linear-gradient(currentColor, currentColor); background-size: 10px 1.5px; }
+  /* «−» (выгрузить из памяти) слева от «×»: только когда Zen умеет выгрузить вкладку ([unloadable]); см. клик в js/lumi-tabstrip.uc.js */
+  & .lumi-tab-unload { display: none; background-image: linear-gradient(currentColor, currentColor); background-size: 10px 1.5px; opacity: 0.8; margin-right: -6px; }
+  &[unloadable] .lumi-tab-unload { display: block; }
   & .lumi-tab-audio { display: none; background-image: url("chrome://global/skin/media/audio.svg"); }
   &[soundplaying] .lumi-tab-audio, &[muted] .lumi-tab-audio { display: block; }
   &[muted] .lumi-tab-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
@@ -537,13 +538,14 @@ zen-library {
   border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
   background: var(--pill-bg);
 }
+@container (max-width: 80px) { .lumi-tab-unload { display: none !important; } } /* на узкой плитке «−» прячется раньше «×» */
 @container (max-width: 44px) {
   .lumi-tab-label, .lumi-tab-close, .lumi-tab-audio { display: none !important; }
   .lumi-tab-icon { margin: 0 auto !important; }
 }
 .lumi-tab[square] {
   padding-inline: 0;
-  & :is(.lumi-tab-label, .lumi-tab-close, .lumi-tab-audio) { display: none !important; }
+  & :is(.lumi-tab-label, .lumi-tab-close, .lumi-tab-unload, .lumi-tab-audio) { display: none !important; }
   & .lumi-tab-icon { margin: 0 auto; }
 }
 /* Форма вкладок: Скруглённые (по умолчанию) / Квадратные / Скошенные — применяется сразу во всех окнах */

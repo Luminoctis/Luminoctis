@@ -57,7 +57,7 @@
       <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="CheckBox">
         <StackPanel Orientation="Horizontal" Background="Transparent">
           <Border x:Name="Box" Width="20" Height="20" CornerRadius="6" BorderThickness="1.5" BorderBrush="#565f89" Background="Transparent" VerticalAlignment="Center">
-            <Path x:Name="Mark" Data="M0,5 L4,9 L11,0" Stroke="#16161e" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed"/>
+            <Path x:Name="Mark" Data="M0,5 L4,9 L11,0" Stroke="#16161e" StrokeThickness="2" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Center" VerticalAlignment="Center" Visibility="Collapsed" FlowDirection="LeftToRight"/>
           </Border>
           <ContentPresenter Margin="12,0,0,0" VerticalAlignment="Center"/>
         </StackPanel>
@@ -78,6 +78,40 @@
         <ControlTemplate.Triggers>
           <Trigger Property="IsChecked" Value="True"><Setter TargetName="Ring" Property="BorderBrush" Value="#7aa2f7"/><Setter TargetName="Dot" Property="Visibility" Value="Visible"/><Setter Property="Foreground" Value="#c0caf5"/></Trigger>
         </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="LangItem" TargetType="ComboBoxItem">
+      <Setter Property="Foreground" Value="#a9b1d6"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBoxItem">
+        <Border x:Name="B" Background="Transparent" CornerRadius="7" Padding="10,5"><ContentPresenter/></Border>
+        <ControlTemplate.Triggers>
+          <Trigger Property="IsHighlighted" Value="True"><Setter TargetName="B" Property="Background" Value="#24283b"/><Setter Property="Foreground" Value="#c0caf5"/></Trigger>
+          <Trigger Property="IsSelected" Value="True"><Setter Property="Foreground" Value="#7aa2f7"/></Trigger>
+        </ControlTemplate.Triggers>
+      </ControlTemplate></Setter.Value></Setter>
+    </Style>
+    <Style x:Key="LangBox" TargetType="ComboBox">
+      <Setter Property="Foreground" Value="#a9b1d6"/><Setter Property="FontSize" Value="12"/><Setter Property="Cursor" Value="Hand"/><Setter Property="FocusVisualStyle" Value="{x:Null}"/>
+      <Setter Property="ItemContainerStyle" Value="{StaticResource LangItem}"/>
+      <Setter Property="Template"><Setter.Value><ControlTemplate TargetType="ComboBox">
+        <Grid>
+          <ToggleButton x:Name="Tg" ClickMode="Press" Focusable="False" IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}">
+            <ToggleButton.Template><ControlTemplate TargetType="ToggleButton">
+              <Border x:Name="B" Background="Transparent" BorderBrush="#24283b" BorderThickness="1" CornerRadius="8"/>
+              <ControlTemplate.Triggers>
+                <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="B" Property="Background" Value="#1f2335"/></Trigger>
+                <Trigger Property="IsChecked" Value="True"><Setter TargetName="B" Property="Background" Value="#1f2335"/></Trigger>
+              </ControlTemplate.Triggers>
+            </ControlTemplate></ToggleButton.Template>
+          </ToggleButton>
+          <ContentPresenter Content="{TemplateBinding SelectionBoxItem}" Margin="10,0,26,0" VerticalAlignment="Center" HorizontalAlignment="Left" IsHitTestVisible="False"/>
+          <Path Data="M0,0 L4,4 L8,0" Stroke="#565f89" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round" StrokeLineJoin="Round" HorizontalAlignment="Right" VerticalAlignment="Center" Margin="0,0,10,0" IsHitTestVisible="False" FlowDirection="LeftToRight"/>
+          <Popup x:Name="PART_Popup" IsOpen="{TemplateBinding IsDropDownOpen}" Placement="Bottom" VerticalOffset="4" AllowsTransparency="True" Focusable="False" PopupAnimation="Fade">
+            <Border MinWidth="{Binding ActualWidth, ElementName=Tg}" Background="#1f2335" BorderBrush="#2f3549" BorderThickness="1" CornerRadius="10" Padding="4">
+              <ScrollViewer MaxHeight="300" VerticalScrollBarVisibility="Auto"><ItemsPresenter/></ScrollViewer>
+            </Border>
+          </Popup>
+        </Grid>
       </ControlTemplate></Setter.Value></Setter>
     </Style>
     <Style x:Key="Bar" TargetType="ProgressBar">
@@ -108,12 +142,13 @@
             <TextBlock x:Name="HTitle" Margin="10,0,0,0" FontSize="12" Foreground="#565f89" VerticalAlignment="Center"/>
           </StackPanel>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,8,0" VerticalAlignment="Center">
+            <ComboBox x:Name="Lang" Style="{StaticResource LangBox}" Width="132" Height="26" Margin="0,0,6,0"/>
             <Button x:Name="BtnMin" Style="{StaticResource WinBtn}"><Path Data="M0,0 H10" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5"/></Button>
             <Button x:Name="BtnClose" Style="{StaticResource WinBtn}"><Path Data="M0,0 L10,10 M10,0 L0,10" Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}" StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/></Button>
           </StackPanel>
         </Grid>
 
-        <Grid x:Name="Host" Grid.Row="1">
+        <Grid Grid.Row="1">
           <!-- Приветствие -->
           <Grid x:Name="ScWelcome" Visibility="Collapsed">
             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
@@ -122,7 +157,7 @@
                 <Border.Effect><DropShadowEffect Color="#7aa2f7" BlurRadius="26" ShadowDepth="0" Opacity="0.45"/></Border.Effect>
                 <TextBlock Text="L" FontFamily="Consolas" FontWeight="SemiBold" FontSize="40" Foreground="#7aa2f7" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
-              <TextBlock x:Name="WTitle" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
+              <TextBlock x:Name="WTitle" FlowDirection="LeftToRight" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
               <TextBlock x:Name="WDesc" FontSize="14" Foreground="#a9b1d6" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="400" HorizontalAlignment="Center" Margin="0,6,0,0"/>
               <TextBlock x:Name="WStatus" FontSize="12" Foreground="#565f89" HorizontalAlignment="Center" Margin="0,6,0,0"/>
               <Button x:Name="WPrimary" Style="{StaticResource Primary}" Margin="0,20,0,0" HorizontalAlignment="Center"/>
@@ -152,7 +187,7 @@
               <Button x:Name="ISecondary" Style="{StaticResource Ghost}" Margin="0,10,0,0" HorizontalAlignment="Center"/>
               <Button x:Name="ILink" Style="{StaticResource Link}" Margin="0,6,0,0" HorizontalAlignment="Center"/>
               <StackPanel x:Name="IDetails" Visibility="Collapsed" Margin="0,8,0,0" Width="470">
-                <TextBox x:Name="ILog" Height="120" IsReadOnly="True" FontFamily="Consolas" FontSize="11" Foreground="#a9b1d6" Background="#1f2335" BorderBrush="#24283b" Padding="8" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
+                <TextBox x:Name="ILog" FlowDirection="LeftToRight" Height="120" IsReadOnly="True" FontFamily="Consolas" FontSize="11" Foreground="#a9b1d6" Background="#1f2335" BorderBrush="#24283b" Padding="8" TextWrapping="NoWrap" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Auto"/>
                 <Button x:Name="ICopy" Style="{StaticResource Ghost}" Margin="0,8,0,0" HorizontalAlignment="Center"/>
               </StackPanel>
             </StackPanel>

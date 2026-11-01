@@ -1,5 +1,6 @@
 ﻿# Собирает единый установщик dev\dist\Luminoctis-Setup-<версия>.exe (C# + WPF, csc из Windows; ничего ставить не нужно).
-# Внутри: payload.zip (его собирает build-release.ps1), setup\ui.xaml, значок «L» (рисуется здесь). Исходники — setup\.
+# Внутри: payload.zip (его собирает build-release.ps1), setup\ui.xaml, значок «L» (рисуется здесь). Исходники — setup\ (Setup.cs, Strings.cs, ui.xaml).
+# После сборки запускает exe с --selfcheck: если у какой-то строки нет всех 10 языков, сборка падает.
 param([string]$Root = (Split-Path $PSScriptRoot -Parent), [string]$OutDir = (Join-Path $PSScriptRoot 'dist'))
 $ErrorActionPreference = 'Stop'
 $ver = ([IO.File]::ReadAllText((Join-Path $Root 'theme.json')) | ConvertFrom-Json).version
@@ -53,8 +54,15 @@ $fw = 'C:\Windows\Microsoft.NET\Framework64\v4.0.30319'
 $wpf = "$fw\WPF"
 $refs = "$wpf\PresentationFramework.dll", "$wpf\PresentationCore.dll", "$wpf\WindowsBase.dll", "$fw\System.Xaml.dll", "$fw\System.Core.dll", "$fw\System.IO.Compression.dll", "$fw\System.IO.Compression.FileSystem.dll", "$fw\System.Web.Extensions.dll", "$fw\System.Windows.Forms.dll", "$fw\System.Management.dll", "$fw\System.dll"
 $a = @('/nologo', '/target:winexe', '/codepage:65001', '/platform:anycpu', "/out:$out", "/win32icon:$ico", "/win32manifest:$(Join-Path $Root 'setup\app.manifest')",
-  "/resource:$stage\payload.zip,payload.zip", "/resource:$(Join-Path $Root 'setup\ui.xaml'),ui.xaml") + ($refs | ForEach-Object { "/reference:$_" }) + (Join-Path $Root 'setup\Setup.cs')
+  "/resource:$stage\payload.zip,payload.zip", "/resource:$(Join-Path $Root 'setup\ui.xaml'),ui.xaml") + ($refs | ForEach-Object { "/reference:$_" }) + (Join-Path $Root 'setup\Setup.cs') + (Join-Path $Root 'setup\Strings.cs')
 & "$fw\csc.exe" @a
 if ($LASTEXITCODE -ne 0) { throw 'csc: сборка не удалась' }
+
+# Самопроверка словаря строк: у каждой строки все 10 языков и одинаковые {0}. Не прошла — сборка падает, exe удаляется.
+$chk = Join-Path $stage 'selfcheck.txt'
+$p = Start-Process $out -ArgumentList '--selfcheck', "`"$chk`"" -Wait -PassThru
+$res = if (Test-Path $chk) { [IO.File]::ReadAllText($chk, [Text.Encoding]::UTF8).Trim() } else { '(нет результата)' }
+if ($p.ExitCode -ne 0) { Remove-Item $out -Force; throw "Самопроверка строк установщика не прошла:`n$res" }
+"selfcheck: $res"
 Remove-Item $stage -Recurse -Force
 "$out`n$((Get-Item $out).Length) bytes"

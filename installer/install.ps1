@@ -4,7 +4,7 @@
 #   -ProfileDir <папка профиля>     вместо выбора из profiles.ini (для тестов)
 #   -Uninstall                      убрать мод
 #   -Yes                            отвечать «да» на все вопросы
-#   -Probe                          ничего не менять, вывести одну строку JSON (Zen, профили, версия, занятость, мешающие моды, Sine) — для Luminoctis-Setup.exe
+#   -Probe                          ничего не менять, вывести одну строку JSON (Zen, профили, версия, мешающие моды, Sine) — для Luminoctis-Setup.exe
 #   -DisableMods <id,id> / -KeepMods  заранее решить, какие мешающие моды выключить (без вопроса); для графического установщика
 #   -Update                         как -Yes, но выключенные ранее моды Zen заново не трогает (зовёт update.ps1 при обновлении из мода)
 # Повторный запуск = обновление/починка. Источники берутся от корня репозитория (папка выше installer\).
@@ -31,8 +31,13 @@ $prefDefs = [ordered]@{
   'browser.urlbar.unifiedSearchButton.always'           = 'true'
 }
 
-function Fail($m) { Write-Host "Ошибка: $m" -ForegroundColor Red; Write-Host "##ERROR $m"; exit 1 }
-# метки для графического установщика: ##STEP n/всего ключ, ##DONE версия|uninstall, ##ERROR текст
+function Fail($m, $code, $arg) {
+  Write-Host "Ошибка: $m" -ForegroundColor Red
+  $tag = if ($code) { if ($arg) { "$code|$arg" } else { $code } } else { $m }
+  Write-Host "##ERROR $tag"; exit 1
+}
+# метки для графического установщика: ##STEP n/всего ключ, ##DONE версия|uninstall, ##ERROR код[|аргумент]
+# (текст по коду берёт setup\Strings.cs, ключ "e.<код>"; без кода показывается сам текст)
 function Step($n, $total, $key) { Write-Host "##STEP $n/$total $key" }
 function Ask($q) {
   if ($Yes -or $Update) { Write-Host "$q [да]"; return $true }
@@ -64,7 +69,6 @@ function Find-Zen {
   if (Test-Path 'C:\Program Files\Zen Browser\zen.exe') { return 'C:\Program Files\Zen Browser' }
   $null
 }
-function Get-PrefLines($lines) { $lines | Where-Object { $_ -match '^\s*user_pref\(' } }
 function Pref-Re($name) { '^\s*user_pref\("' + [regex]::Escape($name) + '",' }
 function Get-PrefRaw($lines, $name) {
   $m = @($lines | Where-Object { $_ -match (Pref-Re $name) })
@@ -102,12 +106,10 @@ if ($Probe) {
   }
   $cur = $null
   if ($ProfileDir) { $cur = $ProfileDir } else { $c = @($plist | Where-Object isDefault); if ($c) { $cur = $c[0].dir } }
-  $ver = $null; $running = $false; $hitsP = @(); $sine = $false
+  $ver = $null; $hitsP = @(); $sine = $false
   if ($cur -and (Test-Path $cur)) {
     $sf = Join-Path $cur 'luminoctis-install.json'
     if (Test-Path $sf) { try { $ver = ([IO.File]::ReadAllText($sf) | ConvertFrom-Json).version } catch {} }
-    $lk = Join-Path $cur 'parent.lock'
-    if (Test-Path $lk) { try { [IO.File]::Open($lk, 'Open', 'ReadWrite', 'None').Close() } catch { $running = $true } }
     $mf = Join-Path $cur 'zen-themes.json'
     if (Test-Path $mf) {
       try {
@@ -122,7 +124,7 @@ if ($Probe) {
     $pd = if ($zd -match '\\scoop\\apps\\') { ($zd -replace '\\apps\\.*$', '') + '\persist\zen-browser\addition' } else { $zd }
     foreach ($cj in (Join-Path $zd 'config.js'), (Join-Path $pd 'config.js')) { if ((Test-Path $cj) -and (Select-String -Path $cj -Pattern 'sine' -Quiet)) { $sine = $true } }
   }
-  [ordered]@{ zenDir = $zd; profile = $cur; profiles = $plist; installedVersion = $ver; zenRunning = $running; overlapMods = $hitsP; sine = $sine } | ConvertTo-Json -Compress -Depth 5
+  [ordered]@{ zenDir = $zd; profile = $cur; profiles = $plist; installedVersion = $ver; overlapMods = $hitsP; sine = $sine } | ConvertTo-Json -Compress -Depth 5
   exit 0
 }
 
@@ -130,7 +132,7 @@ if ($Probe) {
 $total = if ($Uninstall) { 3 } else { 6 }
 Step 1 $total 'zen'
 if (-not $ZenDir) { $ZenDir = Find-Zen }
-if (-not $ZenDir -or -not (Test-Path (Join-Path $ZenDir 'zen.exe'))) { Fail 'Zen не найден. Укажите папку: install.cmd -ZenDir "C:\...\Zen Browser"' }
+if (-not $ZenDir -or -not (Test-Path (Join-Path $ZenDir 'zen.exe'))) { Fail 'Zen не найден. Укажите папку: install.cmd -ZenDir "C:\...\Zen Browser"' 'zen' }
 $scoop = $ZenDir -match '\\scoop\\apps\\'
 $progDir = $ZenDir
 if ($scoop) {
@@ -143,11 +145,11 @@ Write-Host "Zen: $ZenDir"
 Step 2 $total 'profile'
 $zenData = Join-Path $env:APPDATA 'zen'
 if ($ProfileDir) {
-  if (-not (Test-Path $ProfileDir)) { Fail "Профиль не найден: $ProfileDir" }
+  if (-not (Test-Path $ProfileDir)) { Fail "Профиль не найден: $ProfileDir" 'noprofdir' $ProfileDir }
   $profile = (Resolve-Path $ProfileDir).Path
 } else {
   $ini = Join-Path $zenData 'profiles.ini'
-  if (-not (Test-Path $ini)) { Fail "Не найден $ini. Запустите Zen хотя бы раз." }
+  if (-not (Test-Path $ini)) { Fail "Не найден $ini. Запустите Zen хотя бы раз." 'noini' }
   $profs = @(Read-Ini $ini | Where-Object { $_.Path } | ForEach-Object {
     $d = if ($_.IsRelative -eq '1') { Join-Path $zenData ($_.Path -replace '/', '\') } else { $_.Path }
     [pscustomobject]@{ Name = $_.Name; Dir = $d }
@@ -163,21 +165,21 @@ if ($ProfileDir) {
     if (Ask 'Ставить в него?') { $profile = $defs[0] }
   }
   if (-not $profile) {
-    if (-not $profs) { Fail 'Профили не найдены.' }
-    if ($Yes -or $Update) { Fail 'Профиль не выбран: укажите -ProfileDir.' }
+    if (-not $profs) { Fail 'Профили не найдены.' 'noprofs' }
+    if ($Yes -or $Update) { Fail 'Профиль не выбран: укажите -ProfileDir.' 'nosel' }
     for ($i = 0; $i -lt $profs.Count; $i++) { Write-Host ("  {0}. {1}  ({2})" -f ($i + 1), $profs[$i].Name, $profs[$i].Dir) }
     $n = [int](Read-Host 'Номер профиля')
     if ($n -lt 1 -or $n -gt $profs.Count) { Fail 'Нет такого номера.' }
     $profile = $profs[$n - 1].Dir
   }
-  if (-not (Test-Path $profile)) { Fail "Профиль не найден: $profile" }
+  if (-not (Test-Path $profile)) { Fail "Профиль не найден: $profile" 'noprofdir' $profile }
 }
 Write-Host "Профиль: $profile"
 
 # Профиль занят? (Zen держит parent.lock открытым)
 $lock = Join-Path $profile 'parent.lock'
 if (Test-Path $lock) {
-  try { [IO.File]::Open($lock, 'Open', 'ReadWrite', 'None').Close() } catch { Fail 'Профиль занят. Закройте Zen и запустите снова.' }
+  try { [IO.File]::Open($lock, 'Open', 'ReadWrite', 'None').Close() } catch { Fail 'Профиль занят. Закройте Zen и запустите снова.' 'busy' }
 }
 
 $chrome = Join-Path $profile 'chrome'
@@ -191,7 +193,7 @@ $cacheDirs = @((Join-Path $profile 'startupCache'), (Join-Path $env:LOCALAPPDATA
 # ===== Удаление =====
 if ($Uninstall) {
   Step 3 $total 'uninstall'
-  if (-not $state) { Fail 'Следов установки нет (luminoctis-install.json не найден).' }
+  if (-not $state) { Fail 'Следов установки нет (luminoctis-install.json не найден).' 'nostate' }
   foreach ($f in @($state.jsFiles)) { Remove-Item (Join-Path $chrome "JS\$f") -Force -ErrorAction SilentlyContinue }
   foreach ($d in 'luminoctis', 'resources\luminoctis', 'zen-themes\luminoctis') { Remove-Item (Join-Path $chrome $d) -Recurse -Force -ErrorAction SilentlyContinue }
   Remove-IfEmpty (Join-Path $chrome 'resources'); Remove-IfEmpty (Join-Path $chrome 'zen-themes'); Remove-IfEmpty (Join-Path $chrome 'JS')
@@ -220,9 +222,9 @@ if ($Uninstall) {
 }
 
 # --- 3. Sine ---
-if (Test-Path (Join-Path $chrome 'sine-mods')) { Fail 'Найден Sine (chrome\sine-mods). Luminoctis с ним не совместим: Sine подменяет загрузчик скриптов. Удалите Sine или используйте другой профиль.' }
+if (Test-Path (Join-Path $chrome 'sine-mods')) { Fail 'Найден Sine (chrome\sine-mods). Luminoctis с ним не совместим: Sine подменяет загрузчик скриптов. Удалите Sine или используйте другой профиль.' 'sine' }
 foreach ($cj in (Join-Path $ZenDir 'config.js'), (Join-Path $progDir 'config.js')) {
-  if ((Test-Path $cj) -and (Select-String -Path $cj -Pattern 'sine' -Quiet)) { Fail "В $cj упоминается Sine. Luminoctis с ним не совместим." }
+  if ((Test-Path $cj) -and (Select-String -Path $cj -Pattern 'sine' -Quiet)) { Fail "В $cj упоминается Sine. Luminoctis с ним не совместим." 'sine' }
 }
 
 # --- 4. Программная часть fx-autoconfig ---
@@ -232,12 +234,12 @@ $pairs = @(
   @{ S = (Join-Path $srcProg 'config.js'); T = (Join-Path $progDir 'config.js') },
   @{ S = (Join-Path $srcProg 'defaults\pref\config-prefs.js'); T = (Join-Path $progDir 'defaults\pref\config-prefs.js') }
 )
-foreach ($p in $pairs) { if (-not (Test-Path $p.S)) { Fail "Нет файла установщика: $($p.S)" } }
+foreach ($p in $pairs) { if (-not (Test-Path $p.S)) { Fail "Нет файла установщика: $($p.S)" 'nosrc' $p.S } }
 $programByUs = [bool]($state -and $state.programInstalledByUs)
 if (-not ($pairs | Where-Object { -not (Same $_.S $_.T) })) {
   Write-Host 'fx-autoconfig в папке Zen уже установлен — пропускаю.'
 } else {
-  if ((Test-Path $pairs[0].T) -and -not (Ask 'В папке Zen уже есть другой config.js. Заменить?')) { Fail 'Без fx-autoconfig скрипты мода не работают.' }
+  if ((Test-Path $pairs[0].T) -and -not (Ask 'В папке Zen уже есть другой config.js. Заменить?')) { Fail 'Без fx-autoconfig скрипты мода не работают.' 'noac' }
   Write-Host 'Ставлю fx-autoconfig в папку Zen (нужны права администратора)...'
   $q = { param($s) $s.Replace("'", "''") }
   $cmd = "New-Item -ItemType Directory -Force '$(& $q (Split-Path $pairs[1].T -Parent))' | Out-Null; " +
@@ -246,9 +248,9 @@ if (-not ($pairs | Where-Object { -not (Same $_.S $_.T) })) {
   if ($scoop -or $isAdmin) { Invoke-Expression $cmd }
   else {
     $enc = [Convert]::ToBase64String([Text.Encoding]::Unicode.GetBytes($cmd))
-    try { Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc } catch { Fail 'Запрос прав администратора отклонён.' }
+    try { Start-Process powershell -Verb RunAs -Wait -ArgumentList '-NoProfile', '-ExecutionPolicy', 'Bypass', '-EncodedCommand', $enc } catch { Fail 'Запрос прав администратора отклонён.' 'uac' }
   }
-  if ($pairs | Where-Object { -not (Same $_.S $_.T) }) { Fail 'Не удалось скопировать fx-autoconfig в папку Zen.' }
+  if ($pairs | Where-Object { -not (Same $_.S $_.T) }) { Fail 'Не удалось скопировать fx-autoconfig в папку Zen.' 'copyfail' }
   $programByUs = $true
 }
 

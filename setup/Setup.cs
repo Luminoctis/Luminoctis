@@ -1,11 +1,12 @@
 // Luminoctis-Setup: графический установщик. Вся логика установки — installer\install.ps1 (внутри ресурса payload.zip);
 // здесь только окно, зонды (-Probe) и разбор меток ##STEP/##DONE/##ERROR. Сборка: dev\build-setup.ps1.
-// Тестовые ключи: --profile <папка> (профиль вместо основного), --shot <экран> <png> [--lang ru|en] (снимок без показа окна),
-// --auto install|uninstall (без кликов, только вместе с --profile; итог в --log <файл>, код выхода 0/1), --lang ru|en.
+// Строки и языки — Strings.cs (10 языков, выбор в шапке окна; по умолчанию язык Windows).
+// Тестовые ключи: --profile <папка> (профиль вместо основного), --shot <экран> <png> [--lang <код>] (снимок без показа окна),
+// --auto install|uninstall (без кликов, только вместе с --profile; итог в --log <файл>, код выхода 0/1), --lang <код>,
+// --selfcheck <файл> (проверка словаря строк: все 10 языков есть у каждой строки; результат в файл, код выхода 0/1; зовёт build-setup.ps1).
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -28,78 +29,9 @@ class Prof { public string Name, Dir; public bool IsDefault; }
 class Mod { public string Id, Name; }
 class Probe {
   public string ZenDir, Profile, Installed;
-  public bool Running, Sine;
+  public bool Sine;
   public List<Prof> Profiles = new List<Prof>();
   public List<Mod> Mods = new List<Mod>();
-}
-
-static class Str {
-  static int L = CultureInfo.CurrentUICulture.TwoLetterISOLanguageName == "ru" ? 0 : 1;
-  public static void Lang(string l) { L = l == "ru" ? 0 : 1; }
-  public static bool Ru { get { return L == 0; } }
-  // ключ -> { русский, английский }
-  static readonly Dictionary<string, string[]> S = new Dictionary<string, string[]> {
-    {"app", new[]{"Установщик Luminoctis", "Luminoctis Setup"}},
-    {"w.desc", new[]{"Тёмное оформление Zen в стиле Tokyo Night: вкладки сверху, боковая рейка и своя стартовая страница.", "A Tokyo Night look for Zen: a top tab strip, a side rail and a start page of its own."}},
-    {"w.install", new[]{"Установить", "Install"}},
-    {"w.update", new[]{"Обновить до {0}", "Update to {0}"}},
-    {"w.reinstall", new[]{"Переустановить", "Reinstall"}},
-    {"w.uninstall", new[]{"Удалить", "Uninstall"}},
-    {"w.status", new[]{"Сейчас установлена версия {0}", "Installed version: {0}"}},
-    {"w.adv", new[]{"Дополнительно", "Advanced"}},
-    {"w.backups", new[]{"Где мои резервные копии", "Where are my backups"}},
-    {"w.profile", new[]{"Профиль Zen, в который ставить:", "Zen profile to install into:"}},
-    {"w.default", new[]{" · основной", " · default"}},
-    {"nobk.title", new[]{"Резервных копий пока нет", "No backups yet"}},
-    {"nobk.text", new[]{"Они появятся после установки: перед любыми изменениями установщик сохраняет ваши файлы.", "They appear after an install: Setup saves your files before changing anything."}},
-    {"ok", new[]{"Понятно", "OK"}},
-    {"cancel", new[]{"Отмена", "Cancel"}},
-    {"close", new[]{"Закрыть", "Close"}},
-    {"run.title", new[]{"Закройте Zen, чтобы продолжить", "Close Zen to continue"}},
-    {"run.text", new[]{"Пока Zen открыт, Luminoctis не установить. Закройте его, и установка продолжится сама.", "Luminoctis can't be installed while Zen is open. Close it and Setup will continue by itself."}},
-    {"run.btn", new[]{"Закрыть Zen за меня", "Close Zen for me"}},
-    {"runc.title", new[]{"Закрыть Zen?", "Close Zen?"}},
-    {"runc.text", new[]{"Zen закроется как обычно. Если он спросит про открытые вкладки, ответьте ему.", "Zen will close the usual way. If it asks about open tabs, just answer it."}},
-    {"runc.yes", new[]{"Закрыть Zen", "Close Zen"}},
-    {"mods.title", new[]{"Лишние моды", "Overlapping mods"}},
-    {"mods.text", new[]{"Эти моды делают то же, что Luminoctis, и могут мешать. Выключим их; при удалении Luminoctis они включатся обратно.", "These mods do the same as Luminoctis and can get in its way. We'll turn them off, and turn them back on if you uninstall Luminoctis."}},
-    {"mods.btn", new[]{"Продолжить", "Continue"}},
-    {"mods.tz", new[]{"Luminoctis полностью заменяет его функции, в том числе для Zen Internet.", "Luminoctis fully replaces what it does, including for Zen Internet."}},
-    {"p.check", new[]{"Проверяю…", "Checking…"}},
-    {"p.install", new[]{"Устанавливаю…", "Installing…"}},
-    {"p.uninstall", new[]{"Удаляю…", "Removing…"}},
-    {"step.zen", new[]{"Ищу Zen", "Looking for Zen"}},
-    {"step.profile", new[]{"Проверяю профиль", "Checking your profile"}},
-    {"step.program", new[]{"Готовлю Zen к модам", "Preparing Zen for mods"}},
-    {"step.backup", new[]{"Делаю резервную копию", "Making a backup"}},
-    {"step.files", new[]{"Копирую файлы мода", "Copying mod files"}},
-    {"step.prefs", new[]{"Настраиваю Zen", "Setting up Zen"}},
-    {"step.uninstall", new[]{"Убираю файлы мода", "Removing mod files"}},
-    {"done.title", new[]{"Готово!", "All done!"}},
-    {"done.install", new[]{"Luminoctis {0} установлен. Запустите Zen, и всё уже на месте.", "Luminoctis {0} is installed. Start Zen and it's all there."}},
-    {"done.uninstall", new[]{"Luminoctis удалён, всё вернули как было.", "Luminoctis is removed, everything is back as it was."}},
-    {"launch", new[]{"Запустить Zen", "Start Zen"}},
-    {"err.title", new[]{"Что-то пошло не так", "Something went wrong"}},
-    {"err.text", new[]{"Установка не закончилась. Ваши файлы в безопасности: копии лежат в папке профиля.", "Setup didn't finish. Your files are safe: copies are kept in your profile folder."}},
-    {"err.reason", new[]{"Причина: {0}", "Reason: {0}"}},
-    {"err.details", new[]{"Подробности", "Details"}},
-    {"err.copy", new[]{"Скопировать лог", "Copy log"}},
-    {"err.copied", new[]{"Скопировано", "Copied"}},
-    {"err.retry", new[]{"Повторить", "Try again"}},
-    {"sine.title", new[]{"Найден Sine", "Sine detected"}},
-    {"sine.text", new[]{"У вас стоит Sine: он по-своему загружает моды и не дружит с обычной установкой Luminoctis. Установите Luminoctis через Sine, и всё заработает.", "You have Sine installed. It loads mods its own way and doesn't mix with a regular Luminoctis install. Install Luminoctis through Sine instead."}},
-    {"nozen.title", new[]{"Zen не найден", "Zen not found"}},
-    {"nozen.text", new[]{"Не получилось найти Zen Browser на этом компьютере. Если он стоит в необычном месте, укажите папку, где лежит zen.exe.", "Setup couldn't find Zen Browser on this computer. If it lives somewhere unusual, point to the folder with zen.exe."}},
-    {"nozen.pick", new[]{"Указать папку Zen", "Choose Zen folder"}},
-    {"nozen.get", new[]{"Скачать Zen: zen-browser.app", "Get Zen: zen-browser.app"}},
-    {"nozen.bad", new[]{"В этой папке нет zen.exe. Выберите папку, где лежит zen.exe.", "There is no zen.exe in that folder. Choose the folder that contains zen.exe."}},
-    {"noprof.title", new[]{"Сначала запустите Zen", "Start Zen first"}},
-    {"noprof.text", new[]{"Zen ещё ни разу не запускался, поэтому профиля нет. Откройте Zen один раз, закройте и запустите установщик снова.", "Zen has never been started, so there is no profile yet. Open Zen once, close it and run Setup again."}},
-    {"un.title", new[]{"Удалить Luminoctis?", "Uninstall Luminoctis?"}},
-    {"un.text", new[]{"Файлы мода уберём, настройки Zen и выключенные моды вернём как были.", "Mod files will be removed; your Zen settings and turned-off mods will be restored."}},
-    {"un.yes", new[]{"Удалить", "Uninstall"}},
-  };
-  public static string T(string k, params object[] a) { var s = S[k][L]; return a.Length == 0 ? s : string.Format(s, a); }
 }
 
 class Ui {
@@ -111,6 +43,10 @@ class Ui {
   readonly StringBuilder log = new StringBuilder();
   Action infoP, infoS, infoL;
   Action confirmYes;
+  Action redraw;                        // перерисовка текущего экрана при смене языка
+  string[] ov = new string[4];         // ключи окна подтверждения: заголовок, текст, «да», «нет»
+  string pTitle, pStep;                // ключи заголовка и шага экрана хода (pTitle == null — «Luminoctis <версия>»)
+  bool relang;
   DispatcherTimer poll;
   FrameworkElement[] screens;
   bool busy;
@@ -125,7 +61,10 @@ class Ui {
   public void Build() {
     using (var s = Assembly.GetExecutingAssembly().GetManifestResourceStream("ui.xaml")) Root = (FrameworkElement)XamlReader.Load(s);
     screens = new[] { F<FrameworkElement>("ScWelcome"), F<FrameworkElement>("ScInfo"), F<FrameworkElement>("ScMods"), F<FrameworkElement>("ScProg") };
-    Tb("HTitle").Text = Str.T("app");
+    var cb = F<ComboBox>("Lang");
+    foreach (var n in Str.Names) cb.Items.Add(n);
+    cb.SelectedIndex = Str.Cur;
+    cb.SelectionChanged += (s, e) => { if (cb.SelectedIndex >= 0 && cb.SelectedIndex != Str.Cur) { Str.Cur = cb.SelectedIndex; ApplyLang(); } };
     F<UIElement>("Header").MouseLeftButtonDown += (s, e) => { if (Win != null && e.ButtonState == MouseButtonState.Pressed) Win.DragMove(); };
     Bt("BtnMin").Click += (s, e) => { if (Win != null) Win.WindowState = WindowState.Minimized; };
     Bt("BtnClose").Click += (s, e) => { if (Win != null) Win.Close(); };
@@ -135,24 +74,42 @@ class Ui {
     Bt("ICopy").Click += (s, e) => { try { Clipboard.SetText(log.ToString()); Bt("ICopy").Content = Str.T("err.copied"); } catch { } };
     Bt("ONo").Click += (s, e) => Vis("Overlay", false);
     Bt("OYes").Click += (s, e) => { Vis("Overlay", false); if (confirmYes != null) confirmYes(); };
-    Bt("WAdvLink").Content = Str.T("w.adv");
-    Bt("WBackups").Content = Str.T("w.backups");
     Bt("WAdvLink").Click += (s, e) => ToggleAdv();
     Bt("WBackups").Click += (s, e) => OpenBackups();
     Bt("WPrimary").Click += (s, e) => Go(false);
-    Bt("WSecondary").Click += (s, e) => Confirm(Str.T("un.title"), Str.T("un.text"), Str.T("un.yes"), Str.T("cancel"), () => Go(true));
-    Bt("MContinue").Content = Str.T("mods.btn");
+    Bt("WSecondary").Click += (s, e) => Confirm("un.title", "un.text", "un.yes", "cancel", () => Go(true));
     Bt("MContinue").Click += (s, e) => {
       var ch = F<StackPanel>("MList").Children.OfType<CheckBox>().Where(c => c.IsChecked == true).Select(c => (string)c.Tag).ToList();
       Run(false, ch);
     };
+    ApplyLang();
+  }
+
+  // ---------- Язык ----------
+  // шрифты с запасом под иероглифы; арабский есть в Segoe UI
+  static string Fonts(string code) { return code == "zh" ? "Segoe UI, Microsoft YaHei UI" : code == "ja" ? "Segoe UI, Yu Gothic UI, Meiryo UI" : "Segoe UI"; }
+
+  void ApplyLang() {
+    var code = Str.Codes[Str.Cur];
+    Root.FlowDirection = Str.Rtl ? FlowDirection.RightToLeft : FlowDirection.LeftToRight;
+    Root.Language = XmlLanguage.GetLanguage(code);
+    Root.SetValue(System.Windows.Documents.TextElement.FontFamilyProperty, new FontFamily(Fonts(code)));
+    Tb("HTitle").Text = Str.T("app");
+    Bt("WAdvLink").Content = Str.T("w.adv");
+    Bt("WBackups").Content = Str.T("w.backups");
+    Bt("MContinue").Content = Str.T("mods.btn");
     Tb("WAdvLabel").Text = Str.T("w.profile");
+    relang = true;
+    try {
+      if (redraw != null) redraw();
+      if (F<UIElement>("Overlay").Visibility == Visibility.Visible) ApplyOverlay();
+    } finally { relang = false; }
   }
 
   // ---------- Экраны ----------
   public void Show(FrameworkElement sc, bool anim = true) {
     foreach (var s in screens) s.Visibility = s == sc ? Visibility.Visible : Visibility.Collapsed;
-    if (anim && !Shot) {
+    if (anim && !Shot && !relang) {
       var tt = new TranslateTransform(0, 14);
       sc.RenderTransform = tt;
       sc.BeginAnimation(UIElement.OpacityProperty, new DoubleAnimation(0, 1, TimeSpan.FromMilliseconds(220)));
@@ -160,12 +117,18 @@ class Ui {
     } else { sc.BeginAnimation(UIElement.OpacityProperty, null); sc.Opacity = 1; sc.RenderTransform = null; }
   }
 
+  // аргументы — ключи строк (no == null: одна кнопка)
   public void Confirm(string title, string text, string yes, string no, Action onYes) {
-    Tb("OTitle").Text = title; Tb("OText").Text = text;
-    Bt("OYes").Content = yes; Bt("ONo").Content = no ?? "";
-    Vis("ONo", no != null);
+    ov = new[] { title, text, yes, no };
     confirmYes = onYes;
+    ApplyOverlay();
     Vis("Overlay", true);
+  }
+
+  void ApplyOverlay() {
+    Tb("OTitle").Text = Str.T(ov[0]); Tb("OText").Text = Str.T(ov[1]);
+    Bt("OYes").Content = Str.T(ov[2]); Bt("ONo").Content = ov[3] == null ? "" : Str.T(ov[3]);
+    Vis("ONo", ov[3] != null);
   }
 
   public void ShowInfo(string glyph, string color, string title, string text, string primary, Action onP, string secondary = null, Action onS = null, string link = null, Action onL = null) {
@@ -183,6 +146,7 @@ class Ui {
   void SetClose(bool on) { Bt("BtnClose").IsEnabled = on; }
 
   public void ShowWelcome() {
+    redraw = ShowWelcomeKeepAdv;
     var p = pr;
     var v = Ver(Version); var inst = Ver(p.Installed);
     Tb("WTitle").Text = "Luminoctis " + Version;
@@ -202,7 +166,10 @@ class Ui {
   void ToggleAdv() {
     var open = F<UIElement>("WAdv").Visibility != Visibility.Visible;
     Vis("WAdv", open); Vis("WLogo", !open); Vis("WDesc", !open);
-    if (!open) return;
+    if (open) FillProfiles();
+  }
+
+  void FillProfiles() {
     var box = F<StackPanel>("WProfiles"); box.Children.Clear();
     foreach (var pf in pr.Profiles) {
       var rb = new RadioButton { GroupName = "prof", Content = pf.Name + (pf.IsDefault ? Str.T("w.default") : ""), Tag = pf.Dir, IsChecked = Same(pf.Dir, profile), Style = (Style)Root.FindResource("Radio") };
@@ -214,7 +181,7 @@ class Ui {
   void OpenBackups() {
     var d = profile == null ? null : Path.Combine(profile, "luminoctis-backup");
     if (d != null && Directory.Exists(d)) Process.Start(new ProcessStartInfo("explorer.exe", "\"" + d + "\"") { UseShellExecute = true });
-    else Confirm(Str.T("nobk.title"), Str.T("nobk.text"), Str.T("ok"), null, null);
+    else Confirm("nobk.title", "nobk.text", "ok", null, null);
   }
 
   // ---------- Зонды и запуск PowerShell ----------
@@ -244,7 +211,7 @@ class Ui {
     var r = new Probe();
     Func<string, string> s = k => d.ContainsKey(k) ? d[k] as string : null;
     r.ZenDir = s("zenDir"); r.Profile = s("profile"); r.Installed = s("installedVersion");
-    r.Running = d["zenRunning"] is bool && (bool)d["zenRunning"]; r.Sine = d["sine"] is bool && (bool)d["sine"];
+    r.Sine = d["sine"] is bool && (bool)d["sine"];
     foreach (var o in (d["profiles"] as System.Collections.IEnumerable) ?? new object[0]) {
       var m = (Dictionary<string, object>)o;
       r.Profiles.Add(new Prof { Name = (string)m["name"], Dir = (string)m["dir"], IsDefault = m["isDefault"] is bool && (bool)m["isDefault"] });
@@ -265,7 +232,7 @@ class Ui {
 
   // ---------- Поток работы ----------
   public void Start() {
-    Tb("PTitle").Text = "Luminoctis " + Version; Tb("PStep").Text = Str.T("p.check");
+    Prog(null, "p.check");
     Vis("PBar", false); SetClose(true);
     Show(F<FrameworkElement>("ScProg"), false);
     if (!Shot) BeginProbe(Forced ? profile : null);
@@ -294,29 +261,39 @@ class Ui {
   }
 
   void ShowWelcomeKeepAdv() {
-    var p = pr;
     var open = F<UIElement>("WAdv").Visibility == Visibility.Visible;
     ShowWelcome();
-    if (open) { Vis("WAdv", true); Vis("WLogo", false); Vis("WDesc", false); }
+    if (open) { Vis("WAdv", true); Vis("WLogo", false); Vis("WDesc", false); FillProfiles(); }
   }
 
   void AfterProbe() {
     if (Auto) { AutoRun(); return; }
     if (pr.ZenDir == null) { ShowNoZen(); return; }
-    if (pr.Sine) { ShowInfo("S", "#bb9af7", Str.T("sine.title"), Str.T("sine.text"), Str.T("close"), () => Win.Close()); return; }
-    if (profile == null) { ShowInfo("Z", "#e0af68", Str.T("noprof.title"), Str.T("noprof.text"), Str.T("close"), () => Win.Close()); return; }
+    if (pr.Sine) { ShowSine(); return; }
+    if (profile == null) { ShowNoProf(); return; }
     ShowWelcome();
   }
 
-  void ShowNoZen(string msg = null) {
-    ShowInfo("?", "#e0af68", Str.T("nozen.title"), msg ?? Str.T("nozen.text"), Str.T("nozen.pick"), PickZen, null, null, Str.T("nozen.get"),
+  void ShowSine() {
+    redraw = ShowSine;
+    ShowInfo("S", "#bb9af7", Str.T("sine.title"), Str.T("sine.text"), Str.T("close"), () => Win.Close());
+  }
+
+  void ShowNoProf() {
+    redraw = ShowNoProf;
+    ShowInfo("Z", "#e0af68", Str.T("noprof.title"), Str.T("noprof.text"), Str.T("close"), () => Win.Close());
+  }
+
+  void ShowNoZen(string textKey = "nozen.text") {
+    redraw = () => ShowNoZen(textKey);
+    ShowInfo("?", "#e0af68", Str.T("nozen.title"), Str.T(textKey), Str.T("nozen.pick"), PickZen, null, null, Str.T("nozen.get"),
       () => Process.Start(new ProcessStartInfo("https://zen-browser.app") { UseShellExecute = true }));
   }
 
   void PickZen() {
     using (var d = new System.Windows.Forms.FolderBrowserDialog()) {
       if (d.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-      if (!File.Exists(Path.Combine(d.SelectedPath, "zen.exe"))) { ShowNoZen(Str.T("nozen.bad")); return; }
+      if (!File.Exists(Path.Combine(d.SelectedPath, "zen.exe"))) { ShowNoZen("nozen.bad"); return; }
       ZenOverride = d.SelectedPath; Start();
     }
   }
@@ -334,8 +311,9 @@ class Ui {
   }
 
   void ShowZenRunning() {
+    redraw = ShowZenRunning;
     ShowInfo("Z", "#e0af68", Str.T("run.title"), Str.T("run.text"), Str.T("run.btn"),
-      () => Confirm(Str.T("runc.title"), Str.T("runc.text"), Str.T("runc.yes"), Str.T("cancel"), CloseZen), Str.T("cancel"), () => { StopPoll(); ShowWelcome(); });
+      () => Confirm("runc.title", "runc.text", "runc.yes", "cancel", CloseZen), Str.T("cancel"), () => { StopPoll(); ShowWelcome(); });
     StopPoll();
     poll = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1000) };
     poll.Tick += (s, e) => { if (!Locked(profile)) { StopPoll(); Proceed(); } };
@@ -363,10 +341,13 @@ class Ui {
   }
 
   void ShowMods() {
+    redraw = ShowMods;
     Tb("MTitle").Text = Str.T("mods.title"); Tb("MText").Text = Str.T("mods.text");
-    var l = F<StackPanel>("MList"); l.Children.Clear();
+    var l = F<StackPanel>("MList");
+    var off = l.Children.OfType<CheckBox>().Where(c => c.IsChecked != true).Select(c => (string)c.Tag).ToList(); // снятые галочки переживают смену языка
+    l.Children.Clear();
     foreach (var m in pr.Mods) {
-      l.Children.Add(new CheckBox { Content = m.Name, Tag = m.Id, IsChecked = true, Style = (Style)Root.FindResource("Check") });
+      l.Children.Add(new CheckBox { Content = m.Name, Tag = m.Id, IsChecked = !off.Contains(m.Id), Style = (Style)Root.FindResource("Check") });
       if (m.Name.IndexOf("Transparent Zen", StringComparison.OrdinalIgnoreCase) >= 0)
         l.Children.Add(new TextBlock { Text = Str.T("mods.tz"), FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(34, -4, 0, 6),
           Foreground = (Brush)new BrushConverter().ConvertFromString("#7982a9") });
@@ -381,7 +362,7 @@ class Ui {
 
   void Run(bool un, List<string> disable) {
     busy = true; uninstall = un; log.Clear();
-    Tb("PTitle").Text = Str.T(un ? "p.uninstall" : "p.install"); Tb("PStep").Text = Str.T("step.zen");
+    Prog(un ? "p.uninstall" : "p.install", "step.zen");
     Vis("PBar", true); F<ProgressBar>("PBar").BeginAnimation(RangeBase.ValueProperty, null); F<ProgressBar>("PBar").Value = 0;
     SetClose(false);
     Show(F<FrameworkElement>("ScProg"));
@@ -397,7 +378,7 @@ class Ui {
       if (m.Success) {
         int n = int.Parse(m.Groups[1].Value), tot = int.Parse(m.Groups[2].Value); var key = m.Groups[3].Value.Trim();
         Root.Dispatcher.BeginInvoke(new Action(() => {
-          try { Tb("PStep").Text = Str.T("step." + key); } catch { Tb("PStep").Text = key; }
+          if (Str.Has("step." + key)) Prog(pTitle, "step." + key);
           SetProgress(100.0 * (n - 1) / tot + 100.0 / tot * 0.5);
         }));
       }
@@ -418,8 +399,16 @@ class Ui {
     }, ui);
   }
 
+  void Prog(string title, string step) {
+    pTitle = title; pStep = step; redraw = () => Prog(pTitle, pStep);
+    Tb("PTitle").Text = title == null ? "Luminoctis " + Version : Str.T(title);
+    Tb("PTitle").FlowDirection = title == null ? FlowDirection.LeftToRight : Root.FlowDirection; // имя с версией не должно «переворачиваться» в арабском
+    Tb("PStep").Text = Str.T(step);
+  }
+
   void DoneScreen(string done) {
     if (Auto) { Finish(true, "ok " + done); return; }
+    redraw = () => DoneScreen(done);
     if (uninstall) ShowInfo("✓", "#9ece6a", Str.T("done.title"), Str.T("done.uninstall"), Str.T("close"), () => Win.Close());
     else ShowInfo("✓", "#9ece6a", Str.T("done.title"), Str.T("done.install", done), Str.T("launch"), LaunchZen, Str.T("close"), () => Win.Close());
   }
@@ -432,10 +421,18 @@ class Ui {
     Win.Close();
   }
 
+  // install.ps1 шлёт «##ERROR код» или «##ERROR код|аргумент»; текст берём из словаря ("e."+код), неизвестное показываем как есть
+  static string Reason(string err) {
+    var p = err.Split(new[] { '|' }, 2);
+    if (!Str.Has("e." + p[0])) return err;
+    return p.Length > 1 ? Str.T("e." + p[0], p[1]) : Str.T("e." + p[0]);
+  }
+
   void FailScreen(string err, string where) {
     busy = false;
     if (Auto) { Finish(false, "error " + err + "\n" + log); return; }
-    var text = Str.T("err.text") + (string.IsNullOrEmpty(err) ? "" : "\n\n" + Str.T("err.reason", err));
+    redraw = () => FailScreen(err, where);
+    var text = Str.T("err.text") + (string.IsNullOrEmpty(err) ? "" : "\n\n" + Str.T("err.reason", Reason(err)));
     ShowInfo("!", "#f7768e", Str.T("err.title"), text, Str.T("err.retry"), () => { if (where == "probe") Start(); else if (pr != null) ShowWelcome(); else Start(); }, Str.T("close"), () => Win.Close(), Str.T("err.details"), () => {
       Vis("IDetails", true); Vis("IIcon", false); Vis("ILink", false); Vis("ISecondary", false);
       F<TextBox>("ILog").Text = log.Length > 0 ? log.ToString() : "(" + where + ")";
@@ -465,8 +462,8 @@ class Ui {
     profile = pr.Profile;
     pr.Mods.Add(new Mod { Id = "a", Name = "Transparent Zen" }); pr.Mods.Add(new Mod { Id = "b", Name = "Sidebar Expand on Hover" });
     log.Clear();
-    log.AppendLine("Zen: C:\\Program Files\\Zen Browser"); log.AppendLine("##STEP 2/6 profile"); log.AppendLine("Профиль: " + profile);
-    log.AppendLine("Ошибка: Профиль занят. Закройте Zen и запустите снова."); log.AppendLine("##ERROR Профиль занят. Закройте Zen и запустите снова.");
+    log.AppendLine("Zen: C:\\Program Files\\Zen Browser"); log.AppendLine("##STEP 2/6 profile"); log.AppendLine("Profile: " + profile);
+    log.AppendLine("Error: the profile is in use."); log.AppendLine("##ERROR busy");
     Start(); // ставит экран «Проверяю…», дальше перекрываем нужным
     switch (name) {
       case "welcome-fresh": ShowWelcome(); break;
@@ -474,15 +471,15 @@ class Ui {
       case "welcome-advanced": pr.Installed = "0.4.0"; ShowWelcome(); ToggleAdv(); break;
       case "zen-running": ShowZenRunning(); StopPoll(); break;
       case "mods": ShowMods(); break;
-      case "progress": Tb("PTitle").Text = Str.T("p.install"); Tb("PStep").Text = Str.T("step.files"); Vis("PBar", true); F<ProgressBar>("PBar").Value = 66; Show(F<FrameworkElement>("ScProg"), false); break;
+      case "progress": Prog("p.install", "step.files"); Vis("PBar", true); F<ProgressBar>("PBar").Value = 66; Show(F<FrameworkElement>("ScProg"), false); break;
       case "done": DoneScreen("0.4.0"); break;
-      case "error": FailScreen("Профиль занят. Закройте Zen и запустите снова.", "run"); break;
-      case "error-details": FailScreen("Профиль занят. Закройте Zen и запустите снова.", "run"); infoL(); break;
-      case "uninstall-confirm": pr.Installed = "0.4.0"; ShowWelcome(); Confirm(Str.T("un.title"), Str.T("un.text"), Str.T("un.yes"), Str.T("cancel"), null); break;
+      case "error": FailScreen("busy", "run"); break;
+      case "error-details": FailScreen("busy", "run"); infoL(); break;
+      case "uninstall-confirm": pr.Installed = "0.4.0"; ShowWelcome(); Confirm("un.title", "un.text", "un.yes", "cancel", null); break;
       case "uninstall-done": uninstall = true; DoneScreen("uninstall"); break;
       case "sine": pr.Sine = true; AfterProbe(); break;
       case "nozen": ShowNoZen(); break;
-      case "noprofile": ShowInfo("Z", "#e0af68", Str.T("noprof.title"), Str.T("noprof.text"), Str.T("close"), null); break;
+      case "noprofile": ShowNoProf(); break;
       default: throw new Exception("unknown screen " + name);
     }
   }
@@ -516,6 +513,13 @@ static class Program {
     using (var f = File.Create(path)) enc.Save(f);
   }
 
+  // winexe не печатает в консоль, поэтому итог пишем в файл; сборка (dev\build-setup.ps1) читает код выхода
+  static int SelfCheck(string outFile) {
+    var bad = Str.Check();
+    File.WriteAllText(outFile, bad == null ? "ok " + Str.Count + " strings x " + Str.Codes.Length + " languages" : bad, new UTF8Encoding(false));
+    return bad == null ? 0 : 1;
+  }
+
   [STAThread]
   static int Main(string[] a) {
     string profile = null, shot = null, shotOut = null, auto = null, logf = null;
@@ -525,7 +529,8 @@ static class Program {
         case "--shot": shot = a[++i]; shotOut = a[++i]; break;
         case "--auto": auto = a[++i]; break;
         case "--log": logf = a[++i]; break;
-        case "--lang": Str.Lang(a[++i]); break;
+        case "--lang": Str.Cur = Str.Index(a[++i]); break;
+        case "--selfcheck": return SelfCheck(a[++i]);
       }
     }
     if (auto != null && (profile == null || (auto != "install" && auto != "uninstall"))) return 2; // автотест только на указанном профиле

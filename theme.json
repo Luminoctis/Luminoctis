@@ -65,6 +65,9 @@
     "js/lumi-keys.sys.mjs": {
       "name": "lumi-keys"
     },
+    "js/lumi-media-child.sys.mjs": {
+      "name": "lumi-media-child"
+    },
     "js/lumi-notes-capture.uc.js": {
       "include": [
         "chrome://browser/content/browser.xhtml"

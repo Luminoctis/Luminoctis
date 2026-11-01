@@ -22,6 +22,8 @@
   const SETTINGS_URL = pageUrl("settings/settings.html");
   let settings;
   const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches; // «уменьшить анимацию» — общая для рейки и полосы
+  // [lumi-settings-open] на корне: сайт, адресная строка и полоса вкладок размыты под панелью (chrome.css, раздел 10)
+  const syncSettingsFlag = () => document.documentElement.toggleAttribute("lumi-settings-open", !!settings && !settings.hidden);
   window.luminoctis = {
     // tab — раздел (sidebar, look, tabs…)
     openSettings(tab) {
@@ -43,9 +45,11 @@
         settings.hidden = false;
       }
       settings.firstChild.focus(); // чтобы Esc сразу закрывал
+      syncSettingsFlag();
     },
     closeSettings() {
       if (settings) settings.hidden = true;
+      syncSettingsFlag();
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
     pins: pinTabs, addPin, pinTab, movePin, unpin, showPin, hidePin, migratePins, unloadIdleTabs,
@@ -104,6 +108,7 @@
     initWorkspaces(rail);
     initPins(rail, pins);
     initPlayers(players);
+    initTaskDot(logo);
     initRailMenu(rail);
     setInterval(unloadIdleTabs, 60000);
     gZenWorkspaces.promiseInitialized
@@ -248,7 +253,7 @@
   // у рейки, а прежняя вкладка остаётся видна под ним, как фон у Glance Zen (deck-selected + zenModeActive).
   // Клик мимо — снова выбрана прежняя вкладка, закреп остаётся загруженным. «Открыть во вкладке» — закреп во весь экран.
   let shown = null; // { pin, prev, mini }: выбранный нами закреп, вкладка под ним, окошком ли он
-  let frame, backdrop, keepBehind;
+  let frame, backdrop, grip, keepBehind;
   const pinButtons = new WeakMap(); // вкладка закрепа -> плитка в рейке
   const panelOf = tab => tab?.linkedBrowser?.closest(".browserSidebarContainer");
 
@@ -261,7 +266,7 @@
     const cur = shown;
     const fade = (el, ms, easing, shift) => el.animate(
       [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }], { duration: ms, easing, fill: "forwards" });
-    const anims = [fade(backdrop, 200, "cubic-bezier(0.4, 0, 1, 1)"), fade(frame, 200, "cubic-bezier(0.4, 0, 1, 1)", true)];
+    const anims = [fade(backdrop, 200, "cubic-bezier(0.4, 0, 1, 1)"), fade(frame, 200, "cubic-bezier(0.4, 0, 1, 1)", true), fade(grip, 200, "cubic-bezier(0.4, 0, 1, 1)", true)];
     if (withPanel && panelOf(cur.pin)) anims.push(fade(panelOf(cur.pin), 200, "cubic-bezier(0.4, 0, 1, 1)", true));
     await Promise.allSettled(anims.map(a => a.finished));
     leaving = false;
@@ -289,7 +294,8 @@
       keepBehind.observe(behind, { attributeFilter: ["class"] });
     }
     panelOf(pin)?.classList.add("lumi-pin-window");
-    frame.hidden = backdrop.hidden = false;
+    frame.hidden = backdrop.hidden = grip.hidden = false;
+    applyWidth(pin);
     updateFrame();
     gBrowser.selectedBrowser.focus(); // клавиатура — сразу сайту закрепа, а не плитке рейки
   }
@@ -321,7 +327,8 @@
     shown = null;
     keepBehind?.disconnect();
     keepBehind = null;
-    frame.hidden = backdrop.hidden = true;
+    frame.hidden = backdrop.hidden = grip.hidden = true;
+    tabbox().style.removeProperty("--lumi-pin-w");
     const win = panelOf(pin);
     win?.classList.remove("lumi-pin-window");
     if (!pin.selected) win?.classList.remove("deck-selected");
@@ -340,6 +347,42 @@
     frame.setAttribute("aria-label", shown.pin.label);
   }
 
+  // Ширина окошка каждого закрепа запоминается отдельно: pref luminoctis.pins.widths = {ключ: px}. Ключ — id вкладки Essentials (Zen хранит его между
+  // запусками), запасной — первоначальный адрес закрепа. Нет записи — ширина по умолчанию (--lumi-pin-w в chrome.css).
+  const WIDTHS = "luminoctis.pins.widths", MIN_W = 360;
+  const tabbox = () => document.getElementById("tabbrowser-tabbox");
+  const pinKey = tab => tab.id || tab._zenPinnedInitialState?.entry?.url || pinURL(tab);
+  const widths = () => { try { return JSON.parse(Services.prefs.getStringPref(WIDTHS, "{}")) || {}; } catch { return {}; } };
+  const maxWidth = () => Math.max(MIN_W, tabbox().getBoundingClientRect().width - 24);
+  function applyWidth(pin) {
+    const w = widths()[pinKey(pin)];
+    if (w > 0) tabbox().style.setProperty("--lumi-pin-w", Math.min(Math.max(w, MIN_W), maxWidth()) + "px");
+    else tabbox().style.removeProperty("--lumi-pin-w");
+  }
+  // тяжение за правый край: на время тяжения поверх всего окна прозрачный щит, иначе сайт (другой процесс) съест мышь
+  function startResize(event) {
+    const cur = shown?.pin;
+    if (!cur || event.button) return;
+    event.preventDefault();
+    const box = tabbox(), shield = h("div", "", { id: "lumi-pin-shield" });
+    grip.setAttribute("dragging", "");
+    document.documentElement.append(shield);
+    let w = frame.getBoundingClientRect().width;
+    const move = e => {
+      w = Math.round(Math.min(Math.max(e.clientX - box.getBoundingClientRect().left - 12, MIN_W), maxWidth()));
+      box.style.setProperty("--lumi-pin-w", w + "px");
+    };
+    const up = () => {
+      shield.remove();
+      grip.removeAttribute("dragging");
+      shield.removeEventListener("mousemove", move);
+      shield.removeEventListener("mouseup", up);
+      Services.prefs.setStringPref(WIDTHS, JSON.stringify({ ...widths(), [pinKey(cur)]: w }));
+    };
+    shield.addEventListener("mousemove", move);
+    shield.addEventListener("mouseup", up);
+  }
+
   function initPinWindow() {
     // в #tabbrowser-tabbox: панели вкладок — его слои, иначе окошко не встало бы над затемнением
     backdrop = h("div", "", { id: "lumi-pin-backdrop", hidden: true });
@@ -351,7 +394,9 @@
     const head = h("div", "lumi-pin-head");
     head.append(h("img", "", { alt: "" }), h("span", "lumi-pin-title"), full);
     frame.append(head);
-    document.getElementById("tabbrowser-tabbox").append(backdrop, frame);
+    grip = h("div", "", { id: "lumi-pin-grip", hidden: true });
+    grip.addEventListener("mousedown", startResize);
+    tabbox().append(backdrop, frame, grip);
 
     // выбрали другую вкладку (полоса, Ctrl+Tab, смена пространства…) — окошка больше нет
     window.addEventListener("TabSelect", () => {
@@ -578,6 +623,58 @@
     }
   }
 
+  // ---------- Точка задач на «L»: жёлтая — есть невыполненная задача со сроком сегодня, красная — срок прошёл (красная главнее) ----------
+  // Листы LumiNotes читаем только на чтение (home/notes-md.mjs + home/store.js; readLayout не зовём — он создаёт файлы). Пересчёт: старт, смена папки данных,
+  // уведомления об изменении листов, полночь. Частые события склеиваются (не чаще раза в 1,5 с).
+  function initTaskDot(logo) {
+    const notes = ChromeUtils.importESModule(pageUrl("home/notes-md.mjs"));
+    const store = ChromeUtils.importESModule(pageUrl("home/store.js"));
+    const pad = n => String(n).padStart(2, "0");
+    const dayNow = () => { const d = new Date(); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+    let state = "", queued = null, running = false, again = false;
+    const scan = (items, today) => items.reduce((acc, it) => {
+      const own = it.check === false && it.due ? (it.due < today ? "late" : it.due == today ? "today" : "") : "";
+      const kids = scan(it.children ?? [], today);
+      return acc == "late" || own == "late" || kids == "late" ? "late" : acc || own || kids;
+    }, "");
+    async function recalc() {
+      if (running) return void (again = true);
+      running = true;
+      try {
+        const today = dayNow();
+        let next = "";
+        for (const file of (await store.list(notes.DIR)).filter(f => /\.md$/i.test(f))) {
+          const kind = scan(await notes.readSheet(file.slice(0, -3)), today);
+          if (kind == "late") { next = kind; break; }
+          next ||= kind;
+        }
+        if (next != state) {
+          state = next;
+          if (next) logo.setAttribute("lumi-tasks", next);
+          else logo.removeAttribute("lumi-tasks");
+        }
+      } catch (err) { console.error("LumiNotes: точка задач:", err); }
+      running = false;
+      if (again) { again = false; schedule(); }
+    }
+    function schedule() {
+      queued ??= setTimeout(() => { queued = null; recalc(); }, 1500);
+    }
+    const observer = { observe: schedule };
+    for (const topic of ["lumi-notes-saved", notes.CHANGED]) Services.obs.addObserver(observer, topic);
+    Services.prefs.addObserver(store.PREF, schedule);
+    window.addEventListener("unload", () => {
+      for (const topic of ["lumi-notes-saved", notes.CHANGED]) Services.obs.removeObserver(observer, topic);
+      Services.prefs.removeObserver(store.PREF, schedule);
+    }, { once: true });
+    const midnight = () => {
+      const d = new Date();
+      setTimeout(() => { recalc(); midnight(); }, new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1, 0, 0, 2) - d);
+    };
+    midnight();
+    recalc();
+  }
+
   // ---------- Плееры: зеркало карточек родных медиа-контролов Zen ----------
   // Zen сам решает, когда карточка видна (играет, вкладка не спит и не выбрана);
   // мы показываем те же карточки плитками и жмём их же кнопки.
@@ -617,11 +714,37 @@
     box.addEventListener("mouseenter", () => {
       clearTimeout(closeTimer);
       box.setAttribute("open", "");
+      for (const tile of box.children) syncVolume(tile); // сайт мог сам поменять громкость — ползунок показывает актуальную
     });
     box.addEventListener("mouseleave", () => {
       clearTimeout(closeTimer);
       closeTimer = setTimeout(() => box.removeAttribute("open"), 250);
     });
+  }
+
+  // Громкость самих медиа на сайте (свойство volume у <video>/<audio>) — через JSWindowActor LumiMedia (js/lumi-media-child.sys.mjs), во всех фреймах вкладки.
+  try {
+    ChromeUtils.registerWindowActor("LumiMedia", { child: { esModuleURI: jsUrl("lumi-media-child.sys.mjs") }, allFrames: true, safeForUntrustedWebProcess: true });
+  } catch {} // уже зарегистрирован другим окном
+  const askMedia = (tab, name, data) => Promise.all((tab.linkedBrowser?.browsingContext?.getAllBrowsingContextsInSubtree() ?? [])
+    .map(async bc => { try { return await bc.currentWindowGlobal?.getActor("LumiMedia").sendQuery(name, data); } catch { return null; } })); // служебные страницы актора не имеют
+  // Вкладка карточки: карточка Zen её не выдаёт (список карточек закрытый) — ищем вкладку с активным медиа и теми же названием и исполнителем
+  function cardTab(title, artist) {
+    for (const tab of gBrowser.tabs) {
+      const mc = tab.linkedBrowser?.browsingContext?.mediaController;
+      if (!mc?.isActive) continue;
+      const md = mc.getMetadata();
+      if (md.title == title && (md.artist || "") == artist) return tab;
+    }
+    return gBrowser.tabs.find(tab => tab.label == title && !tab.hasAttribute("pending")) ?? null;
+  }
+  async function syncVolume(tile) {
+    const slider = tile.querySelector(".lumi-player-vol");
+    if (!tile.tab || !slider || slider.matches(":active")) return;
+    const found = (await askMedia(tile.tab, "get")).filter(Boolean);
+    const volume = (found.find(m => m.playing) ?? found[0])?.volume;
+    slider.disabled = volume == null;
+    if (volume != null && !slider.matches(":active")) slider.value = volume;
   }
 
   function playerTile({ card, title, artist, icon, playing, noPrev, noNext }) {
@@ -633,20 +756,31 @@
     };
 
     const tile = h("div", "lumi-player" + (playing ? " playing" : ""));
-    const cover = button("lumi-player-cover", title || "Плеер", ".zen-media-focus-button");
+    // клик по самой плитке (обложка, название) открывает вкладку с этим медиа; пространство переключается, как у карточки Zen (switchTabIfNeeded)
+    const open = () => tile.tab ? gZenWorkspaces.switchTabIfNeeded(tile.tab) : press(".zen-media-focus-button")();
+    const cover = labeled(h("button", "lumi-player-cover"), title || "Плеер");
+    cover.addEventListener("click", open);
     cover.style.backgroundImage = icon;
     const text = h("div", "lumi-player-text");
     text.append(
       h("span", "lumi-player-title", { textContent: title }),
       h("span", "lumi-player-artist", { textContent: artist })
     );
+    // ползунок громкости сайта: ряд под кнопками, виден в раскрытой карточке
+    tile.tab = cardTab(title, artist);
+    const vol = h("input", "lumi-player-vol", { type: "range", min: 0, max: 1, step: 0.01, value: 1, disabled: true });
+    labeled(vol, "Громкость сайта");
+    vol.addEventListener("input", () => tile.tab && askMedia(tile.tab, "set", +vol.value));
+    tile.addEventListener("click", event => event.target.closest("button, input") || open());
     tile.append(
       cover,
       text,
       button("lumi-player-prev", "Предыдущий трек", ".zen-media-previoustrack-button", noPrev),
       button("lumi-player-play", playing ? "Пауза" : "Играть", ".zen-media-playpause-button"),
-      button("lumi-player-next", "Следующий трек", ".zen-media-nexttrack-button", noNext)
+      button("lumi-player-next", "Следующий трек", ".zen-media-nexttrack-button", noNext),
+      vol
     );
+    syncVolume(tile);
     return tile;
   }
 })();

@@ -199,6 +199,13 @@
   --lumi-rail-glow: 0 0 0 1px var(--lumi-accent), 0 0 16px color-mix(in srgb, var(--lumi-accent) 55%, transparent);
 }
 
+/* Точка задач LumiNotes на «L» (js/lumi-rail.uc.js, initTaskDot): жёлтая — срок сегодня, красная — срок прошёл */
+#lumi-logo[lumi-tasks]::before {
+  content: ""; position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--lumi-yellow); pointer-events: none;
+}
+#lumi-logo[lumi-tasks="late"]::before { background: var(--lumi-red); }
+
 /* Кнопка Библиотеки Zen под «L» — в стиле кнопок пространств. Клик — Библиотека на «Пространствах» (js/lumi-rail.uc.js) */
 #lumi-spaces-button {
   width: 34px; height: 34px; padding: 0; box-sizing: border-box; flex-shrink: 0;
@@ -342,7 +349,16 @@
   border-radius: 0 0 calc(var(--lumi-radius) - 1px) calc(var(--lumi-radius) - 1px) !important;
   & .browserContainer { margin: 0 !important; } /* родной сдвиг сайта под выехавшую адресную строку — не в окошке */
 }
-:is(#lumi-pin-backdrop, #lumi-pin-frame)[hidden] { display: none; }
+:is(#lumi-pin-backdrop, #lumi-pin-frame, #lumi-pin-grip)[hidden] { display: none; }
+/* ручка ширины окошка — правый край рамки (js/lumi-rail.uc.js, startResize); щит на время тяжения накрывает всё окно, чтобы сайт не съедал мышь */
+#lumi-pin-grip {
+  position: absolute; z-index: 13; top: var(--lumi-pin-y); bottom: var(--lumi-pin-y);
+  left: calc(var(--lumi-pin-x) + var(--lumi-pin-w) - 5px); width: 10px;
+  cursor: ew-resize; -moz-window-dragging: no-drag;
+  &::after { content: ""; position: absolute; inset: 40px 4px; border-radius: 2px; background: var(--lumi-accent); opacity: 0; transition: opacity 150ms; }
+  &:hover::after, &[dragging]::after { opacity: 0.8; }
+}
+#lumi-pin-shield { position: fixed; inset: 0; z-index: 2147483647; cursor: ew-resize; -moz-window-dragging: no-drag; }
 #lumi-pin-backdrop { animation: lumi-fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); } /* то же время и кривая, что у окошка */
 :is(#lumi-pin-frame, .lumi-pin-window) { animation: lumi-pin-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes lumi-fade-in { from { opacity: 0; } }
@@ -350,6 +366,7 @@
 @media (prefers-reduced-motion: reduce) {
   .lumi-tab, #lumi-pins[lumi-gap] .lumi-pin { transition: none; }
   .lumi-pin, :is(#lumi-pin-backdrop, #lumi-pin-frame, .lumi-pin-window) { transition: none; animation: none; }
+  #lumi-pin-grip::after { transition: none; }
 }
 
 /* ---------- 7. Плееры: плитки 40×40, при наведении — карточки 320×48 ----------
@@ -366,7 +383,7 @@
   --ease-out: cubic-bezier(0.2, 0.8, 0.2, 1);
   width: 34px; height: 34px; box-sizing: border-box; flex-shrink: 0;
   display: flex; align-items: center; gap: 8px;
-  margin: 0; padding: 0; overflow: hidden;
+  margin: 0; padding: 0; overflow: hidden; position: relative;
   border: 0 solid transparent; border-radius: 10px;
   background-color: transparent; box-shadow: none;
   /* закрытие: сначала гаснет содержимое, потом карточка сжимается (нижние раньше верхних) */
@@ -381,26 +398,29 @@
     transition: filter 180ms;
   }
   &:not(.playing) .lumi-player-cover { filter: grayscale(1) brightness(0.8); }
-  & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next) {
+  & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next, .lumi-player-vol) {
     opacity: 0; transition: opacity 80ms ease-in;
   }
+  /* ползунок громкости сайта — ряд под кнопками (js: lumi-rail.uc.js, актор LumiMedia) */
+  & .lumi-player-vol { position: absolute; left: 45px; right: 12px; bottom: 3px; width: auto; height: 12px; margin: 0; padding: 0; accent-color: var(--lumi-accent); pointer-events: none; &:disabled { filter: grayscale(1); } }
   & .lumi-player-text {
     display: flex; flex-direction: column; gap: 3px; flex-grow: 1; min-width: 0;
     & span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   }
 }
 #lumi-players[open] .lumi-player {
-  width: 280px; height: 42px;
-  margin: -4px; padding: 3px 8px 3px 3px;
+  width: 280px; height: 56px; cursor: pointer; /* клик по плитке — вкладка с этим медиа */
+  margin: -4px; padding: 3px 8px 15px 3px;
   border-width: 1px; border-color: var(--lumi-accent); border-radius: 12px;
   background-color: var(--lumi-surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
   transition-duration: 200ms;
   transition-timing-function: var(--ease-out);
   transition-delay: calc(var(--i, 0) * 35ms);
-  & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next) {
+  & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next, .lumi-player-vol) {
     opacity: 1; transition: opacity 150ms ease-out calc(140ms + var(--i, 0) * 35ms);
   }
+  & .lumi-player-vol { pointer-events: auto; cursor: default; }
   & .lumi-player-cover { filter: none; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -557,6 +577,21 @@ zen-library {
 #lumi-tab-dropline {
   position: absolute; top: var(--lumi-pill-top); width: 2px; height: var(--lumi-pill-h); margin-left: -1px;
   border-radius: 1px; background: var(--lumi-accent); pointer-events: none;
+}
+/* Выделенные вкладки (Ctrl/Shift+клик) и перенос нескольких: число на метке места и у курсора (js/lumi-tabstrip.uc.js) */
+.lumi-tab[multiselected] { --pill-bg: color-mix(in srgb, var(--lumi-accent) 24%, var(--lumi-bg1)); --pill-line: var(--lumi-accent); color: var(--lumi-fg); }
+#lumi-tab-dropline[data-count]:not([data-count=""])::after, #lumi-drag-ghost::after {
+  content: attr(data-count); position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 5px; border-radius: 9px; text-align: center; line-height: 18px;
+  font-size: 11px; font-weight: 700; background: var(--lumi-accent); color: var(--lumi-bg1);
+}
+#lumi-drag-ghost::after { left: auto; right: 5px; transform: translateY(-50%); }
+#lumi-tab-dropline[data-count]:not([data-count=""])[quiet] { opacity: 1; background: transparent; } /* с расступанием — только число в середине дыры */
+#lumi-drag-ghost { /* картинка у курсора: вкладка-стопка с числом; снимается сразу после начала переноса (вне экрана) */
+  position: fixed; top: -200px; left: 0; width: 180px; height: 28px; box-sizing: border-box; padding: 6px 28px 0 12px;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--lumi-fg);
+  background: var(--lumi-raised); border: 1px solid var(--lumi-accent); border-radius: var(--lumi-tab-radius, 10px);
+  box-shadow: 4px 4px 0 -1px var(--lumi-raised), 4px 4px 0 0 var(--lumi-accent);
 }
 /* Папка Zen в полосе (js/lumi-tabstrip.uc.js): та же таблетка, что у вкладки, но уже (150px), значок папки, число вкладок, список — #lumi-folder-menu */
 .lumi-tab.lumi-folder {
@@ -724,6 +759,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { #lumi-settings { transition: none; } }
+/* Пока панель открыта (js ставит корню [lumi-settings-open]), всё вокруг неё размыто: сайт, адресная строка, полоса вкладок.
+ * Рейка резкая — ею можно пользоваться. filter размывает и сайт (<browser> другого процесса) — в отличие от backdrop-filter. Сама панель — вне размытых слоёв */
+:root[lumi-settings-open]:not([inDOMFullscreen="true"]) :is(#tabbrowser-tabpanels, #zen-appcontent-navbar-wrapper, #lumi-tabstrip) { filter: blur(5px); }
 
 /* ---------- 12. Compacting: рейка и полоса вкладок прячутся за край окна и выезжают у края ----------
  * Настройки luminoctis.compact.sidebar / luminoctis.compact.tabstrip (панель настроек → «Внешний вид»). Сайт занимает освободившееся место.

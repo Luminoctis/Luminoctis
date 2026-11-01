@@ -64,6 +64,7 @@ static class Str {
     {"mods.title", new[]{"Лишние моды", "Overlapping mods"}},
     {"mods.text", new[]{"Эти моды делают то же, что Luminoctis, и могут мешать. Выключим их; при удалении Luminoctis они включатся обратно.", "These mods do the same as Luminoctis and can get in its way. We'll turn them off, and turn them back on if you uninstall Luminoctis."}},
     {"mods.btn", new[]{"Продолжить", "Continue"}},
+    {"mods.tz", new[]{"Luminoctis полностью заменяет его функции, в том числе для Zen Internet.", "Luminoctis fully replaces what it does, including for Zen Internet."}},
     {"p.check", new[]{"Проверяю…", "Checking…"}},
     {"p.install", new[]{"Устанавливаю…", "Installing…"}},
     {"p.uninstall", new[]{"Удаляю…", "Removing…"}},
@@ -364,7 +365,12 @@ class Ui {
   void ShowMods() {
     Tb("MTitle").Text = Str.T("mods.title"); Tb("MText").Text = Str.T("mods.text");
     var l = F<StackPanel>("MList"); l.Children.Clear();
-    foreach (var m in pr.Mods) l.Children.Add(new CheckBox { Content = m.Name, Tag = m.Id, IsChecked = true, Style = (Style)Root.FindResource("Check") });
+    foreach (var m in pr.Mods) {
+      l.Children.Add(new CheckBox { Content = m.Name, Tag = m.Id, IsChecked = true, Style = (Style)Root.FindResource("Check") });
+      if (m.Name.IndexOf("Transparent Zen", StringComparison.OrdinalIgnoreCase) >= 0)
+        l.Children.Add(new TextBlock { Text = Str.T("mods.tz"), FontSize = 12, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(34, -4, 0, 6),
+          Foreground = (Brush)new BrushConverter().ConvertFromString("#7982a9") });
+    }
     Show(F<FrameworkElement>("ScMods"));
   }
 

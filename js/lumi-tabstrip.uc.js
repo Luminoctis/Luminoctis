@@ -193,6 +193,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     luminoctis.clearGap([...row.children], instant);
     row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
   }
+  let dragOpened = false, panelGapPending = false; // список папки раскрыт наведением с вкладкой; строки списка ещё раздвинуты после броска
+  let releasePanelGap = () => {};
   let queued = false, shownSelected = null;
   let refreshPanel = () => {}; // список папки (ниже) обновляется вместе с полосой
   const render = () => {
@@ -305,6 +307,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (folderPanel.state == "closed" || folderPanel.state == "hiding") return;
     if (folderPanel.chip?.folder.isConnected) fillPanel();
     else folderPanel.hidePopup();
+    if (panelGapPending) releasePanelGap(true); // бросок в список: порядок строк уже пересобран — сдвиги снимаем без прыжка
   };
   // Закрытие с анимацией: любое закрытие (клик мимо, по фишке, выбор строки) откладывается на время ухода, потом — настоящее
   const hideFolder = () => {
@@ -325,7 +328,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     fillPanel();
     folderPanel.chip.toggleAttribute("open", true);
   });
-  folderPanel.addEventListener("popuphidden", event => event.target === folderPanel && folderPanel.chip?.removeAttribute("open"));
+  folderPanel.addEventListener("popuphidden", event => event.target === folderPanel && (folderPanel.chip?.removeAttribute("open"), (dragOpened = false)));
   fList.addEventListener("click", event => {
     const tab = event.target.closest(".lumi-fr")?.tab, { classList } = event.target;
     if (!tab || event.button != 0) return;
@@ -347,6 +350,9 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     // второй клик по той же фишке закрывает список (клик мимо уже закрыл его — не открываем заново)
     if (folderPanel.chip === chip && folderPanel.state != "closed" && folderPanel.state != "hiding") return hideFolder();
     if (lastHidden.chip === chip && performance.now() - lastHidden.time < 300) return;
+    showFolder(chip);
+  };
+  const showFolder = chip => {
     folderPanel.chip = chip;
     folderPanel.openPopup(chip, "after_start", 0, 0, false, false);
   };
@@ -486,7 +492,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const beginDrag = (event, tab, from) => {
     dragged = tab;
     dragFrom = from;
-    setTimeout(() => dragged && items.get(dragged)?.setAttribute("dragging", "")); // гаснет, когда снимок для курсора уже сделан
+    setTimeout(() => dragged && (from < 0 ? rowEls.get(dragged) : items.get(dragged))?.setAttribute("dragging", "")); // гаснет, когда снимок для курсора уже сделан
     event.dataTransfer.effectAllowed = "move";
     event.dataTransfer.setData("text/plain", dragged.linkedBrowser.currentURI.spec);
     event.dataTransfer.mozSetDataAt("application/x-moz-tabbrowser-tab", dragged, 0); // родной тип вкладки: по нему рейка делает её закрепом
@@ -505,6 +511,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     clearTarget();
     const list = liveItems();
     const into = folderTarget(event);
+    hoverFolder(chipOf(event));
     if (into) { // на фишку: подсветка, щель и черта не нужны
       into.toggleAttribute("drop-into", true);
       dropLine.hidden = true;
@@ -522,6 +529,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   });
   row.addEventListener("dragleave", event => {
     if (row.contains(event.relatedTarget)) return;
+    hoverFolder(null);
     clearTarget();
     dropLine.hidden = true;
     if (!gapPending) releaseGap(false); // ушли с полосы — щель плавно закрывается
@@ -531,6 +539,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     event.preventDefault();
     const into = folderTarget(event);
     clearTarget();
+    endHover();
     if (into) {
       const tab = dragged;
       dragged = null; // у вкладки, ушедшей в папку, из полосы пропадёт элемент — dragend до row не дойдёт
@@ -540,6 +549,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       folderPanel.hidePopup();
       return;
     }
+    if (dragOpened) hideFolder(); // список раскрылся наведением, бросили на полосу — закрываем
     const visible = stripEntries();
     const i = dropIndex(event.clientX);
     const target = visible[i] ?? visible.at(-1);
@@ -564,6 +574,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     dragged = null;
     if (!gapPending) releaseGap(false); // отмена или ушли за пределы окна
     else row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
+    fList.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
+    endHover();
+    if (!panelGapPending) releasePanelGap(false);
+    if (dragOpened) hideFolder(); // отмена (Esc, мимо) — список, раскрытый наведением, закрывается
     if (!tab || event.dataTransfer.dropEffect != "none") return;
     // отпустили за пределами окна — вкладка уезжает в новое окно, как в Firefox
     const outside =
@@ -574,6 +588,100 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   row.addEventListener("dragend", dragEnd);
   fList.addEventListener("dragend", dragEnd);
   dropLine.hidden = true;
+
+  // ---------- перетаскивание в списке папки ----------
+  // 1) вкладка над фишкой ~350мс — список раскрывается сам (dragOpened); ушли с фишки и списка — закрывается через 450мс.
+  // 2) над списком строки расступаются (luminoctis.gap по оси y), бросок ставит вкладку на это место родными moveTabBefore/After
+  //    (они сами переносят между папкой и подпапкой); при «уменьшить анимацию» вместо сдвигов — метка места [drop-before/after].
+  let hoverTimer = 0, hoverChip = null, closeTimer = 0;
+  const disarmClose = () => (clearTimeout(closeTimer), (closeTimer = 0));
+  const armClose = () => {
+    if (!dragOpened || closeTimer) return;
+    closeTimer = setTimeout(() => { closeTimer = 0; if (dragOpened) hideFolder(); }, 450);
+  };
+  const endHover = () => {
+    clearTimeout(hoverTimer);
+    hoverTimer = 0;
+    hoverChip = null;
+    disarmClose();
+  };
+  const hoverFolder = chip => { // chip — фишка под курсором (или null)
+    const shown = chip && folderPanel.chip === chip && folderPanel.state != "closed";
+    if (shown) disarmClose();
+    else armClose();
+    if (!chip || shown || folderOf(dragged) === chip.folder) {
+      clearTimeout(hoverTimer);
+      hoverTimer = 0;
+      hoverChip = null;
+      return;
+    }
+    if (hoverChip === chip) return;
+    clearTimeout(hoverTimer);
+    hoverChip = chip;
+    hoverTimer = setTimeout(() => {
+      hoverTimer = 0;
+      hoverChip = null;
+      if (!dragged) return;
+      if (folderPanel.state == "closed") (dragOpened = true, showFolder(chip));
+      else if (folderPanel.state == "open") hideFolder(); // открыт другой — следующий dragover запустит таймер заново
+    }, 350);
+  };
+  const panelKids = () => [...fList.children];
+  const clearMarks = () => fList.querySelectorAll("[drop-before], [drop-after]").forEach(el => (el.removeAttribute("drop-before"), el.removeAttribute("drop-after")));
+  releasePanelGap = instant => {
+    panelGapPending = false;
+    luminoctis.clearGap(panelKids(), instant);
+    clearMarks();
+  };
+  // перед какой строкой встанет вкладка (индекс в fList; длина — в конец): первая, чья середина (без сдвига) ниже курсора
+  const panelDropIndex = y => {
+    const i = panelKids().findIndex(el => {
+      const r = el.getBoundingClientRect();
+      return y < r.top - luminoctis.shiftOf(el, "y") + r.height / 2;
+    });
+    return i < 0 ? fList.children.length : i;
+  };
+  const inPanelList = () => panelKids()[0] !== emptyRow;
+  folderPanel.addEventListener("dragover", event => {
+    if (!dragged) return;
+    event.preventDefault();
+    disarmClose();
+    if (!inPanelList()) return;
+    const kids = panelKids(), to = panelDropIndex(event.clientY), own = rowEls.get(dragged);
+    clearMarks();
+    if (calm()) (kids[to] ?? kids.at(-1)).toggleAttribute(kids[to] ? "drop-before" : "drop-after", true);
+    else luminoctis.gap(kids, "y", (own?.offsetHeight || 32) + 2, kids.indexOf(own), to);
+  });
+  folderPanel.addEventListener("dragleave", event => {
+    if (!dragged || folderPanel.contains(event.relatedTarget)) return;
+    if (!panelGapPending) releasePanelGap(false); // ушли со списка — строки плавно встают на место
+    armClose();
+  });
+  // вкладку на место `to` (индекс строки списка): сначала в папку (addTabs закрепляет, как Zen), затем на место перед следующей строкой
+  const placeInFolder = (tab, folder, data, to) => {
+    const next = data.map((d, i) => ({ ...d, i })).find(d => d.i >= to && d.tab !== tab);
+    if (tab.group !== folder) folder.addTabs([tab]);
+    if (next) return gBrowser.moveTabBefore(tab, next.tab ?? next.folder);
+    const last = folder.allItems.filter(item => item !== tab).at(-1);
+    if (last) gBrowser.moveTabAfter(tab, last);
+  };
+  folderPanel.addEventListener("drop", event => {
+    if (!dragged || !folderPanel.chip) return;
+    event.preventDefault();
+    const tab = dragged, { folder } = folderPanel.chip;
+    const listed = inPanelList();
+    const to = listed ? panelDropIndex(event.clientY) : 0, data = listed ? folderRows(folder) : [];
+    dragged = null; // строка/плитка вкладки пересоберётся — dragend может не прийти
+    clearTarget();
+    dropLine.hidden = true;
+    releaseGap(true);
+    endHover();
+    clearMarks();
+    panelGapPending = listed && !calm() && panelKids().some(el => el.style.translate); // сдвиги стоят, пока render не пересоберёт список
+    if (panelGapPending) setTimeout(() => panelGapPending && releasePanelGap(false), 500);
+    placeInFolder(tab, folder, data, to);
+    if (dragOpened) hideFolder();
+  });
 
   // ---------- кнопки окна: родные, в правом конце полосы ----------
   // Zen переставляет их при каждой смене раскладки (compact mode, настройка панелей) — возвращаем обратно.

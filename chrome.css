@@ -608,7 +608,14 @@ zen-library {
   & .lumi-fr-audio { display: none; background-image: url("chrome://global/skin/media/audio.svg"); }
   &[soundplaying] .lumi-fr-audio, &[muted] .lumi-fr-audio { display: block; }
   &[muted] .lumi-fr-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
+  /* перетаскивание (js/lumi-tabstrip.uc.js): остальные строки расступаются сдвигом translate, тянущаяся гаснет */
+  transition: translate 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  &[dragging] { opacity: 0.35; }
+  /* при «уменьшить анимацию» вместо сдвигов — метка места, куда встанет вкладка */
+  &[drop-before] { box-shadow: 0 -2px 0 var(--lumi-accent); }
+  &[drop-after] { box-shadow: 0 2px 0 var(--lumi-accent); }
 }
+@media (prefers-reduced-motion: reduce) { .lumi-fr { transition: none; } }
 
 /* «+» — квадратная таблетка 28×28, как вкладка-квадратик (та же форма и наведение); кликается от верхнего края.
  * Родная отрисовка кнопки Windows (appearance) снята: при наведении она рисовала высокий блок от края окна */

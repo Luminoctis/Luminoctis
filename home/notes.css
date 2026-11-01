@@ -110,24 +110,51 @@ span.lumi-fold { cursor: inherit; }
 @keyframes lumi-pop { 0% { scale: .72; } 55% { scale: 1.14; } 100% { scale: 1; } }
 
 .lumi-code { padding: 0 5px; border-radius: 5px; font: .92em ui-monospace, Consolas, monospace; background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
-.lumi-card-body del, .lumi-doc-text del { opacity: .7; }
+.lumi-card-body del { opacity: .7; }
 /* заголовок-разделитель внутри листа: без фона карточки (# … ######) */
 .lumi-card.lumi-heading { background: transparent; padding-left: 14px; cursor: grab; font-weight: 700;
   &:hover { background: transparent; box-shadow: none; }
   &[data-level="1"] { font-size: 1.35em; } &[data-level="2"] { font-size: 1.2em; } &[data-level="3"] { font-size: 1.1em; }
   &[data-level="4"], &[data-level="5"], &[data-level="6"] { font-size: 1em; color: var(--lumi-muted, #a9b1d6); } }
-/* лист-документ */
-.lumi-doc { flex: 1; min-height: 0; gap: 6px; cursor: text; line-height: 1.55; font-size: 16px; overflow-wrap: anywhere; white-space: pre-wrap; }
-.lumi-doc-h { font-weight: 700; margin-top: 8px; &[data-level="1"] { font-size: 1.4em; } &[data-level="2"] { font-size: 1.22em; } &[data-level="3"] { font-size: 1.1em; }
+/* лист-документ: живой редактор (home/notes-live.mjs). Разметка лежит в тексте отдельными span'ами .md-mark — скрыта, пока каретка её не касается:
+ * строка с кареткой — .on (маркеры блока), фрагмент, которого коснулась каретка/выделение, — .act (его ** ~~ ` [](…)), галочка с кареткой внутри — .raw */
+.lumi-live { display: block !important; flex: 1; min-height: 0; padding: 2px 4px 8px; cursor: text; outline: none; line-height: 1.55; font-size: 16px; overflow-wrap: anywhere;
+  white-space: pre-wrap; tab-size: 28px; user-select: text; -moz-user-select: text; caret-color: var(--cc); position: relative;
+  &[data-empty] .lumi-ln:first-child::before { content: "Нажми, чтобы писать…"; position: absolute; color: var(--lumi-dim, #565f89); pointer-events: none; } }
+.lumi-ln { position: relative; min-height: 1.55em; }
+.md-mark { display: none; color: var(--lumi-dim, #565f89); font-weight: 400; font-style: normal; font-size: 1rem; }
+.lf.act > .md-mark, .lumi-ln.on > .md-mark.blk { display: inline; }
+.lf-b { font-weight: 700; } .lf-i { font-style: italic; } .lf-s { text-decoration: line-through; }
+.lf-code { padding: 0 3px; border-radius: 5px; font-family: ui-monospace, Consolas, monospace; font-size: .92em; background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
+.lf-code > .md-mark { font-size: 1em; }
+.lf-a, .lf-url { color: var(--cc); text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--cc) 55%, transparent); text-underline-offset: 2px; }
+.lf-a > .md-mark { text-decoration: none; }
+.lf-date { padding: 0 6px; border-radius: 8px; font-size: .88em; background: color-mix(in srgb, currentColor 15%, transparent);
+  &[data-state="wait"], &[data-state="off"] { color: var(--lumi-dim, #565f89); } &[data-state="go"] { color: var(--lumi-cyan, #7dcfff); }
+  &[data-state="today"] { color: var(--lumi-yellow, #e0af68); } &[data-state="late"] { color: var(--lumi-red, #f7768e); } }
+.lumi-ln.h { font-weight: 700; margin-top: .5em; line-height: 1.35;
+  &:first-child { margin-top: 0; } &[data-level="1"] { font-size: 1.4em; } &[data-level="2"] { font-size: 1.22em; } &[data-level="3"] { font-size: 1.1em; }
   &[data-level="4"], &[data-level="5"], &[data-level="6"] { font-size: 1em; color: var(--lumi-muted, #a9b1d6); } }
-.lumi-doc-p { margin: 0; }
-.lumi-doc-li { display: flex; gap: 8px; align-items: flex-start; margin-left: calc(var(--d, 0) * var(--ind));
-  &.done .lumi-doc-text { text-decoration: line-through; color: var(--lumi-dim, #565f89); } }
-.lumi-doc-bullet { flex: none; width: 20px; text-align: center; color: var(--lumi-muted, #a9b1d6); }
-.lumi-doc-empty { color: var(--lumi-dim, #565f89); }
-.lumi-doc-editor { flex: 1; min-height: 0; resize: none; font: 15px/1.55 ui-monospace, Consolas, monospace; padding: 8px 10px; border-radius: 12px; border: 1px solid transparent; outline: none;
-  background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 70%, transparent); color: inherit;
-  &:focus { border-color: color-mix(in srgb, var(--cc) 60%, transparent); } }
+.lumi-ln.q { padding-left: 12px; color: var(--lumi-muted, #a9b1d6); border-left: 3px solid color-mix(in srgb, var(--cc) 60%, transparent); }
+.lumi-ln.hr:not(.on) { color: transparent; background: linear-gradient(var(--lumi-dim, #565f89), var(--lumi-dim, #565f89)) center / 100% 1px no-repeat; }
+.lumi-ln.hr.on { color: var(--lumi-dim, #565f89); }
+/* список: отступ вложенности — --d (табы), висячий отступ — --m; пока строка не активна, "-" рисуется точкой, "- [ ]" — настоящей галочкой */
+.lumi-ln.li { --m: 1.3em; padding-left: calc(var(--d, 0) * var(--ind, 28px) + var(--m)); text-indent: calc(-1 * var(--m)); }
+.lumi-ln.li.task { --m: 1.9em; }
+.md-ws { display: none; }
+.lumi-lm { display: inline-block; width: 1.3em; text-indent: 0; position: relative; color: transparent;
+  &::after { content: "•"; position: absolute; left: .3em; color: var(--lumi-muted, #a9b1d6); } }
+.lumi-ln.on .lumi-lm { color: var(--lumi-dim, #565f89); &::after { content: none; } }
+.lumi-lm.task { display: none; }
+.lumi-ln.on .lumi-lm.task { display: inline-block; width: auto; }
+.lumi-cb { display: inline-block; width: 1.9em; text-indent: 0; position: relative; color: transparent; cursor: pointer;
+  &::after { content: ""; position: absolute; left: .1em; top: .28em; width: 1.05em; height: 1.05em; box-sizing: border-box; border-radius: .3em; pointer-events: none;
+    border: 2px solid color-mix(in srgb, var(--cc) 75%, transparent); background: center / 0 no-repeat transparent;
+    transition: background-color .18s, background-size .18s cubic-bezier(.3, 1.6, .5, 1); }
+  &.chk::after { background-color: var(--cc); border-color: var(--cc);
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Cpath d='M3.4 8.6l3 3 6.2-6.6' fill='none' stroke='%2316161e' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); background-size: .85em; }
+  &.raw { width: auto; color: var(--lumi-dim, #565f89); cursor: text; &::after { content: none; } } }
+.lumi-ln.done > .lc { text-decoration: line-through; color: var(--lumi-dim, #565f89); }
 /* плашка «Удалено … Отменить» */
 .lumi-undo { pointer-events: auto; position: fixed; bottom: 24px; left: 50%; translate: -50% 0; z-index: 10; display: flex; align-items: center; gap: 12px;
   padding: 8px 8px 8px 18px; border-radius: 14px; font: 15px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5);
@@ -235,6 +262,6 @@ section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .lumi-row, .lumi-sheet, .lumi-card, .lumi-sheet-tools, .lumi-card-tools, .lumi-sheet-grip::after, .lumi-sheet-grip-b::after, .lumi-sheet-grip-c::after,
-  .lumi-slot, .lumi-fold .lumi-ico, .lumi-swatch, .lumi-sheet input[type="checkbox"] { transition: none; }
+  .lumi-slot, .lumi-fold .lumi-ico, .lumi-swatch, .lumi-sheet input[type="checkbox"], .lumi-cb::after { transition: none; }
   .lumi-sheet input[type="checkbox"].pop { animation: none; }
 }

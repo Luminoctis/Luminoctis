@@ -2,12 +2,13 @@
 // Доска = ряды (горизонтальные полосы) → листы (колонки, файлы notes\<лист>.md) → пункты. Всё правится сразу, режима правки нет:
 // галочки, строка добавления внизу листа, клик по тексту пункта — поле, перетаскивание пунктов и листов (HTML5 DnD),
 // ПКМ по пустому месту ряда — меню ряда, ПКМ по листу — меню листа, размер листа тянется за правый край, нижний край и угол (у каждого листа своя высота, ряд — по самому высокому).
-// Markdown в тексте пунктов рисует renderInline (md.inline → createElement). Лист в режиме "doc" (меню листа) — цельный Markdown-текст: оформленный вид, клик — правка всего листа. Удаление пункта/листа — плашка «Отменить» (pushUndo, Ctrl+Z); файл листа уходит в Корзину (или в папку из pref luminoctis.notes.trash-dir — для проверок).
+// Markdown в тексте пунктов рисует renderInline (md.inline → createElement). Лист в режиме "doc" (меню листа) — цельный Markdown-текст: живой редактор notes-live.mjs (всегда оформлен, разметка видна у каретки, как Live Preview в Obsidian). Удаление пункта/листа — плашка «Отменить» (pushUndo, Ctrl+Z); файл листа уходит в Корзину (или в папку из pref luminoctis.notes.trash-dir — для проверок).
 // Пункт — задача (check — bool, есть галочка и даты) или заметка (check — null). Подпункты — любой глубины: на экране дерево лежит плоским
 // списком (.lumi-card, отступ --d), путь пункта — индексы от корня листа ("0.2.1" в data-p). Свёрнутые пункты помнит только память.
 // Раскладка (цвет/fill ряда, цвет/ширина/высота листа) — notes\boards.json (writeLayout). Сохранение листа: через 400 мс после правки
 // (атомарно, store.js); ошибка — плашкой сверху, правка остаётся в памяти. Файлы, изменённые снаружи, перечитываются при возврате на Home.
 import * as md from "./notes-md.mjs";
+import { createLive } from "./notes-live.mjs";
 import { JS } from "./paths.js";
 const { locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
@@ -75,7 +76,7 @@ const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 // ---------- чтение ----------
 let loading = null;
 async function load() {
-  if (root.querySelector(".lumi-note-editor, .lumi-doc-editor, .lumi-sheet-rename, .lumi-sub-input, .lumi-add-input:not(:placeholder-shown)") || drag) return; // идёт ввод — не мешаем
+  if (root.querySelector(".lumi-note-editor, .lumi-sheet-rename, .lumi-sub-input, .lumi-add-input:not(:placeholder-shown)") || document.activeElement?.closest?.(".lumi-live") || drag) return; // идёт ввод — не мешаем (перерисовка убила бы каретку)
   try {
     await lp;
     const lay = await md.readLayout();
@@ -256,55 +257,8 @@ function composer(d, field, onKind) {
 function grip(cls, title) { const g = el("div", cls); g.title = title; return g; }
 const grips = s => s.append(grip("lumi-sheet-grip", "Ширина листа"), grip("lumi-sheet-grip-b", "Высота листа"), grip("lumi-sheet-grip-c", "Размер листа"));
 const isDoc = b => b.meta.mode == "doc";
-function docEl(b) { // оформленный текст листа: заголовки, абзацы, списки с галочками (data-line — строка текста для docToggle)
-  const doc = el("div", "lumi-cards lumi-doc");
-  doc.title = "Нажми, чтобы править";
-  const blocks = md.docBlocks(b.text ?? "");
-  if (!blocks.length) doc.append(el("div", "lumi-doc-empty", "Нажми, чтобы писать…"));
-  for (const k of blocks) {
-    if (k.k == "li") {
-      const row = el("div", "lumi-doc-li");
-      row.style.setProperty("--d", k.depth);
-      if (k.check == null) row.append(el("span", "lumi-doc-bullet", "•"));
-      else {
-        const cb = el("input");
-        cb.type = "checkbox";
-        cb.checked = k.check;
-        cb.dataset.line = k.line;
-        row.append(cb);
-        row.classList.toggle("done", k.check);
-      }
-      const t = el("span", "lumi-doc-text");
-      renderInline(t, k.text);
-      row.append(t);
-      doc.append(row);
-    } else {
-      const n = el(k.k == "h" ? "div" : "p", k.k == "h" ? "lumi-doc-h" : "lumi-doc-p");
-      if (k.k == "h") n.dataset.level = k.n;
-      renderInline(n, k.text);
-      doc.append(n);
-    }
-  }
-  return doc;
-}
-function openDocEdit(b) { // правка всего листа: исходный Markdown в textarea; клик мимо / Esc — сохранить
-  const sn = sheetNode(b), doc = sn?.querySelector(".lumi-doc");
-  if (!doc) return;
-  const ta = el("textarea", "lumi-doc-editor");
-  ta.value = b.text ?? "";
-  ta.spellcheck = false;
-  doc.replaceWith(ta);
-  let done = false;
-  const commit = () => {
-    if (done) return;
-    done = true;
-    if (ta.value != (b.text ?? "")) { b.text = ta.value; save(b); }
-    render();
-  };
-  ta.addEventListener("blur", commit);
-  ta.addEventListener("keydown", e => { if (e.key == "Escape") { e.preventDefault(); e.stopPropagation(); commit(); } });
-  ta.focus();
-  ta.setSelectionRange(ta.value.length, ta.value.length);
+function docEl(b) { // живой редактор: правка сразу в b.text, запись — save(b); при уходе фокуса — сразу
+  return createLive({ text: b.text ?? "", onChange: t => { b.text = t; save(b); }, onLink: href => win.openTrustedLinkIn(href, "tab"), onBlur: () => flush(b) }).el;
 }
 function sheetEl(b, row) {
   const s = el("section", "lumi-sheet");
@@ -671,7 +625,6 @@ box.addEventListener("click", e => {
   const row = t.closest(".lumi-row")?._r, s = t.closest(".lumi-sheet"), b = s?._b;
   if (t.closest(".lumi-add-sheet")) return addSheet(row);
   if (!b || t.matches("input, textarea")) return;
-  if (t.closest(".lumi-doc")) return openDocEdit(b);
   const li = t.closest(".lumi-card"), p = li && pathOf(li), c = p && itemAt(b, p);
   if (t.closest(".lumi-fold")) { if (c.children.length) { if (!collapsed.delete(c)) collapsed.add(c); render(); } }
   else if (t.closest(".lumi-card-add-sub")) openAdd(b, p);
@@ -706,12 +659,6 @@ box.addEventListener("dblclick", e => {
   if (b) openRename(b);
 });
 box.addEventListener("change", e => {
-  if (e.target.matches(".lumi-doc input[type=checkbox]")) { // галочка в документе: [ ] ↔ [x] в тексте листа
-    const b = e.target.closest(".lumi-sheet")._b;
-    b.text = md.docToggle(b.text ?? "", Number(e.target.dataset.line));
-    save(b);
-    return render();
-  }
   if (!e.target.matches(".lumi-card input[type=checkbox]")) return;
   const b = e.target.closest(".lumi-sheet")._b;
   const path = pathOf(e.target.closest(".lumi-card"));
@@ -721,7 +668,7 @@ box.addEventListener("change", e => {
   cardLi(b, path)?.querySelector("input[type=checkbox]")?.classList.add("pop");
 });
 box.addEventListener("contextmenu", e => {
-  if (e.target.matches("input, textarea")) return;
+  if (e.target.matches("input, textarea") || e.target.closest(".lumi-live")) return; // в тексте документа — родное меню (копировать/вставить)
   const s = e.target.closest(".lumi-sheet"), r = e.target.closest(".lumi-row")?._r;
   if (!r) return;
   e.preventDefault();

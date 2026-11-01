@@ -18,9 +18,9 @@ h1 { margin: 0; font-size: 16px; font-weight: 600; }
 
 /* ряд разделов: сегменты во всю ширину */
 .tabs {
-  display: flex; gap: 2px; padding: 3px; border-radius: 10px; background: var(--lumi-bg1);
+  display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--lumi-bg1);
   & button {
-    flex: 1 1 auto; height: 30px; padding: 0 6px; border: none; border-radius: 7px;
+    flex: 1 1 auto; height: 30px; padding: 0 4px; border: none; border-radius: 7px;
     color: var(--lumi-muted); font-size: 12px; white-space: nowrap;
     &:hover:not([aria-selected="true"]) { background: var(--lumi-raised); color: var(--lumi-fg); }
     &[aria-selected="true"] { background: var(--lumi-accent); color: var(--lumi-solid); font-weight: 600; }
@@ -235,3 +235,30 @@ body[data-mode="opaque"] #glass-options, body:not([data-mode="transparent"]) .on
   color: var(--lumi-yellow); background: color-mix(in srgb, var(--lumi-yellow) 12%, transparent); }
 .row[hidden] { display: none; }
 #compact-transparency.off { opacity: .45; }
+
+/* ⓘ у строки, у которой полный текст спрятан в title */
+.row[title] .text b::after { content: " ⓘ"; font-weight: 400; font-size: 11px; color: var(--lumi-dim); }
+/* ссылки между вкладками («Настроить обои →»): видны только когда нужны */
+.goto { color: var(--lumi-accent); font-size: 12px; text-decoration: none; &:hover { text-decoration: underline; } }
+.row .goto { align-self: flex-start; }
+body:not([data-mode="wallpaper"]) .goto-wp { display: none; }
+/* «Ещё ▾» — свёрнутые тонкие настройки */
+details.more {
+  display: flex; flex-direction: column; gap: 8px;
+  & > summary {
+    display: flex; align-items: center; justify-content: center; gap: 6px; height: 36px; border: 1px dashed var(--line); border-radius: 10px;
+    color: var(--lumi-muted); cursor: pointer; list-style: none; user-select: none;
+    &::-moz-list-bullet, &::marker { content: ""; }
+    &::after { content: "▾"; }
+    &:hover { background: var(--lumi-raised); color: var(--lumi-fg); }
+    &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
+  }
+  &[open] > summary::after { content: "▴"; }
+  & .more-hint { color: var(--lumi-dim); }
+}
+details.more[open] { gap: 8px; & > summary { margin-bottom: 0; } }
+/* «О моде»: строка-ссылка */
+a.row.link { color: inherit; text-decoration: none; &:hover { background: color-mix(in srgb, var(--lumi-raised) 85%, var(--lumi-fg)); } & .arrow { color: var(--lumi-accent); font-size: 16px; } }
+/* «Сбросить вкладку» — мелко и неброско, внизу раздела */
+.reset-wrap { margin-top: 16px; display: flex; justify-content: center; & .confirm { flex: 1; margin-top: 0; } }
+.reset-tab { height: 26px; padding: 0 10px; border: none; color: var(--lumi-dim); font-size: 11.5px; font-weight: 400; &:hover:not(:disabled) { background: transparent; color: var(--lumi-fg); text-decoration: underline; } }

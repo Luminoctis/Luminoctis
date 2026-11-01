@@ -50,13 +50,14 @@ const keys = ChromeUtils.importESModule(JS("lumi-keys.sys.mjs"));
   }
 }
 
-// ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#sidebar) ----------
+// ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#look) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
-const RENAMED = { tabs: "panels" }; // старые разделы (запомненные в luminoctis.settings.tab, ссылки) → новые
+// старые разделы (запомненные в luminoctis.settings.tab, ссылки) → новые (схема 2026-11-01: panels→tabs, menu и keys→control; sidebar теперь «Рейка»)
+const RENAMED = { panels: "tabs", menu: "control", keys: "control" };
 const showTab = () => {
   let wanted = location.hash.slice(1); // #раздел
   wanted = RENAMED[wanted] ?? wanted;
-  const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "sidebar";
+  const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "look";
   for (const b of tabButtons) b.setAttribute("aria-selected", b.dataset.tab == name);
   for (const s of document.querySelectorAll("main > section")) s.classList.toggle("shown", s.id == name);
   document.querySelector("main").scrollTop = 0;
@@ -65,6 +66,13 @@ const showTab = () => {
 window.lumiShowTab = showTab; // для js/lumi-rail.uc.js: тот же адрес hashchange не шлёт
 for (const b of tabButtons) b.addEventListener("click", () => location.replace("#" + b.dataset.tab)); // без записи в историю
 window.addEventListener("hashchange", showTab);
+// ссылки «Настроить обои →» и т.п.: data-goto="раздел"
+document.addEventListener("click", event => {
+  const a = event.target.closest("[data-goto]");
+  if (!a) return;
+  event.preventDefault();
+  location.replace("#" + a.dataset.goto);
+});
 showTab();
 
 // «Готово» и Esc закрывают панель; клик мимо — нет, рейкой можно пользоваться и при открытых настройках
@@ -114,8 +122,8 @@ $("#glass-off").hidden = win.matchMedia("(-moz-windows-mica)").matches;
 
 // ---------- выгрузка по таймеру: минуты, 0 — никогда (таймер — js/lumi-rail.uc.js) ----------
 const unload = $("#unload"), UNLOAD = "luminoctis.tabs.unload-minutes";
-unload.value = String(Services.prefs.getIntPref(UNLOAD, 0));
 unload.addEventListener("change", () => Services.prefs.setIntPref(UNLOAD, Number(unload.value)));
+watchPref(UNLOAD, () => (unload.value = String(Services.prefs.getIntPref(UNLOAD, 0))));
 
 // ---------- перетаскивание строк списка (пространства, закрепы) ----------
 // Тянуть за ручку ⠿; черта показывает место. onMove(откуда, куда) — индексы итогового места в списке.
@@ -314,6 +322,8 @@ async function renderMenuList(list, pref, getItems) {
     });
     return el("label", { className: "row slim" }, el("span", { textContent: label }), box);
   }));
+  // настройку поменяли не флажком (например «Сбросить вкладку») — обновить флажки на месте
+  watchPref(pref, () => { const h = hiddenItems(); for (const b of list.querySelectorAll("input")) b.checked = !h.includes(b.dataset.item); });
 }
 renderMenuList($("#appmenu"), "luminoctis.appmenu.hidden", () => lumi.appMenuItems());
 renderMenuList($("#tabmenu"), "luminoctis.tabmenu.hidden", () => lumi.tabMenuItems());
@@ -738,8 +748,42 @@ $("#update-apply").addEventListener("click", async event => {
   try { await upd.apply(); updStatus("Перезапускаю Zen…"); }
   catch (e) { updStatus("Ошибка: " + e.message); event.target.disabled = false; }
 });
+$("#about-github").addEventListener("click", event => { // ссылка — вкладкой браузера, а не внутри панели
+  event.preventDefault();
+  win.openTrustedLinkIn(event.currentTarget.href, "tab");
+});
 upd.installedVersion().then(v => {
-  $("#update-version").textContent = v ? "Установлена v" + v : "Обновления недоступны";
+  $("#about-version").textContent = v ? "v" + v : "не определена";
   // самообновление — только у мода, поставленного установщиком (под Sine обновляет сам Sine)
+  $("#update-none").hidden = !!v;
   if (!v) for (const el of [$("#update-title"), $("#update-row"), $("#update-auto").closest("label")]) el.style.display = "none";
 });
+
+// ---------- «Сбросить вкладку»: в конце каждого раздела, кроме «О моде» ----------
+// Возвращает флажки, ползунки и выборы раздела (data-pref, data-int-pref, select[data-str-pref], [data-reset], шорткаты).
+// Не трогает пространства, закрепы, список и цвета тем, текстовые поля (поиск, папки, ключи).
+// Значение по умолчанию — сброс пользовательской настройки; data-reset-to (bool) — если мод сам поставил другое (zen.view.compact.hide-toolbar).
+function resetTab(section) {
+  const todo = new Map(); // настройка → значение или null (сброс)
+  for (const e of section.querySelectorAll("[data-pref], [data-int-pref], select[data-str-pref], [data-reset], [data-key]")) {
+    const pref = e.dataset.pref ?? e.dataset.intPref ?? (e.matches("select") ? e.dataset.strPref : null);
+    if (pref) todo.set(pref, e.dataset.resetTo ?? null);
+    if (e.dataset.key) todo.set(keys.pref(e.dataset.key), null);
+    for (const p of (e.dataset.reset ?? "").split(" ").filter(Boolean)) todo.set(p, null);
+  }
+  for (const [pref, to] of todo) to == null ? Services.prefs.clearUserPref(pref) : Services.prefs.setBoolPref(pref, to == "true");
+}
+for (const section of document.querySelectorAll("main > section:not(#about)")) {
+  const button = el("button", { className: "reset-tab", textContent: "Сбросить вкладку", title: "Вернуть настройки этой вкладки к значениям по умолчанию" });
+  const box = el("div", { className: "reset-wrap" }, button);
+  button.addEventListener("click", () => {
+    const name = tabButtons.find(b => b.dataset.tab == section.id).textContent;
+    const yes = el("button", { className: "danger", textContent: "Сбросить" }), no = el("button", { textContent: "Отмена" });
+    yes.addEventListener("click", () => { resetTab(section); box.replaceChildren(button); });
+    no.addEventListener("click", () => { box.replaceChildren(button); button.focus(); });
+    box.replaceChildren(el("div", { className: "confirm" },
+      el("span", { textContent: `Вернуть настройки вкладки «${name}» по умолчанию? Пространства, закрепы, темы, ключи и пути не изменятся.` }), yes, no));
+    no.focus();
+  });
+  section.append(box);
+}

@@ -180,7 +180,7 @@ Zen Browser mod Luminoctis by Laith.
 Содержимое панели — страница `settings\` (копируется в профиль в `chrome\resources\luminoctis\`, адрес `chrome://userchrome/content/luminoctis/settings.html`
 даёт fx-autoconfig; раздел — в адресе: `settings.html#look`, место в разделе — `#sidebar/spaces`). Панель (`js\lumi-rail.uc.js`, стили — `chrome.css`, раздел 10) встраивает её
 в окно при первом открытии и потом только прячет. Отдельной вкладкой страница больше нигде не открывается.
-Из скрипта: `luminoctis.openSettings("tabs")` / `luminoctis.closeSettings()` (разделы: `sidebar`, `look`, `tabs`, `menu`, `keys`, `home`; вторым параметром — место, пока только `"spaces"`).
+Из скрипта: `luminoctis.openSettings("tabs")` / `luminoctis.closeSettings()` (разделы: `look`, `tabs`, `sidebar`, `home`, `wallpaper`, `control`, `about`; вторым параметром — место, пока только `"spaces"`).
 
 ## Настройки Zen, которые нужны моду
 

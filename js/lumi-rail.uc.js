@@ -30,7 +30,7 @@
         settings = h("div", "", { id: "lumi-settings" });
         settings.setAttribute("role", "dialog");
         settings.setAttribute("aria-label", "Настройки Luminoctis");
-        tab ||= Services.prefs.getStringPref("luminoctis.settings.tab", "sidebar"); // последний открытый раздел (пишет страница)
+        tab ||= Services.prefs.getStringPref("luminoctis.settings.tab", "look"); // последний открытый раздел (пишет страница)
         settings.append(h("iframe", "", { src: SETTINGS_URL + (hash || "#" + tab) }));
         document.getElementById("lumi-rail").before(settings); // до рейки: раскрытые плееры рисуются поверх панели
       } else {

@@ -3,8 +3,10 @@
 // @description    Прозрачный режим Home: область Home становится насквозь прозрачной, виден рабочий стол за окном браузера.
 // ==/UserScript==
 
-// Как устроено: страница Home (home/wallpaper.js) сообщает lumiHomeLive.want(DESKTOP | null).
-// Пока выбрана Home, want задан и Windows рисует окно с прозрачностью (-moz-windows-mica): [lumi-home-live] на корне (chrome.css раздел 15),
+// Как устроено: «насквозь» ли Home, решают prefs (wantDesktop: режим обоев «Рабочий стол» или «Прозрачность обоев» > 0 в прозрачном окне), а не страница —
+// выгруженная Home при выборе грузится ~0,3 с, и если ждать её сообщения lumiHomeLive.want(), окно успевает показать обычный вид (тёмная рамка, сплошной фон страницы).
+// Страница (home/wallpaper.js) по-прежнему зовёт want(...) — это лишь повод пересчитать состояние.
+// Пока выбрана Home, wantDesktop и Windows рисует окно с прозрачностью (-moz-windows-mica): [lumi-home-live] на корне (chrome.css раздел 15),
 // transparent у <browser> Home, [lumi-through] на странице.
 // Accent policy окна браузера (SetWindowCompositionAttribute) задаёт luminoctis.look.blur-kind, когда окно «Прозрачное» (на любой вкладке)
 // или Home «насквозь»: none — ACCENT_ENABLE_TRANSPARENTGRADIENT (чёткий рабочий стол), blur — ACCENT_ENABLE_BLURBEHIND (размытие Windows),
@@ -60,7 +62,9 @@
   }
 
   // ---------- окно браузера: насквозь / обычное ----------
-  let want = null, through = null, site = false;
+  let through = null, site = false;
+  const HT = "luminoctis.look.homeTransparency", WPMODE = "luminoctis.home.wallpaper.mode";
+  const wantDesktop = () => Services.prefs.getStringPref(WPMODE, "wallpaper") == "transparent" || (windowMode() == "transparent" && Services.prefs.getIntPref(HT, 0) > 0);
   // Home «видна»: выбрана она сама или выбран закреп-окошко (lumi-rail.uc.js showPin) — Home остаётся под ним, режим насквозь не выключаем
   // from — вкладка, с которой только что ушли (TabSelect): в этот момент у закрепа ещё нет класса окошка, а у Home — deck-selected (их ставит рейка позже),
   // без подсказки режим «насквозь» на кадр гас и больше не включался
@@ -77,7 +81,7 @@
     tab ? document.documentElement.setAttribute("lumi-home-live", "") : document.documentElement.removeAttribute("lumi-home-live");
     for (const [t, on] of [[old, false], [tab, true]]) {
       if (!t?.linkedBrowser) continue;
-      on ? t.linkedBrowser.setAttribute("transparent", "true") : t.linkedBrowser.removeAttribute("transparent");
+      on ? t.linkedBrowser.setAttribute("transparent", "true") : (t.linkedBrowser.removeAttribute("transparent"), t.linkedBrowser.style.removeProperty("opacity"));
       t.linkedBrowser.contentDocument?.documentElement?.toggleAttribute("lumi-through", on);
     }
   }
@@ -97,7 +101,7 @@
     !document.getElementById(gBrowser.selectedTab?.linkedPanel)?.classList.contains("lumi-pin-window");
   function update(from) {
     const tab = homeTab(from);
-    setThrough(tab && want && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);
+    setThrough(tab && wantDesktop() && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);
     site = !through && !tab && siteWant(); // Home (и непрозрачная) рисует себя сама
     if (!through) site ? document.documentElement.setAttribute("lumi-home-live", "site") : document.documentElement.removeAttribute("lumi-home-live"); // "site" — дыра под обычным сайтом (chrome.css раздел 15)
     if (site) holeRect();
@@ -106,16 +110,30 @@
 
   window.lumiHomeLive = {
     DESKTOP,
-    want(v) { if (v != want) { want = v || null; update(); } return want; },
+    want() { update(); return wantDesktop() ? DESKTOP : null; }, // аргумент (желание страницы) не читаем: см. шапку
+    refresh: () => update(), // lumi-home.uc.js зовёт после выбора только что созданной Home (на TabSelect у неё ещё нет атрибута)
     // для проверок: accent policy окна браузера (2 — чёткий рабочий стол, 3 — размытие Windows, 0 — нет)
     win: () => api() && { accent: accentSet, browserHwnd: window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle },
   };
 
   const onPref = () => update();
-  Services.prefs.addObserver(KIND, onPref); // применяются сразу
-  Services.prefs.addObserver(WIN, onPref);
-  Services.prefs.addObserver(TRANSPARENT, onPref);
-  window.addEventListener("unload", () => { for (const n of [KIND, WIN, TRANSPARENT]) Services.prefs.removeObserver(n, onPref); }, { once: true });
+  const PREFS = [KIND, WIN, TRANSPARENT, HT, WPMODE];
+  for (const n of PREFS) Services.prefs.addObserver(n, onPref); // применяются сразу
+  window.addEventListener("unload", () => { for (const n of PREFS) Services.prefs.removeObserver(n, onPref); }, { once: true });
+  // «Выгруженная» Home — закрытая вкладка: «L» создаёт новую, страница грузится ~0,3 с. У нового документа нет [lumi-through], а до появления корня Firefox
+  // красит его тёмным холстом (вспышка на всю вкладку). Поэтому <browser> прячем (opacity 0 — видно дыру к рабочему столу, как у готовой Home) с начала загрузки
+  // до появления корня; в этот момент ставим [lumi-through] и показываем (до первой отрисовки страницы)
+  const showBrowser = b => b.style.removeProperty("opacity");
+  window.addEventListener("DOMDocElementInserted", e => {
+    if (through && e.target == through.linkedBrowser.contentDocument) { e.target.documentElement.setAttribute("lumi-through", ""); showBrowser(through.linkedBrowser); }
+  }, true);
+  UC_API.Windows.waitWindowLoading(window).then(() => gBrowser.addTabsProgressListener({
+    onLocationChange(browser) {
+      if (!through || browser != through.linkedBrowser || browser.contentDocument?.documentElement) return;
+      browser.style.opacity = "0";
+      setTimeout(() => showBrowser(browser), 1000); // страница не загрузилась — не оставляем невидимой
+    },
+  }));
   // область сайта меняется от Compacting, рейки и размера окна — дыра следует за ней
   UC_API.Windows.waitWindowLoading(window).then(() => { const p = panels(); if (p) new ResizeObserver(() => { if (site) holeRect(); }).observe(p); });
   UC_API.Windows.waitWindowLoading(window).then(() => update()); // окно уже «Прозрачное» при запуске

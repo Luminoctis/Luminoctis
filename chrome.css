@@ -810,6 +810,12 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   #lumi-rail, #lumi-tabstrip, #zen-appcontent-navbar-wrapper { transition: none !important; }
 }
 
+/* ---------- 12б. Полноэкранное видео (DOM fullscreen): только сайт ----------
+ * Рейка/полоса скрыты (разделы 5, 9), но у Zen #zen-appcontent-wrapper держит margin-left 8px (отступ от рейки) — слева оставалась тёмная полоса. */
+:root[inDOMFullscreen="true"] #zen-appcontent-wrapper { margin: 0 !important; }
+/* и торчащий кусок адресной строки (у #urlbar свой visibility:visible поверх collapse панели) */
+:root[inDOMFullscreen="true"] :is(#zen-appcontent-navbar-wrapper, #urlbar-container, #urlbar) { display: none !important; }
+
 /* ---------- 13. Карточка при наведении на вкладку полосы или закреп рейки ----------
  * Строит js/lumi-hovercard.uc.js (#lumi-hovercard в корне окна): название и память вкладки; выключается luminoctis.tabs.hover-memory. */
 #lumi-hovercard {

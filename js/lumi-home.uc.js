@@ -63,6 +63,7 @@
     if (ws && home.getAttribute("zen-workspace-id") != ws) gZenWorkspaces.moveTabToWorkspace(home, ws);
     gBrowser.selectedTab = home;
     lit(true);
+    window.lumiHomeLive?.refresh(); // новая Home на TabSelect ещё без метки — окно «насквозь» включаем сразу, не через кадр
     return home;
   }
   // назад: прежняя вкладка, если она ещё есть в этом пространстве; иначе — последняя использованная обычная

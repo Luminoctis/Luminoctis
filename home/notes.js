@@ -13,7 +13,8 @@ const DIR = "luminoctis.home.dir";
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const btn = (text, cls, title) => { const b = el("button", cls, text); b.type = "button"; if (title) b.title = title; return b; };
 
-let boards = []; // [{ name, cards: [{ text, check: null|bool }], dirty, timer, saving, confirm }]
+let boards = []; // все листы всех рядов подряд: [{ name, meta, cards: [{ text, check, start?, due?, children }], dirty, timer, saving, confirm }]
+let layout = null; // раскладка boards.json; meta листа — его запись в layout.rows[].sheets (цвет, ширина)
 const box = el("div", "lumi-boards");
 const addBoardBtn = btn("+ Доска", "lumi-add-board lumi-edit-only", "Новая доска");
 const errBox = el("div", "lumi-notes-error");
@@ -43,26 +44,30 @@ function flush(b) {
   if (!b.dirty) return b.saving;
   b.dirty = false;
   const cards = b.cards.map(c => ({ ...c })), name = b.name;
-  b.saving = (b.saving ?? Promise.resolve()).then(() => md.writeBoard(name, cards))
+  b.saving = (b.saving ?? Promise.resolve()).then(() => md.writeSheet(name, cards))
     .catch(e => { b.dirty = true; fail(e, `сохранить «${name}»`); });
   return b.saving;
 }
 const flushAll = () => Promise.all(boards.map(flush));
-const saveOrder = () => md.writeOrder(boards.map(b => b.name)).catch(e => fail(e, "сохранить порядок досок"));
+const saveOrder = () => {
+  for (const b of boards) b.meta.name = b.name;
+  return md.writeLayout(layout).catch(e => fail(e, "сохранить порядок досок"));
+};
 
 // ---------- чтение ----------
 let loading = null;
 async function load() {
   if (root.querySelector(".lumi-note-editor, .lumi-board-rename") || drag) return; // идёт ввод — не мешаем
   try {
-    const names = await md.boardNames();
+    const lay = await md.readLayout();
     const old = new Map(boards.map(b => [b.name, b]));
-    const next = await Promise.all(names.map(async name => {
-      const b = old.get(name);
-      if (b?.dirty) return b;
-      const cards = await md.readBoard(name);
-      return b ? Object.assign(b, { cards }) : { name, cards };
+    const next = await Promise.all(lay.rows.flatMap(r => r.sheets).map(async meta => {
+      const b = old.get(meta.name);
+      if (b?.dirty) return Object.assign(b, { meta });
+      const cards = await md.readSheet(meta.name);
+      return b ? Object.assign(b, { cards, meta }) : { name: meta.name, meta, cards };
     }));
+    layout = lay;
     boards = next;
   } catch (e) { return fail(e, "прочитать заметки"); }
   render();
@@ -83,6 +88,15 @@ function linkify(node, text) { // [подпись](https://…) — ссылка
   }
   node.append(text.slice(at));
 }
+function subList(items) { // подпункты пока только показываются (правка — этап 3C)
+  const ul = el("ul", "lumi-sub");
+  for (const c of items) {
+    const li = el("li", c.check ? "done" : null, (c.check == null ? "" : c.check ? "☑ " : "☐ ") + c.text);
+    if (c.children?.length) li.append(subList(c.children));
+    ul.append(li);
+  }
+  return ul;
+}
 function cardEl(c, j) {
   const li = el("li", "lumi-card");
   li.dataset.j = j;
@@ -96,6 +110,9 @@ function cardEl(c, j) {
   }
   const t = el("div", "lumi-card-text");
   linkify(t, c.text);
+  const dates = [c.start && "🛫 " + c.start, c.due && "📅 " + c.due].filter(Boolean).join(" ");
+  if (dates) t.append(el("span", "lumi-card-dates", " " + dates));
+  if (c.children?.length) t.append(subList(c.children));
   const tools = el("span", "lumi-card-tools lumi-edit-only");
   tools.append(btn(c.check == null ? "☐" : "≡", "lumi-card-kind", c.check == null ? "Сделать пунктом с галочкой" : "Сделать обычной заметкой"),
     btn("×", "lumi-card-del", "Удалить карточку"));
@@ -197,9 +214,8 @@ function openRename(b) {
       else {
         try {
           await flush(b);
-          await md.renameBoard(b.name, name);
-          b.name = name;
-          await saveOrder();
+          await md.renameSheet(b.name, name); // сам обновляет boards.json на диске
+          b.name = b.meta.name = name;
         } catch (e) { fail(e, `переименовать «${b.name}»`); }
       }
     }
@@ -216,8 +232,10 @@ function openRename(b) {
 async function addBoard() {
   let name = "Новая доска";
   for (let k = 2; boards.some(b => b.name.toLowerCase() == name.toLowerCase()); k++) name = `Новая доска ${k}`;
-  try { await md.writeBoard(name, []); } catch (e) { return fail(e, "создать доску"); }
-  boards.push({ name, cards: [] });
+  try { await md.writeSheet(name, []); } catch (e) { return fail(e, "создать доску"); }
+  const meta = { name, color: null, width: null };
+  layout.rows.at(-1).sheets.push(meta);
+  boards.push({ name, meta, cards: [] });
   await saveOrder();
   render();
   box.lastElementChild.previousElementSibling?.scrollIntoView({ inline: "nearest", behavior: "smooth" });
@@ -225,9 +243,10 @@ async function addBoard() {
 }
 async function deleteBoard(b) {
   clearTimeout(b.timer);
-  try { await b.saving; await md.removeBoard(b.name); } catch (e) { b.confirm = false; render(); return fail(e, `удалить «${b.name}»`); }
+  try { await b.saving; await md.removeSheet(b.name); } catch (e) { b.confirm = false; render(); return fail(e, `удалить «${b.name}»`); }
   boards.splice(boards.indexOf(b), 1);
-  await saveOrder();
+  for (const r of layout.rows) r.sheets = r.sheets.filter(s => s != b.meta);
+  layout.rows = layout.rows.filter(r => r.sheets.length);
   render();
 }
 
@@ -239,10 +258,18 @@ function moveCard(from, j, to, k) {
   if (to != from) save(to);
   render();
 }
+// после перестановки листы снова раскладываются по рядам в прежних размерах (лист может перейти в соседний ряд)
+function syncMeta() {
+  let n = 0;
+  for (const r of layout.rows) { const size = r.sheets.length; r.sheets = boards.slice(n, n + size).map(b => b.meta); n += size; }
+  layout.rows.at(-1).sheets.push(...boards.slice(n).map(b => b.meta));
+  layout.rows = layout.rows.filter(r => r.sheets.length);
+}
 function moveBoard(i, k) {
   const [b] = boards.splice(i, 1);
   if (k > i) k--;
   boards.splice(k, 0, b);
+  syncMeta();
   saveOrder();
   render();
 }
@@ -261,7 +288,7 @@ box.addEventListener("click", e => {
   else if (t.closest(".lumi-card-kind")) { b.cards[j].check = b.cards[j].check == null ? false : null; save(b); render(); }
   else if (t.closest(".lumi-card-text")) openEditor(b, j);
   else if (t.closest(".lumi-add")) {
-    b.cards.push({ text: "", check: t.dataset.kind == "check" ? false : null });
+    b.cards.push({ text: "", check: t.dataset.kind == "check" ? false : null, children: [] });
     render();
     openEditor(b, b.cards.length - 1);
     box.querySelector(".lumi-note-editor")?.scrollIntoView({ block: "nearest" });

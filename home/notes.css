@@ -90,3 +90,8 @@
 @media (prefers-reduced-motion: reduce) {
   .lumi-board { transition-duration: .01s; }
 }
+
+/* подпункты и даты (этап 3A: просто показаны; вид и правка — 3B/3C) */
+.lumi-sub { margin: 4px 0 0; padding-left: 16px; list-style: none; opacity: .85; }
+.lumi-sub li.done { text-decoration: line-through; }
+.lumi-card-dates { opacity: .6; font-size: .85em; }

@@ -13,7 +13,7 @@
     let body = text.replace(/\r\n?/g, "\n").replace(/[ \t]+$/gm, "").replace(/\n{3,}/g, "\n\n").trim();
     if (!body) return false;
     if (/^https?:/.test(url)) body += `\n— [${(title || url).replace(/[\[\]\n]/g, " ").trim()}](${url.replace(/[ )]/g, encodeURIComponent)})`;
-    await notes.addCard(board, { text: body, check: null });
+    await notes.addItem(board, { text: body, check: null });
     return true;
   }
 

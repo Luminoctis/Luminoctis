@@ -350,6 +350,8 @@
   & .browserContainer { margin: 0 !important; } /* родной сдвиг сайта под выехавшую адресную строку — не в окошке */
 }
 :is(#lumi-pin-backdrop, #lumi-pin-frame, #lumi-pin-grip)[hidden] { display: none; }
+/* Glance (Alt+клик) из закрепа в окошке: его панель по умолчанию z-index 1 — под затемнением и окошком; поднимаем над ручкой (13) */
+#tabbrowser-tabbox:has(.lumi-pin-window) #tabbrowser-tabpanels > .browserSidebarContainer.zen-glance-overlay { z-index: 14 !important; }
 /* ручка ширины окошка — правый край рамки (js/lumi-rail.uc.js, startResize); щит на время тяжения накрывает всё окно, чтобы сайт не съедал мышь */
 #lumi-pin-grip {
   position: absolute; z-index: 13; top: var(--lumi-pin-y); bottom: var(--lumi-pin-y);

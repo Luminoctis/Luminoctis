@@ -788,7 +788,35 @@ function shiftTo(next, axis) {
   for (const [n, v] of next) n.style.translate = v ? (axis == "y" ? `0 ${v}px` : `${v}px 0`) : "";
   shifted = next;
 }
+// автопрокрутка при перетаскивании: у края окна — страница (по y), у краёв .lumi-row-scroll — ряд (по x); цикл rAF живёт только пока идёт перетаскивание
+let pt = null, raf = 0;
+const edge = (v, lo, hi, z = 70) => v < lo + z ? -Math.min(1, (lo + z - v) / z) : v > hi - z ? Math.min(1, (v - (hi - z)) / z) : 0; // -1…1, растёт к краю
+let tPrev = 0;
+function autoTick(now) {
+  raf = 0;
+  const k = Math.min(now - tPrev, 50) * 1.3; // до 1300 px/с независимо от частоты кадров
+  tPrev = now;
+  if (!drag || !pt) return;
+  const dy = edge(pt.y, 0, innerHeight) * k, el0 = document.elementFromPoint(pt.x, pt.y), sc = !drag.rowMove && !drag.card ? el0?.closest?.(".lumi-row")?.querySelector(".lumi-row-scroll") : null;
+  let dx = 0;
+  if (sc) { const r = sc.getBoundingClientRect(); dx = edge(pt.x, r.left, r.right) * k; }
+  if (!dy && !dx) return;
+  const page = document.scrollingElement, y0 = page.scrollTop, x0 = sc?.scrollLeft;
+  page.scrollTop += dy; // scroll-behavior: smooth у html на время перетаскивания снят (см. dragover)
+  if (dx) sc.scrollLeft += dx;
+  if (page.scrollTop != y0 || (sc && sc.scrollLeft != x0)) { // линия вставки по ходу прокрутки
+    const ev = { target: el0, clientX: pt.x, clientY: pt.y }, t = drag.rowMove ? rowTarget(ev) : drag.card ? cardTarget(ev) : sheetTarget(ev);
+    showDrag(t);
+  }
+  raf = requestAnimationFrame(autoTick);
+}
+document.addEventListener("dragover", e => { if (!drag) return; pt = { x: e.clientX, y: e.clientY }; document.scrollingElement.style.scrollBehavior = "auto"; if (!raf) { tPrev = performance.now(); raf = requestAnimationFrame(autoTick); } }, true);
+document.addEventListener("wheel", e => { if (drag) document.scrollingElement.scrollTop += e.deltaY; }, { passive: true });
 function endDrag() {
+  cancelAnimationFrame(raf);
+  raf = 0;
+  document.scrollingElement.style.scrollBehavior = "";
+  pt = null;
   shiftTo(new Map());
   slot?.remove();
   slot = null;

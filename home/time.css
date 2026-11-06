@@ -1,4 +1,4 @@
-/* LumiTime на Home: столбец таймера (#lumi-time, справа), панели (#lumi-time-panel), заглушка блока сайтов (body.lt-block).
+/* LumiTime: столбец таймера (#lumi-time, справа), панели (#lumi-time-panel), заглушка блока сайтов (body.lt-block).
  * Цвета — токены палитры мода (--lumi-*), как в home.css и настройках. */
 :root {
   --lt-glass: color-mix(in srgb, var(--lumi-surface, #1f2335) 78%, transparent);
@@ -7,12 +7,12 @@
   --lt-ease: cubic-bezier(.2, .8, .2, 1);
 }
 
-/* ---------- столбец ---------- */
+/* ---------- столбец (на странице LumiTime — вкладке; в мини-окне рейки — компактно) ---------- */
 #lumi-time {
   position: relative; z-index: 3;
   margin: 14px 14px 14px 0; padding: 16px 16px 12px; box-sizing: border-box;
   display: flex; flex-direction: column; gap: 10px;
-  background: var(--lt-glass); backdrop-filter: blur(18px) saturate(1.2);
+  background: var(--lt-glass);
   border: 1px solid var(--lt-line); border-radius: 18px;
   box-shadow: 0 12px 40px rgb(0 0 0 / .35);
   overflow-y: auto; scrollbar-width: thin; scrollbar-color: var(--lumi-raised) transparent;
@@ -39,13 +39,18 @@
   & .lt-error { color: var(--lumi-red); margin: 0; font-size: 12px; }
   & h4 { margin: 0 0 4px; font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--lumi-muted); }
 }
-/* спрятать: столбец уезжает вправо, колонка схлопывается (часы и доски занимают всю ширину), --lumi-time-w = 0 заодно у панелей */
-body[lumi-time-hidden] { --lumi-time-w: 0px; }
-/* ширина своя, не по колонке: пока колонка растёт/схлопывается, содержимое не сжимается и не переносится (было видно на выезде) */
-#lumi-time { width: calc(320px - 14px); transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s; }
-body[lumi-time-hidden] #lumi-time { translate: calc(100% + 24px) 0; opacity: 0; visibility: hidden; transition: translate .35s var(--lt-ease), opacity .25s, visibility 0s .35s; }
-@media (prefers-reduced-motion: reduce) {
-  #lumi-time, body[lumi-time-hidden] #lumi-time { transition-duration: .01s; transition-delay: 0s; }
+/* страница LumiTime целиком (home/time.html): столбец справа на всю высоту, слева выезжают панели */
+body.lt-page {
+  margin: 0; height: 100vh; overflow: hidden; display: flex; justify-content: flex-end;
+  background: var(--lumi-bg0); color: var(--lumi-fg); font: 13px Inter, system-ui, sans-serif; color-scheme: dark;
+}
+#lumi-time { width: calc(320px - 14px); height: calc(100vh - 28px); }
+/* мини-окно рейки (?mini=1): рамку и фон даёт chrome — тут только кольцо, ±1 мин, режим, тема и кнопки цикла */
+body[lumi-mini] {
+  background: transparent; display: block;
+  & #lumi-time { width: auto; height: 100vh; margin: 0; padding: 12px 16px; border: none; border-radius: 0; box-shadow: none; background: transparent; }
+  & :is(.lt-head, .lt-lengths, .lt-count, .lt-today, .lt-status, .lt-nav, #lumi-time > div:not([class])) { display: none; }
+  & .lt-ring { width: min(100%, 200px); }
 }
 
 .lt-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px;
@@ -98,9 +103,7 @@ body[lumi-time-hidden] #lumi-time { translate: calc(100% + 24px) 0; opacity: 0; 
   & button { font-size: 12px; &[aria-pressed="true"] { background: color-mix(in srgb, var(--lumi-accent) 25%, var(--lumi-raised)); color: var(--lumi-fg); } }
 }
 
-/* ---------- панели: Home сдвигается вправо (как библиотека Zen), панель выезжает слева, таймер остаётся ---------- */
-#lumi-clock, #lumi-notes { transition: translate .45s var(--lt-ease), opacity .3s, filter .3s; }
-body[lumi-time-panel] :is(#lumi-clock, #lumi-notes) { translate: 45vw 0; opacity: 0; filter: blur(6px); pointer-events: none !important; }
+/* ---------- панели: выезжают слева, столбец таймера остаётся ---------- */
 #lumi-time-panel {
   position: fixed; z-index: 4; top: 14px; bottom: 14px; left: 14px; right: calc(var(--lumi-time-w, 320px) + 28px);
   display: flex; flex-direction: column;

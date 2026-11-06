@@ -311,14 +311,14 @@
   --lumi-pin-x: 12px; --lumi-pin-y: 12px; --lumi-pin-head: 44px;
   --lumi-pin-w: min(max(400px, 33.4vw), calc(100vw - 100px));
 }
-#lumi-pin-backdrop {
+#lumi-time-backdrop, #lumi-pin-backdrop {
   position: absolute; inset: -100vh -100vw; z-index: 10; /* за края tabbox — на всё окно, кроме рейки (она слоем выше) */
   /* затемнение — цвет темы (bg0 с подмешанным чёрным), не плоский чёрный; в стекле легче, чтобы рабочий стол/обои под Home не пропадали */
   background: color-mix(in srgb, color-mix(in srgb, var(--lumi-solid) 70%, #000) 50%, transparent);
   -moz-window-dragging: no-drag;
 }
-:root[lumi-glass] #lumi-pin-backdrop { background: color-mix(in srgb, color-mix(in srgb, var(--lumi-solid) 70%, #000) 30%, transparent); }
-#lumi-pin-frame {
+:root[lumi-glass] :is(#lumi-pin-backdrop, #lumi-time-backdrop) { background: color-mix(in srgb, color-mix(in srgb, var(--lumi-solid) 70%, #000) 30%, transparent); }
+#lumi-pin-frame, #lumi-time-frame {
   position: absolute; z-index: 11;
   inset: var(--lumi-pin-y) auto var(--lumi-pin-y) var(--lumi-pin-x); width: var(--lumi-pin-w);
   box-sizing: border-box; border-radius: var(--lumi-radius);
@@ -361,14 +361,27 @@
   &:hover::after, &[dragging]::after { opacity: 0.8; }
 }
 #lumi-pin-shield { position: fixed; inset: 0; z-index: 2147483647; cursor: ew-resize; -moz-window-dragging: no-drag; }
-#lumi-pin-backdrop { animation: lumi-fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); } /* то же время и кривая, что у окошка */
-:is(#lumi-pin-frame, .lumi-pin-window) { animation: lumi-pin-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
+#lumi-pin-backdrop, #lumi-time-backdrop { animation: lumi-fade-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); } /* то же время и кривая, что у окошка */
+:is(#lumi-pin-frame, #lumi-time-frame, .lumi-pin-window) { animation: lumi-pin-in 200ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 @keyframes lumi-fade-in { from { opacity: 0; } }
 @keyframes lumi-pin-in { from { opacity: 0; translate: -12px 0; } }
 @media (prefers-reduced-motion: reduce) {
   .lumi-tab, #lumi-pins[lumi-gap] .lumi-pin { transition: none; }
-  .lumi-pin, :is(#lumi-pin-backdrop, #lumi-pin-frame, .lumi-pin-window) { transition: none; animation: none; }
+  .lumi-pin, :is(#lumi-pin-backdrop, #lumi-pin-frame, .lumi-pin-window, #lumi-time-backdrop, #lumi-time-frame) { transition: none; animation: none; }
   #lumi-pin-grip::after { transition: none; }
+}
+
+/* Мини-окно таймера LumiTime (js/lumi-rail.uc.js, openMini): рамка и затемнение — как у мини-окна закрепа (общие правила выше), внутри — home/time.html?mini=1 */
+#lumi-time-frame {
+  bottom: auto; width: 340px; height: min(486px, calc(100% - 2 * var(--lumi-pin-y)));
+  display: flex; flex-direction: column; overflow: hidden;
+  & iframe { flex: 1; min-height: 0; width: 100%; border: 0; display: block; background: transparent; }
+  & .lumi-pin-head { flex-shrink: 0; }
+  & .lumi-time-full {
+    appearance: none; height: 28px; padding: 0 10px; border: none; border-radius: 8px; background: none;
+    font: inherit; font-size: 12px; color: var(--lumi-muted);
+    &:hover { background: var(--lumi-raised); color: var(--lumi-fg); }
+  }
 }
 
 /* ---------- 7. Плееры: плитки 40×40, при наведении — карточки 320×48 ----------
@@ -444,6 +457,30 @@
 }
 /* Родная стопка карточек Zen не показывается — её роль играет рейка */
 #zen-media-controls-toolbar { display: none !important; }
+
+/* Плитка таймера LumiTime (между пустым местом и плеерами): без цикла — тихий значок часов; во время цикла — кольцо в цвет фазы
+ * (фокус — акцент, перерыв — бирюзовый, пауза — серый) и оставшиеся минуты. Без анимаций: кольцо двигает js раз в секунду. */
+#lumi-time-tile {
+  position: relative; width: 34px; height: 34px; box-sizing: border-box; flex-shrink: 0; padding: 0;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid transparent; border-radius: 10px; background: var(--lumi-surface); color: var(--lumi-fg);
+  font: 600 11px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums;
+  transition: box-shadow 0.2s;
+  &[hidden] { display: none; }
+  &:hover { box-shadow: var(--lumi-rail-glow); }
+  &:focus-visible { outline: 2px solid var(--lumi-accent); }
+  &[open] { border-color: var(--lumi-accent); background: var(--lumi-raised); }
+  & svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; pointer-events: none; }
+  & circle { fill: none; stroke-width: 2.5; }
+  & .lumi-time-track { stroke: var(--lumi-raised); }
+  & .lumi-time-arc { stroke: var(--lumi-accent); stroke-linecap: round; stroke-dasharray: 100 100; }
+  &[phase="break"] .lumi-time-arc { stroke: var(--lumi-teal); }
+  &[paused] .lumi-time-arc { stroke: var(--lumi-dim); }
+  &[paused] .lumi-time-num { color: var(--lumi-muted); }
+  & .lumi-time-icon { width: 16px; height: 16px; background: var(--lumi-muted);
+    mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E"); }
+  &[phase="idle"] :is(svg, .lumi-time-num), &:not([phase="idle"]) .lumi-time-icon { display: none; }
+}
 
 /* ---------- 8. Панель адреса: без родной боковой панели Firefox ----------
  * Шестерёнка — родная кнопка Firefox «Настройки» (#preferences-button), значок даёт Zen. Слева от неё — «⋯»: свой виджет

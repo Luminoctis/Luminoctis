@@ -1,23 +1,16 @@
-// LumiTime на Home: столбец таймера справа (#lumi-time) — сводка, кольцо с цифрами и ±1 мин, кнопки цикла, пресет/тема/длительности,
+// LumiTime: столбец таймера справа (#lumi-time) — сводка, кольцо с цифрами и ±1 мин, кнопки цикла, пресет/тема/длительности,
 // «Сегодня», цели, кнопки панелей (home/time-panels.js). Логика и данные — в движке js/lumi-time.sys.mjs (идёт и без этой страницы);
 // страница только рисует: перерисовка по событиям движка, тик раз в секунду — пока вкладка видна.
+import { JS } from "./paths.js";
 import { E, h, s, clockOf, goalsBlock, openPanel, closePanel, panelName, refreshPanel } from "./time-panels.js";
 
+ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
 const root = document.getElementById("lumi-time");
 
-// Спрятать столбец (pref luminoctis.home.time.hidden, по умолчанию спрятан): body[lumi-time-hidden] уводит его вправо (time.css),
-// движок идёт как шёл. Открыть/закрыть — плашка у правого края (.lumi-bar, home.css), невидимая, пока на неё не наведёшь мышь.
-const HIDDEN = "luminoctis.home.time.hidden";
-const isHidden = () => Services.prefs.getBoolPref(HIDDEN, true);
-const bar = h("button", { class: "lumi-bar lumi-bar-time", on: { click: () => Services.prefs.setBoolPref(HIDDEN, !isHidden()) } });
-const applyHidden = () => {
-  document.body.toggleAttribute("lumi-time-hidden", isHidden());
-  bar.title = isHidden() ? "Открыть LumiTime" : "Закрыть LumiTime";
-  bar.setAttribute("aria-label", bar.title);
-};
-Services.prefs.addObserver(HIDDEN, applyHidden);
-applyHidden();
-document.body.append(bar);
+// Режимы: ?mini=1 — компактный таймер для мини-окна рейки (js/lumi-rail.uc.js; в chrome-рамке у него «Открыть целиком»),
+// без него — вся страница LumiTime в своей вкладке (?panel=stats|journal|settings|day — какая панель открыта; по умолчанию Статистика).
+const q = new URLSearchParams(location.search), mini = q.has("mini");
+document.body.toggleAttribute("lumi-mini", mini);
 await E.init();
 
 let els = {}, buttonsKey = "", rebuildOnBlur = false;
@@ -164,7 +157,8 @@ const run = () => {
   timer = setInterval(update, 1000);
 };
 document.addEventListener("visibilitychange", run);
-window.addEventListener("unload", () => { off(); clearInterval(timer); Services.prefs.removeObserver(HIDDEN, applyHidden); });
+window.addEventListener("unload", () => { off(); clearInterval(timer); });
 build();
 run();
+if (!mini) openPanel(["settings", "stats", "journal", "day"].includes(q.get("panel")) ? q.get("panel") : "stats");
 window.lumiTime = { E, build, update, openPanel, closePanel, panelName }; // для проверок

@@ -90,6 +90,9 @@ for (const box of document.querySelectorAll("input[type=checkbox][data-pref]")) 
   watchPref(pref, read);
 }
 
+// LumiTime целиком — вкладкой (мини-окно таймера и плитка живут на рейке, js/lumi-rail.uc.js)
+$("#time-open").addEventListener("click", () => { win.luminoctis.closeSettings(); win.luminoctis.openTime(); });
+
 // ---------- выбор из нескольких значений (data-pref, data-default; кнопки data-value; data-int — числовая настройка) ----------
 for (const seg of document.querySelectorAll("div[data-pref]")) {
   const pref = seg.dataset.pref, int = "int" in seg.dataset;

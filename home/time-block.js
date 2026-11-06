@@ -6,8 +6,9 @@ const q = new URLSearchParams(location.search);
 const url = q.get("url") ?? "", site = q.get("site") ?? "", until = q.get("until");
 let target = null;
 try { target = new URL(url); } catch {}
-document.getElementById("title").textContent = until ? `Фокус — вернись после ${until}` : "Фокус — вернись после него";
-document.getElementById("site").textContent = `${site} заблокирован, пока идёт фокус`;
+const brk = q.get("phase") && q.get("phase") != "focus";
+document.getElementById("title").textContent = brk ? `Перерыв — сайт закрыт${until ? ` до ${until}` : ""}` : until ? `Фокус — вернись после ${until}` : "Фокус — вернись после него";
+document.getElementById("site").textContent = `${site} заблокирован, пока идёт ${brk ? "цикл" : "фокус"}`;
 document.getElementById("open").addEventListener("click", () => {
   if (!target || !/^https?:$/.test(target.protocol)) return;
   engine.allowSite(target.hostname);

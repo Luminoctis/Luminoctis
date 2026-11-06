@@ -207,7 +207,7 @@ export const DEFAULT_SETTINGS = {
   monthGoalsEnabled: false, monthGoalHours: null, topicMonthGoals: [],
   weekGoalsEnabled: false, weekGoalHours: null, topicWeekGoals: [],
   streakGoalsEnabled: false, streakGoalHours: null, topicStreakGoals: [],
-  blockEnabled: false, blockSites: [],
+  blockEnabled: false, blockSites: [], blockBreaks: false, // blockBreaks: блокировать и в перерывах («строгий режим»)
 };
 function topicGoals(v) {
   return Array.isArray(v) ? v.filter(g => g && typeof g.topic == "string" && g.topic.trim() && validGoalHours(g.hours))
@@ -240,7 +240,7 @@ export function loadSettings(data) {
     monthGoalsEnabled: bool("monthGoalsEnabled"), monthGoalHours: hours("monthGoalHours"), topicMonthGoals: topicGoals(raw.topicMonthGoals),
     weekGoalsEnabled: bool("weekGoalsEnabled"), weekGoalHours: hours("weekGoalHours"), topicWeekGoals: topicGoals(raw.topicWeekGoals),
     streakGoalsEnabled: bool("streakGoalsEnabled"), streakGoalHours: hours("streakGoalHours"), topicStreakGoals: topicGoals(raw.topicStreakGoals),
-    blockEnabled: bool("blockEnabled"),
+    blockEnabled: bool("blockEnabled"), blockBreaks: bool("blockBreaks"),
     blockSites: Array.isArray(raw.blockSites) ? [...new Set(raw.blockSites.map(normDomain).filter(Boolean))] : [],
   };
 }
@@ -705,14 +705,14 @@ const matchSite = host => {
   const h = host.toLowerCase().replace(/^www\./, "");
   return data.settings.blockSites.find(d => h == d || h.endsWith("." + d)) ?? null;
 };
-// адрес сайта блокируется? → { site, until: "чч:мм" | null (секундомер) } или null. Только идущий фокус (не пауза, не перерыв).
+// адрес сайта блокируется? → { site, until: "чч:мм" | null (секундомер) } или null. Идущий фокус (не пауза); перерыв — только при blockBreaks.
 export function focusBlock(host) {
   const s = data.settings, st = data.state;
-  if (!data.loaded || !s.blockEnabled || !s.blockSites.length || st.phase != "focus" || st.runningSince === null || !host) return null;
+  if (!data.loaded || !s.blockEnabled || !s.blockSites.length || st.phase == "idle" || (st.phase != "focus" && !s.blockBreaks) || st.runningSince === null || !host) return null;
   const site = matchSite(host);
   if (!site || allowed.has(site)) return null;
   const t = now();
-  return { site, until: st.timerMode == "Stopwatch" ? null : hhmm(t + Math.max(0, st.plannedMs - elapsedMs(st, t))) };
+  return { site, phase: st.phase, until: st.timerMode == "Stopwatch" ? null : hhmm(t + Math.max(0, st.plannedMs - elapsedMs(st, t))) };
 }
 // «Всё равно открыть» — сайт открыт до конца этого фокуса
 export function allowSite(host) { const site = matchSite(host); if (site) allowed.add(site); }

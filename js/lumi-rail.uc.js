@@ -65,6 +65,7 @@
       syncSettingsFlag();
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
+    openTime, // LumiTime целиком — вкладкой (панель: settings|stats|journal|day)
     pins: pinTabs, addPin, pinTab, movePin, unpin, showPin, hidePin, migratePins, unloadIdleTabs,
     unload, unloadShortcut, gap, clearGap, shiftOf, calm, setIcon, DOT, pinStartURL,
     get dragPin() { return dragPin; }, // закреп, который сейчас тащат с рейки (полоса вкладок принимает его бросок)
@@ -115,6 +116,7 @@
       h("div", "lumi-sep"),
       pins,
       h("div", "lumi-spacer"),
+      initTimer(), // плитка таймера LumiTime — отдельной группой между пустым местом и плеерами
       players
     );
     document.getElementById("navigator-toolbox").before(rail);
@@ -138,6 +140,8 @@
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-rail-menu">
         <menuitem id="lumi-rail-menu-settings" label="Настройки мода Luminoctis"/>
+        <menuseparator id="lumi-rail-menu-timer-sep" hidden="true"/>
+        <menuitem id="lumi-rail-menu-timer" label="Убрать таймер" hidden="true"/>
         <menuseparator/>
         <menuitem label="Управление пространствами" command="cmd_zenManageWorkspaces"/>
         <menuseparator/>
@@ -145,9 +149,12 @@
       </menupopup>`).firstElementChild;
     document.getElementById("mainPopupSet").append(menu);
     menu.querySelector("#lumi-rail-menu-settings").addEventListener("command", () => luminoctis.openSettings());
+    menu.querySelector("#lumi-rail-menu-timer").addEventListener("command", () => Services.prefs.setBoolPref(TIME_RAIL, false));
     rail.addEventListener("contextmenu", event => {
       if (event.target.closest("#zen-workspaces-button toolbarbutton, .lumi-pin")) return;
       event.preventDefault();
+      // «Убрать таймер» — только у самой плитки
+      menu.querySelector("#lumi-rail-menu-timer").hidden = menu.querySelector("#lumi-rail-menu-timer-sep").hidden = !event.target.closest("#lumi-time-tile");
       menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
     });
   }
@@ -305,6 +312,7 @@
   }
 
   function showPin(pin) {
+    closeMini(false);
     if (leaving || (shown?.mini && shown.pin === pin)) return;
     const old = shown?.mini ? shown.pin : null; // окошко другого закрепа: прежняя вкладка под ним остаётся та же
     const prev = old ? shown.prev : gBrowser.selectedTab === pin ? gBrowser._findTabToBlurTo(pin) : gBrowser.selectedTab;
@@ -436,6 +444,7 @@
 
     // выбрали другую вкладку (полоса, Ctrl+Tab, смена пространства…) — окошка больше нет
     window.addEventListener("TabSelect", () => {
+      closeMini(false);
       // Glance (Alt+клик) поверх закрепа выбирает свою вкладку, но окошко остаётся: закреп — её родитель
       if (shown && gBrowser.selectedTab !== shown.pin && gZenGlanceManager.getTabOrGlanceParent(gBrowser.selectedTab) !== shown.pin) release();
     });
@@ -723,6 +732,109 @@
     };
     midnight();
     recalc();
+  }
+
+  // ---------- Таймер LumiTime на рейке: плитка с кольцом + мини-окно ----------
+  // Движок (js/lumi-time.sys.mjs) один на всё приложение, время считает из отметок, так что плитка только рисует: перерисовка по событиям
+  // движка и тик раз в секунду, пока цикл идёт и плитка видна. Клик — мини-окно (та же страница home/time.html?mini=1 в iframe,
+  // рамка и затемнение — как у мини-окна закрепа, chrome.css §6). «Открыть целиком» — весь LumiTime вкладкой (home/time.html).
+  const TIME_RAIL = "luminoctis.time.rail"; // плитка на рейке (по умолчанию вкл; «Убрать таймер» выключает)
+  const TIME_URL = pageUrl("home/time.html");
+  let mini = null; // { backdrop, frame, iframe, closing }
+  function openTime(panel) {
+    const same = tab => tab.linkedBrowser?.currentURI.spec.split(/[?#]/)[0] == TIME_URL;
+    const tab = gBrowser.tabs.find(same);
+    if (tab && !panel) gBrowser.selectedTab = tab;
+    else {
+      if (tab) gBrowser.removeTab(tab);
+      gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + (panel ? `?panel=${panel}` : ""));
+    }
+  }
+  function openMini(tile) {
+    if (mini) return;
+    if (shown) hidePin();
+    const backdrop = h("div", "", { id: "lumi-time-backdrop" }), frame = h("div", "", { id: "lumi-time-frame" });
+    frame.setAttribute("role", "dialog");
+    frame.setAttribute("aria-label", "Таймер LumiTime");
+    const full = h("button", "lumi-time-full", { textContent: "Открыть целиком" });
+    full.addEventListener("click", () => { closeMini(false); openTime(); });
+    const head = h("div", "lumi-pin-head");
+    head.append(h("span", "lumi-pin-title", { textContent: "LumiTime" }), full);
+    // страница создаётся на каждое открытие и убирается при закрытии: пока окна нет, она не тикает
+    const iframe = h("iframe", "", { src: TIME_URL + "?mini=1" });
+    frame.append(head, iframe);
+    backdrop.addEventListener("click", () => closeMini(true));
+    const esc = event => event.key == "Escape" && closeMini(true);
+    document.addEventListener("keydown", esc);
+    iframe.addEventListener("load", () => iframe.contentWindow.addEventListener("keydown", esc));
+    tabbox().append(backdrop, frame);
+    mini = { backdrop, frame, iframe, esc, tile };
+    tile.setAttribute("open", "");
+    iframe.focus();
+  }
+  // Закрытие — обратное появлению (chrome.css lumi-pin-in/lumi-fade-in); smooth — только у действий пользователя
+  async function closeMini(smooth) {
+    const m = mini;
+    if (!m || m.closing) return;
+    const done = () => {
+      if (mini !== m) return;
+      document.removeEventListener("keydown", m.esc);
+      m.backdrop.remove();
+      m.frame.remove();
+      m.tile.removeAttribute("open");
+      mini = null;
+    };
+    if (!smooth || calm()) return done();
+    m.closing = true;
+    const fade = (el, shift) => el.animate(
+      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }],
+      { duration: 200, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" });
+    await Promise.allSettled([fade(m.backdrop).finished, fade(m.frame, true).finished]);
+    done();
+  }
+  function initTimer() {
+    const E = ChromeUtils.importESModule(jsUrl("lumi-time.sys.mjs"));
+    const svg = (tag, attrs) => Object.entries(attrs).reduce((el, [k, v]) => (el.setAttribute(k, v), el), document.createElementNS("http://www.w3.org/2000/svg", tag));
+    const arc = svg("circle", { class: "lumi-time-arc", cx: 17, cy: 17, r: 14, pathLength: 100 });
+    const num = h("span", "lumi-time-num"), tile = labeled(h("button", "", { id: "lumi-time-tile" }), "Таймер LumiTime");
+    const ring = svg("svg", { viewBox: "0 0 34 34", "aria-hidden": "true" });
+    ring.append(svg("circle", { class: "lumi-time-track", cx: 17, cy: 17, r: 14 }), arc);
+    tile.append(ring, h("span", "lumi-time-icon"), num);
+    tile.setAttribute("phase", "idle");
+    tile.addEventListener("click", () => (mini ? closeMini(true) : openMini(tile)));
+
+    const names = { focus: "Фокус", break: "Перерыв", "long-break": "Длинный перерыв" };
+    const update = () => {
+      const st = E.data.state, idle = !E.data.loaded || st.phase == "idle";
+      const paused = !idle && st.runningSince === null;
+      tile.setAttribute("phase", idle ? "idle" : st.phase == "focus" ? "focus" : "break");
+      tile.toggleAttribute("paused", paused);
+      if (idle) return void labeled(tile, "Таймер LumiTime");
+      const info = E.display(st, E.now()), p = info.main.replace("+", "").split(":").map(Number);
+      const minutes = p.length == 3 ? p[0] * 60 + p[1] : p[0];
+      num.textContent = (info.main[0] == "+" ? "+" : "") + (minutes || info.main[0] == "+" || st.timerMode == "Stopwatch" ? minutes : p.at(-1) + "с");
+      arc.style.strokeDashoffset = String(100 * (1 - info.progress));
+      labeled(tile, `${paused ? "Пауза · " : ""}${names[st.phase]} · ${info.main}`);
+    };
+    let timer = null;
+    const sync = () => {
+      const on = !tile.hidden && E.data.loaded && E.data.state.phase != "idle";
+      update();
+      if (on && !timer) timer = setInterval(update, 1000); // без цикла и пока плитка спрятана — не тикаем
+      else if (!on && timer) timer = clearInterval(timer);
+    };
+    const applyPref = () => {
+      tile.hidden = !Services.prefs.getBoolPref(TIME_RAIL, true);
+      if (tile.hidden) closeMini(false);
+      sync();
+    };
+    const off = E.subscribe(sync);
+    Services.prefs.addObserver(TIME_RAIL, applyPref);
+    window.addEventListener("unload", () => { off(); clearInterval(timer); Services.prefs.removeObserver(TIME_RAIL, applyPref); }, { once: true });
+    // движок поднимаем здесь (повторный init безопасен — он один на приложение): звук и уведомление «время вышло» работают без открытой страницы
+    E.init().then(sync, console.error);
+    applyPref();
+    return tile;
   }
 
   // ---------- Плееры: зеркало карточек родных медиа-контролов Zen ----------

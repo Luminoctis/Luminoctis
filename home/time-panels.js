@@ -173,7 +173,8 @@ function settingsView(root) {
 
       h("h3", { text: "Блок сайтов во время фокуса" }),
       toggle("Блокировать отвлекающие сайты", S.blockEnabled, v => save(n => (n.blockEnabled = v)),
-        "Пока идёт фокус (не пауза и не перерыв), эти сайты и их поддомены открываются заглушкой «Фокус — вернись после чч:мм»"),
+        "Пока идёт фокус (не пауза), эти сайты и их поддомены открываются заглушкой «Фокус — вернись после чч:мм»"),
+      toggle("Блокировать и в перерывах", S.blockBreaks, v => save(n => (n.blockBreaks = v)), "Строгий режим: сайты закрыты и во время перерыва. Выключено — только во время фокуса"),
       h("textarea", { class: "lt-sites", rows: 4, placeholder: "youtube.com\nreddit.com", value: S.blockSites.join("\n"),
         on: { change: e => save(n => (n.blockSites = e.target.value.split(/[\s,]+/).map(E.normDomain).filter(Boolean))).then(() => (e.target.value = E.data.settings.blockSites.join("\n"))) } }),
       h("p", { class: "lt-dim", text: `Файлы: ${store.path("time")}` }),

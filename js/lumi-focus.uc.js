@@ -5,12 +5,12 @@
 
 // Ловим запрос документа верхнего уровня (http-on-modify-request идёт в родительском процессе для всех вкладок), отменяем его
 // и грузим во вкладку home/time-block.html. Каждое окно обслуживает только свои вкладки (embedderElement в этом окне).
-// Решение «блокировать?» — в движке (lumi-time.sys.mjs focusBlock): включено, список не пуст, фокус идёт (не пауза, не перерыв).
+// Решение «блокировать?» — в движке (lumi-time.sys.mjs focusBlock): включено, список не пуст, фокус идёт (не пауза); в перерыв — только со «строгим режимом» (blockBreaks).
 (() => {
   const { jsUrl, pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   const engine = ChromeUtils.importESModule(jsUrl("lumi-time.sys.mjs"));
   const BLOCK = pageUrl("home/time-block.html");
-  // движок здесь не запускаем: фокус может идти, только если его начали на Home (там init); до этого focusBlock — null
+  // движок запускает рейка (lumi-rail.uc.js, E.init()); до загрузки данных focusBlock — null
 
   const observer = {
     observe(subject) {
@@ -24,7 +24,7 @@
       const block = engine.focusBlock(host);
       if (!block) return;
       channel.cancel(Cr.NS_BINDING_ABORTED);
-      const url = `${BLOCK}?url=${encodeURIComponent(channel.URI.spec)}&site=${encodeURIComponent(block.site)}&until=${block.until ?? ""}`;
+      const url = `${BLOCK}?url=${encodeURIComponent(channel.URI.spec)}&site=${encodeURIComponent(block.site)}&until=${block.until ?? ""}&phase=${block.phase}`;
       Services.tm.dispatchToMainThread(() => {
         browser.fixupAndLoadURIString(url, { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() });
       });

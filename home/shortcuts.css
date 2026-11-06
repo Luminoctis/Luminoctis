@@ -3,17 +3,16 @@
 .lumi-tile {
   display: flex; flex-direction: column; align-items: center; gap: 8px; width: 96px; padding: 12px 6px 10px; border-radius: 14px;
   color: var(--lumi-fg, #c0caf5); text-decoration: none; font-size: 12px; user-select: none;
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 62%, transparent); backdrop-filter: blur(12px);
-  transition: background .15s, translate .15s;
-  &:hover, &:focus-visible { background: color-mix(in srgb, var(--lumi-raised, #292e42) 88%, transparent); translate: 0 -2px; outline: none; }
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 78%, transparent); cursor: pointer; /* без backdrop-filter на каждой плитке — нагрузка на видеокарту */
+  transition: background .12s;
+  &:hover, &:focus-visible { background: color-mix(in srgb, var(--lumi-raised, #292e42) 92%, transparent); outline: none; }
 }
-.lumi-tile-icon { width: 28px; height: 28px; border-radius: 7px; object-fit: contain; }
 .lumi-tile-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lumi-shortcuts-hint { margin: 0; padding: 8px 16px; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--lumi-muted, #a9b1d6);
   border-radius: 12px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); }
 .lumi-add {
   align-self: stretch; width: 56px; border: 1px dashed color-mix(in srgb, var(--lumi-dim, #565f89) 60%, transparent); border-radius: 14px; cursor: pointer;
-  font: 24px/1 Inter, system-ui, sans-serif; color: var(--lumi-muted, #a9b1d6); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 40%, transparent); backdrop-filter: blur(12px);
+  font: 24px/1 Inter, system-ui, sans-serif; color: var(--lumi-muted, #a9b1d6); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent);
   transition: background .15s, color .15s, border-color .15s;
   &:hover, &:focus-visible { color: var(--lumi-accent, #7aa2f7); border-color: var(--lumi-accent, #7aa2f7); outline: none; background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
 }
@@ -35,4 +34,42 @@
   & .lumi-add-ok { color: var(--lumi-solid, #16161e); background: var(--lumi-accent, #7aa2f7); }
   & button:hover, & button:focus-visible { filter: brightness(1.12); outline: none; }
 }
-@media (prefers-reduced-motion: reduce) { .lumi-add { transition-duration: .01s; } .lumi-tile { transition-duration: .01s; } }
+
+/* значок плитки: 32px-коробка; сайт без иконки — кружок */
+.sc-ico { width: 32px; height: 32px; display: grid; place-items: center; flex: none; }
+.sc-icon { width: 28px; height: 28px; border-radius: 7px; object-fit: contain; }
+.sc-dot { width: 26px; height: 26px; border-radius: 50%; box-sizing: border-box; display: grid; place-items: center;
+  background: color-mix(in srgb, var(--lumi-accent, #7aa2f7) 22%, transparent); border: 1px solid color-mix(in srgb, var(--lumi-accent, #7aa2f7) 45%, transparent);
+  &::after { content: ''; width: 9px; height: 9px; border-radius: 50%; background: var(--lumi-accent, #7aa2f7); } }
+/* папка: мини-иконки 2x2 */
+.sc-mini { box-sizing: border-box; padding: 3px; gap: 2px; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; place-items: center; border-radius: 9px;
+  background: color-mix(in srgb, var(--lumi-bg0, #16161e) 45%, transparent); border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 35%, transparent);
+  & .sc-icon { width: 12px; height: 12px; border-radius: 3px; }
+  & .sc-dot { width: 12px; height: 12px; &::after { width: 4px; height: 4px; } } }
+/* перетаскивание: свободное место, поднятая плитка, цель группировки */
+.sc-dragging, .sc-dragging * { cursor: grabbing !important; user-select: none; }
+.sc-hole { background: transparent; outline: 2px dashed color-mix(in srgb, var(--lumi-accent, #7aa2f7) 55%, transparent); outline-offset: -2px; & > * { visibility: hidden; } }
+.sc-ghost { position: fixed; left: 0; top: 0; z-index: 60; margin: 0; pointer-events: none; scale: 1.06; box-shadow: 0 12px 28px rgb(0 0 0 / .45); box-sizing: border-box;
+  background: color-mix(in srgb, var(--lumi-raised, #292e42) 96%, transparent); }
+.sc-merge { outline: 2px solid var(--lumi-accent, #7aa2f7); outline-offset: -2px; scale: 1.06; background: color-mix(in srgb, var(--lumi-accent, #7aa2f7) 22%, var(--lumi-raised, #292e42)); }
+/* раскрытая папка */
+.sc-fold-back { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgb(0 0 0 / .35); transition: background .12s;
+  &.away { background: transparent; } &.away .sc-fold-box { opacity: 0; } }
+.sc-fold-box { box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px;
+  border-radius: 16px; color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(18px);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4); transition: opacity .12s;
+  & h3 { margin: 0; font-size: 15px; font-weight: 600; } }
+.sc-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; min-height: 60px; }
+.sc-dlg-text { margin: 0; font-size: 13px; line-height: 1.5; color: var(--lumi-muted, #a9b1d6); }
+/* меню и плашка отмены */
+.sc-menu { position: fixed; z-index: 70; min-width: 160px; padding: 5px; display: flex; flex-direction: column; gap: 2px; border-radius: 12px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
+  & button { text-align: left; padding: 8px 12px; border: 0; border-radius: 8px; cursor: pointer; font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5); background: transparent; }
+  & button:hover, & button:focus-visible { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); outline: none; }
+  & button.bad { color: var(--lumi-red, #f7768e); } }
+.sc-toast { position: fixed; z-index: 70; left: 50%; bottom: 28px; translate: -50% 0; display: flex; align-items: center; gap: 14px; padding: 10px 12px 10px 16px; border-radius: 12px;
+  font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 96%, transparent);
+  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
+  & button { height: 28px; padding: 0 12px; border: 0; border-radius: 8px; cursor: pointer; font: 13px Inter, system-ui, sans-serif; color: var(--lumi-solid, #16161e); background: var(--lumi-accent, #7aa2f7); }
+  & button:hover, & button:focus-visible { filter: brightness(1.12); outline: none; } }
+@media (prefers-reduced-motion: reduce) { .lumi-add, .lumi-tile, .sc-fold-back, .sc-fold-box { transition-duration: .01s; } }

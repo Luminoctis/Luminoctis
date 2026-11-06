@@ -15,15 +15,16 @@
   pointer-events: auto; position: relative; flex: none; border-radius: 18px;
   background: color-mix(in srgb, var(--rc, transparent) 14%, transparent);
   box-shadow: inset 5px 0 0 var(--rc, transparent);
-  transition: background-color .15s;
 }
 /* шапка ряда: название и «⋯»; цвет ряда — полоса слева, точка и лёгкий фон */
 .lumi-row-head { display: flex; align-items: center; gap: 8px; min-height: 40px; padding: 4px 8px 0 22px; cursor: grab; user-select: none; }
 .lumi-row-dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--rc, transparent); }
-.lumi-row-name { min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; letter-spacing: .01em;
-  &.empty { font-weight: 400; color: var(--lumi-dim, #565f89); } }
+/* название и «⋯» на плашках цвета листа — читаются на любых обоях */
+.lumi-row-name, .lumi-row .lumi-row-more:not(:hover) { background: color-mix(in srgb, var(--lumi-surface, #1f2335) 86%, transparent); border-radius: 10px; }
+.lumi-row-name { padding: 5px 12px; min-width: 0; max-width: 60%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 15px; font-weight: 600; letter-spacing: .01em;
+  &.empty { font-weight: 400; color: color-mix(in srgb, var(--lumi-fg, #c0caf5) 60%, transparent); } }
 .lumi-row-rename { min-width: 0; width: 280px; max-width: 60%; height: 30px; box-sizing: border-box; padding: 0 8px; border-radius: 8px; font: 600 15px Inter, system-ui, sans-serif; }
-.lumi-row-more { margin-left: auto; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; opacity: .55; }
+.lumi-row-more { margin-left: auto; width: 30px; height: 30px; padding: 0; display: grid; place-items: center; opacity: .8; }
 .lumi-row:hover .lumi-row-more, .lumi-row-more:focus-visible { opacity: 1; }
 .lumi-row-ghost { position: fixed; left: -5000px; top: 0; z-index: -1; pointer-events: none; box-sizing: border-box; border-radius: 12px; opacity: .95;
   background: color-mix(in srgb, var(--lumi-surface, #1f2335) 96%, var(--rc, transparent)); border: 1px solid var(--rc, var(--lumi-dim, #565f89)); color: var(--lumi-fg, #c0caf5); font-family: Inter, system-ui, sans-serif; }
@@ -36,19 +37,19 @@
 /* лист */
 .lumi-sheet {
   --cc: var(--c, var(--lumi-accent, #7aa2f7)); /* цвет листа → цвет ряда → акцент темы мода */
-  --base: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent);
+  --base: color-mix(in srgb, var(--lumi-surface, #1f2335) 86%, transparent); /* без backdrop-filter (пересчитывался каждый кадр — нагрузка на GPU): заливка чуть плотнее */
   position: relative; box-sizing: border-box; flex: 0 0 var(--w, 320px); min-width: 0; height: var(--h, 420px);
   display: flex; flex-direction: column; gap: 10px; padding: 14px 14px 12px; border-radius: 16px;
-  background: var(--base); backdrop-filter: blur(16px);
+  background: var(--base); isolation: isolate;
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent);
   box-shadow: 0 -4px 18px rgb(0 0 0 / .25);
-  transition: border-color .15s, box-shadow .15s, background-color .15s, translate .15s ease;
+  transition: translate .15s ease;
   &.colored::before { content: ""; position: absolute; left: 16px; right: 16px; top: -1px; height: 3px; border-radius: 0 0 3px 3px; background: var(--cc); }
-  &:hover {
-    background: color-mix(in srgb, var(--cc) 9%, var(--base));
-    border-color: color-mix(in srgb, var(--cc) 55%, transparent);
-    box-shadow: 0 0 18px color-mix(in srgb, var(--cc) 22%, transparent), 0 -4px 18px rgb(0 0 0 / .25);
-  }
+  /* наведение: цветной слой под содержимым, плавно только его opacity — анимировать фон/тень/рамку нельзя: каждый кадр перерисовывал бы страницу */
+  &::after { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .15s;
+    background: color-mix(in srgb, var(--cc) 9%, transparent); border: 1px solid color-mix(in srgb, var(--cc) 55%, transparent);
+    box-shadow: 0 0 18px color-mix(in srgb, var(--cc) 22%, transparent); }
+  &:hover::after { opacity: 1; }
 }
 .lumi-row.fill .lumi-sheet { flex: 1 1 0; min-width: 140px; }
 
@@ -87,13 +88,12 @@
   padding: 9px 8px 9px 6px; border-radius: 12px; line-height: 1.45; font-size: 16px; cursor: grab;
   background: color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent);
   border: 1px solid transparent;
-  transition: border-color .15s, background-color .15s, box-shadow .15s, translate .15s ease;
+  transition: translate .15s ease; isolation: isolate;
   &.done .lumi-card-body { text-decoration: line-through; color: var(--lumi-dim, #565f89); }
-  &:hover {
-    background: color-mix(in srgb, var(--cc) 14%, color-mix(in srgb, var(--lumi-bg1, #1a1b26) 82%, transparent));
-    border-color: color-mix(in srgb, var(--cc) 50%, transparent);
-    box-shadow: 0 0 12px color-mix(in srgb, var(--cc) 18%, transparent);
-  }
+  &::before { content: ""; position: absolute; inset: -1px; z-index: -1; border-radius: inherit; pointer-events: none; opacity: 0; transition: opacity .15s; /* см. .lumi-sheet::after */
+    background: color-mix(in srgb, var(--cc) 14%, transparent); border: 1px solid color-mix(in srgb, var(--cc) 50%, transparent);
+    box-shadow: 0 0 12px color-mix(in srgb, var(--cc) 18%, transparent); }
+  &:hover::before { opacity: 1; }
 }
 /* карточка — обычный блок: свёртка и галочка плавают слева, длинный текст переносится под них и тянется до правого края; кнопки справа лежат поверх при наведении */
 .lumi-card-text { min-width: 0; padding-top: 1px; white-space: pre-wrap; overflow-wrap: anywhere; cursor: text; }
@@ -108,7 +108,7 @@
 .lumi-fold { float: left; width: 28px; height: 28px; margin: -3px 8px -3px 0; padding: 0; display: grid; place-items: center; cursor: pointer; }
 .lumi-fold .lumi-ico { width: 16px; height: 16px; stroke-width: 2.4; transition: rotate .15s; }
 .lumi-fold.open .lumi-ico { rotate: 90deg; }
-span.lumi-fold { cursor: inherit; }
+span.lumi-fold { display: none; } /* у пункта без подпунктов нет пустого места под стрелку — текст начинается сразу за галочкой */
 
 /* своя галочка: рамка и заливка акцентом листа, значок рисуется плавно */
 .lumi-sheet input[type="checkbox"] {
@@ -127,7 +127,7 @@ span.lumi-fold { cursor: inherit; }
 .lumi-card-body del { opacity: .7; }
 /* заголовок-разделитель внутри листа: без фона карточки (# … ######) */
 .lumi-card.lumi-heading { background: transparent; padding-left: 14px; cursor: grab; font-weight: 700;
-  &:hover { background: transparent; box-shadow: none; }
+  &::before { display: none; }
   &[data-level="1"] { font-size: 1.35em; } &[data-level="2"] { font-size: 1.2em; } &[data-level="3"] { font-size: 1.1em; }
   &[data-level="4"], &[data-level="5"], &[data-level="6"] { font-size: 1em; color: var(--lumi-muted, #a9b1d6); } }
 /* лист-документ: живой редактор (home/notes-live.mjs). Разметка лежит в тексте отдельными span'ами .md-mark — скрыта, пока каретка её не касается:
@@ -190,7 +190,7 @@ span.lumi-fold { cursor: inherit; }
   &[data-state="off"] { color: var(--lumi-dim, #565f89); opacity: .7; & > span { background: transparent; } }
 }
 .lumi-card-adding { display: flex; margin-left: calc(var(--d, 0) * var(--ind)); flex-shrink: 0; padding-left: 4px; }
-.lumi-card-tools { position: absolute; top: 5px; right: 5px; padding: 2px; border-radius: 10px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(8px); }
+.lumi-card-tools { position: absolute; top: 5px; right: 5px; padding: 2px; border-radius: 10px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); }
 .lumi-card > .lumi-note-editor { display: block; width: 100%; box-sizing: border-box; }
 .lumi-card-tools button.armed { width: auto; padding: 0 10px; font-size: 13px; white-space: nowrap; color: var(--lumi-red, #f7768e); }
 
@@ -228,8 +228,8 @@ span.lumi-fold { cursor: inherit; }
 .lumi-card-tools button, .lumi-sheet-tools button { width: 30px; height: 30px; padding: 0; display: grid; place-items: center; }
 .lumi-add-sheet, .lumi-add-row {
   pointer-events: auto; flex: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; height: 42px; padding: 0 18px 0 14px; font-size: 15px;
-  border-radius: 12px !important; backdrop-filter: blur(12px);
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent) !important;
+  border-radius: 12px !important;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 88%, transparent) !important;
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent) !important;
   &:hover { border-color: color-mix(in srgb, var(--lumi-accent, #7aa2f7) 60%, transparent) !important; color: var(--lumi-fg, #c0caf5); }
 }
@@ -248,7 +248,7 @@ span.lumi-fold { cursor: inherit; }
   &.line { border-radius: 2px; border: none; background: var(--lumi-accent, #7aa2f7); } }
 .lumi-sheet > .lumi-cards > .lumi-slot { margin: 0; }
 .lumi-ghost { position: fixed; left: -5000px; top: 0; z-index: -1; pointer-events: none; }
-.lumi-ghost.lumi-sheet { opacity: .92; box-shadow: 0 14px 36px rgb(0 0 0 / .55); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 96%, transparent); backdrop-filter: none; border-color: var(--cc); }
+.lumi-ghost.lumi-sheet { opacity: .92; box-shadow: 0 14px 36px rgb(0 0 0 / .55); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 96%, transparent); border-color: var(--cc); }
 section.lumi-ghost:not(.lumi-sheet) { --cc: var(--c, var(--lumi-accent, #7aa2f7)); --ind: 28px; font-family: Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5); }
 section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
 .lumi-ghost .lumi-card { background: color-mix(in srgb, var(--lumi-surface, #1f2335) 97%, var(--cc)); border-color: var(--cc); box-shadow: 0 12px 30px rgb(0 0 0 / .55); }
@@ -276,7 +276,7 @@ section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .lumi-row, .lumi-sheet, .lumi-card, .lumi-row-more, .lumi-sheet-tools, .lumi-card-tools, .lumi-sheet-grip::after, .lumi-sheet-grip-b::after, .lumi-sheet-grip-c::after,
+  .lumi-row, .lumi-sheet, .lumi-sheet::after, .lumi-card, .lumi-card::before, .lumi-row-more, .lumi-sheet-tools, .lumi-card-tools, .lumi-sheet-grip::after, .lumi-sheet-grip-b::after, .lumi-sheet-grip-c::after,
   .lumi-slot, .lumi-fold .lumi-ico, .lumi-swatch, .lumi-sheet input[type="checkbox"], .lumi-cb::after { transition: none; }
   .lumi-sheet input[type="checkbox"].pop { animation: none; }
 }

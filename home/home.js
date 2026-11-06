@@ -19,3 +19,11 @@ const go = top => document.documentElement.scrollTo({ top, behavior: "smooth" })
 document.getElementById("lumi-scroll-down").onclick = () => go(innerHeight);
 document.getElementById("lumi-scroll-up").onclick = () => go(0);
 addEventListener("scroll", () => document.body.toggleAttribute("lumi-scrolled", document.documentElement.scrollTop > innerHeight / 3), { passive: true });
+
+// кивок стрелки вниз — таймером, не infinite-анимацией, и только 3 раза за показ Home: в прозрачных режимах окна каждый кадр анимации тянет ~50% ядра
+// (замер 2026-11-06: постоянный кивок = 5–10% ядра и ~5% GPU в простое). Не в скрытой Home и не после прокрутки.
+const arrow = document.getElementById("lumi-scroll-down");
+let nudges = 0;
+arrow.addEventListener("animationend", () => arrow.removeAttribute("nudge"));
+document.addEventListener("visibilitychange", () => { if (!document.hidden) nudges = 0; });
+setInterval(() => { if (!document.hidden && nudges < 3 && !document.body.hasAttribute("lumi-scrolled")) { nudges++; arrow.setAttribute("nudge", ""); } }, 2800);

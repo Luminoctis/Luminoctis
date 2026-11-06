@@ -595,6 +595,18 @@ zen-library {
   background: var(--lumi-raised); border: 1px solid var(--lumi-accent); border-radius: var(--lumi-tab-radius, 10px);
   box-shadow: 4px 4px 0 -1px var(--lumi-raised), 4px 4px 0 0 var(--lumi-accent);
 }
+/* Заглушка вместо пустой/дефолтной/битой иконки сайта: точка цвета текста (js/lumi-rail.uc.js: setIcon, картинка — SVG с context-fill) */
+img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb, currentColor 55%, transparent) 3px, transparent 3.6px); }
+.lumi-player-cover[lumi-dot] { background-image: radial-gradient(circle at center, color-mix(in srgb, var(--lumi-fg) 55%, transparent) 3px, transparent 3.6px); }
+/* Glance (Alt+клик по ссылке): значок сайта в родителе — на вкладке полосы, закрепе рейки и строке списка папки; сама вкладка Glance в полосе не рисуется */
+:is(.lumi-tab-glance, .lumi-fr-glance, .lumi-pin-glance) { display: none; box-sizing: border-box; width: 18px; height: 18px; padding: 2px; border-radius: 6px; background-color: color-mix(in srgb, var(--lumi-accent) 35%, transparent); }
+.lumi-tab[glance] .lumi-tab-glance { display: block; pointer-events: auto; margin-right: 2px; &:hover { background-color: color-mix(in srgb, var(--lumi-accent) 60%, transparent); } }
+.lumi-fr[glance] .lumi-fr-glance { display: block; }
+@container (max-width: 80px) { .lumi-tab:not([square]) .lumi-tab-glance { display: none !important; } }
+.lumi-tab[square][glance] .lumi-tab-glance { display: block !important; position: absolute; top: 2px; right: 0; width: 12px; height: 12px; padding: 1px; margin: 0; z-index: 2; }
+.lumi-pin[glance] .lumi-pin-glance { display: block; position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; padding: 2px; border-radius: 50%; pointer-events: auto; background-color: var(--lumi-accent); box-shadow: 0 0 0 2px var(--lumi-bg1); }
+.lumi-pin { position: relative; }
+
 /* Папка Zen в полосе (js/lumi-tabstrip.uc.js): та же таблетка, что у вкладки, но уже (150px), значок папки, число вкладок, список — #lumi-folder-menu */
 .lumi-tab.lumi-folder {
   flex-basis: 150px; max-width: 150px;

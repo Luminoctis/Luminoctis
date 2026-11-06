@@ -40,10 +40,12 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       item.draggable = true;
       item.tab = tab; // по .tab родное меню вкладки (TabContextMenu) узнаёт, для какой вкладки оно открыто
       item.icon = Object.assign(document.createElement("img"), { className: "lumi-tab-icon", alt: "" });
+      item.glanceEl = Object.assign(document.createElement("img"), { className: "lumi-tab-glance", alt: "", title: "Показать Glance" }); // значок сайта из Glance
       item.labelEl = Object.assign(document.createElement("span"), { className: "lumi-tab-label" });
       item.append(
         item.icon,
         item.labelEl,
+        item.glanceEl,
         Object.assign(document.createElement("span"), { className: "lumi-tab-audio" }),
         Object.assign(document.createElement("span"), { className: "lumi-tab-unload", title: "Выгрузить из памяти" }),
         Object.assign(document.createElement("span"), { className: "lumi-tab-close", title: "Закрыть вкладку" })
@@ -62,13 +64,16 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // выбранную сперва уводим на Home (иначе Zen выберет соседа), потом выгружаем
   const unloadTab = tab => luminoctis.unload(tab); // с выбранной вкладки уводит на Home (js/lumi-rail.uc.js)
   const update = (item, tab, hoverCard) => {
-    const icon = gBrowser.getIcon(tab), img = item.icon;
-    if (img.getAttribute("src") != icon) icon ? img.setAttribute("src", icon) : img.removeAttribute("src");
+    luminoctis.setIcon(item.icon, gBrowser.getIcon(tab)); // нет значка / грузится — точка
+    // Glance (Alt+клик по ссылке): его вкладка живёт внутри родительской (tab.glanceTab) и в полосе не рисуется, а родитель получает маленький значок сайта
+    const glance = tab.glanceTab;
+    item.toggleAttribute("glance", !!glance);
+    if (glance) luminoctis.setIcon(item.glanceEl, gBrowser.getIcon(glance));
     item.labelEl.textContent = tab.label;
     // родная подсказка-title дублировала бы карточку при наведении (js/lumi-hovercard.uc.js); без карточки — остаётся
     if (hoverCard) item.removeAttribute("title");
     else item.title = tab.label;
-    item.toggleAttribute("selected", tab.selected);
+    item.toggleAttribute("selected", tab.selected || !!glance?.selected); // пока открыт Glance, выбрана его вкладка — подсвечиваем родителя
     item.toggleAttribute("multiselected", tab.multiselected || (tab.selected && gBrowser.multiSelectedTabsCount > 0)); // Ctrl/Shift+клик
     item.toggleAttribute("unloadable", unloadable(tab));
     item.toggleAttribute("square", tab.pinned); // закреплённые вкладки пространства — квадратики
@@ -87,7 +92,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     for (let g = tab.group; g; g = g.group) if (g.tagName == "zen-folder") root = g;
     return root;
   };
-  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("zen-empty-tab") && !dying.has(tab) && !folderOf(tab));
+  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("zen-empty-tab") && !tab.hasAttribute("zen-glance-tab") && !dying.has(tab) && !folderOf(tab));
   // Вкладки полосы и папки пространства в порядке документа: фишка стоит там, где в списке Zen стоит папка
   const stripEntries = () => {
     const entries = stripTabs();
@@ -224,7 +229,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !now.includes(items.get(tab))) grow(items.get(tab), rowFrom);
     fresh.clear();
     // к выбранной — только когда выбор сменился: иначе любая фоновая вкладка (загрузка, заголовок) сбивала прокрутку пользователя
-    const selected = items.get(gBrowser.selectedTab) ?? chips.get(folderOf(gBrowser.selectedTab));
+    const sel = gZenGlanceManager.getTabOrGlanceParent(gBrowser.selectedTab); // открыт Glance — выбрана его вкладка, показываем родителя
+    const selected = items.get(sel) ?? chips.get(folderOf(sel));
     if (selected?.isConnected && selected !== shownSelected) row.ensureElementIsVisible(selected);
     shownSelected = selected;
     refreshPanel();
@@ -280,7 +286,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
         el.draggable = true;
         el.icon = Object.assign(document.createElement("img"), { className: "lumi-fr-icon", alt: "" });
         el.labelEl = Object.assign(document.createElement("span"), { className: "lumi-fr-label" });
-        el.append(el.icon, el.labelEl,
+        el.glanceEl = Object.assign(document.createElement("img"), { className: "lumi-fr-glance", alt: "", title: "Показать Glance" });
+        el.append(el.icon, el.labelEl, el.glanceEl,
           Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-audio" }),
           Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-unload", title: "Выгрузить" }),
           Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-close", title: "Закрыть" }));
@@ -292,10 +299,12 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const updateRow = (el, level, folder) => {
     el.style.setProperty("--lumi-level", level);
     if (!el.tab) return void (el.textContent = folder.label);
-    const { tab } = el, icon = gBrowser.getIcon(tab);
-    if (el.icon.getAttribute("src") != icon) icon ? el.icon.setAttribute("src", icon) : el.icon.removeAttribute("src");
+    const { tab } = el, glance = tab.glanceTab;
+    luminoctis.setIcon(el.icon, gBrowser.getIcon(tab));
+    el.toggleAttribute("glance", !!glance);
+    if (glance) luminoctis.setIcon(el.glanceEl, gBrowser.getIcon(glance));
     el.labelEl.textContent = tab.label;
-    el.toggleAttribute("selected", tab.selected);
+    el.toggleAttribute("selected", tab.selected || !!glance?.selected);
     for (const attr of ["pending", "soundplaying", "muted"]) el.toggleAttribute(attr, tab.hasAttribute(attr));
   };
   // Перестраивает только если набор строк изменился: пересборка во время перетаскивания строки оборвала бы его
@@ -335,7 +344,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   fList.addEventListener("click", event => {
     const tab = event.target.closest(".lumi-fr")?.tab, { classList } = event.target;
     if (!tab || event.button != 0) return;
-    if (classList.contains("lumi-fr-close")) gBrowser.removeTab(tab, { animate: true }); // список остаётся, строка уходит с обновлением
+    if (classList.contains("lumi-fr-glance")) { if (tab.glanceTab) gBrowser.selectedTab = tab.glanceTab; hideFolder(); }
+    else if (classList.contains("lumi-fr-close")) gBrowser.removeTab(tab, { animate: true }); // список остаётся, строка уходит с обновлением
     else if (classList.contains("lumi-fr-unload")) unloadTab(tab);
     else if (classList.contains("lumi-fr-audio")) tab.toggleMuteAudio();
     else {
@@ -443,7 +453,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (chip) return event.button == 0 && openFolder(chip);
     const tab = tabOf(event);
     if (!tab || event.button != 0) return;
-    if (event.target.classList.contains("lumi-tab-close")) gBrowser.removeTab(tab, { animate: true });
+    if (event.target.classList.contains("lumi-tab-glance")) { if (tab.glanceTab) gBrowser.selectedTab = tab.glanceTab; } // снова показать Glance
+    else if (event.target.classList.contains("lumi-tab-close")) gBrowser.removeTab(tab, { animate: true });
     else if (event.target.classList.contains("lumi-tab-unload")) { if (unloadable(tab)) unloadTab(tab); }
     else if (event.target.classList.contains("lumi-tab-audio")) tab.toggleMuteAudio();
     else if (event.ctrlKey || event.metaKey) toggleSelect(tab);
@@ -495,16 +506,13 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     });
     if (i < 0) i = list.length;
     // обычная вкладка (в т.ч. вышедшая из папки) не встаёт среди закрепов и фишек — они всегда левее обычных; папка и закреп — наоборот, не правее
-    if (dragged) {
-      const first = list.findIndex(el => el.tab && !el.tab.pinned), end = first < 0 ? list.length : first;
-      i = dragged.isZenFolder || (dragged.pinned && !folderOf(dragged)) ? Math.min(i, end) : Math.max(i, end);
-    }
-    return i;
+    const first = list.findIndex(el => el.tab && !el.tab.pinned), end = first < 0 ? list.length : first;
+    return dragged?.isZenFolder || (dragged?.pinned && !folderOf(dragged)) ? Math.min(i, end) : Math.max(i, end); // закреп с рейки (dragged нет) — как обычная вкладка
   };
   // фишка под курсором, если бросок на неё положит вкладку в папку (та же папка — нет)
   const folderTarget = event => {
-    const chip = dragged && !dragged.isZenFolder && chipOf(event);
-    if (!chip || folderOf(dragged) === chip.folder) return null;
+    const chip = (dragged || luminoctis.dragPin) && !dragged?.isZenFolder && chipOf(event);
+    if (!chip || (dragged && folderOf(dragged) === chip.folder)) return null;
     const r = chip.getBoundingClientRect(), edge = Math.min(12, r.width / 4);
     return event.clientX > r.left + edge && event.clientX < r.right - edge ? chip : null;
   };
@@ -557,8 +565,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     }
     return hole ?? list.at(-1).getBoundingClientRect().right;
   };
+  // Закреп с рейки (luminoctis.dragPin, js/lumi-rail.uc.js): бросок на полосу открывает НОВУЮ вкладку с начальным адресом закрепа
+  // (закреп остаётся на месте); тянется он с тем же расступанием и чертой, что вкладка из списка папки. На сайт и Home закреп не бросается.
   row.addEventListener("dragover", event => {
-    if (!dragged) return;
+    if (!dragged && !luminoctis.dragPin) return;
     event.preventDefault();
     clearTarget();
     const list = liveItems();
@@ -590,6 +600,15 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     clearTarget();
     dropLine.hidden = true;
     if (!gapPending) releaseGap(false); // ушли с полосы — щель плавно закрывается
+  });
+  let pinDropped = false;
+  row.addEventListener("drop", event => {
+    if (dragged || !luminoctis.dragPin) return;
+    const url = luminoctis.pinStartURL(luminoctis.dragPin);
+    dragged = gBrowser.addTrustedTab(url); // дальше — обычный бросок вкладки на это место
+    gBrowser.selectedTab = dragged;
+    dragSet = [dragged];
+    pinDropped = true;
   });
   row.addEventListener("drop", event => {
     if (!dragged) return;
@@ -638,6 +657,12 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     gapPending = row.querySelector("[style*=translate]") != null; // расступившиеся стоят, пока ряд не пересоберётся (render)
     if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500); // порядок не изменился — пересборки не будет
     gBrowser.moveTabTo(dragged, { tabIndex });
+  });
+  row.addEventListener("drop", () => { // бросок закрепа: у новой вкладки нет dragend, сбрасываем сами
+    if (!pinDropped) return;
+    pinDropped = false;
+    dragged = null;
+    dragSet = [];
   });
   const dragEnd = event => {
     clearTarget();

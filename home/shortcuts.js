@@ -347,6 +347,7 @@ window.addEventListener("blur", closeMenu);
 
 const open = (a, background) => win.openTrustedLinkIn(a.dataset.url, "tab", { inBackground: background });
 document.addEventListener("click", e => {
+  if (e.button) return e.target.closest?.(".lumi-tile") && e.preventDefault(); // в chrome-документе click приходит и для ПКМ — это только контекстное меню
   if (e.target.closest(".lumi-add")) return openAdd();
   const a = e.target.closest(".lumi-tile");
   if (!a || a.classList.contains("sc-ghost")) return;

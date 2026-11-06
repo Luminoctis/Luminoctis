@@ -7,7 +7,8 @@
 // Поддержано: # … ######, **жирный**/__жирный__, *курсив*/_курсив_, ~~зачёркнутый~~, `код`, [текст](url), голые https-ссылки, списки - * + (вложенные, Tab/Shift+Tab),
 // задачи - [ ] / - [x] (настоящая галочка), цитата "> ", разделитель ---, даты 🛫/📅 ГГГГ-ММ-ДД. Остальное показывается как текст.
 const HEAD = /^(#{1,6})([ \t])/;
-const LIST = /^([ \t]*)([-*+]) (\[[ xX]\](?: |$))?/;
+const LIST = /^([ \t]*)([-*+]|\d{1,9}[.)]) (\[[ xX]\](?: |$))?/;
+const NUMBER = /^(\d{1,9})([.)])$/; // маркер нумерованного пункта
 const QUOTE = /^>[ ]?/;
 const HR = /^ {0,3}([-*_])(?: ?\1){2,}[ \t]*$/;
 // 1 код, 2–3 ссылка [подпись](адрес), 4 **, 5 __, 6 ~~, 7 *, 8 _, 9 голая ссылка, 10 дата
@@ -76,14 +77,16 @@ function buildLine(s, today) { // одна строка текста → .lumi-l
     ln.classList.add("li");
     ln.style.setProperty("--d", Math.ceil(cols(ws) / 4));
     if (ws) ln.append(el("span", "md-ws", ws));
-    ln.append(el("span", "lumi-lm" + (cb ? " task" : ""), ch + " "));
+    const num = NUMBER.test(ch);
+    if (num) ln.classList.add("ord");
+    ln.append(el("span", "lumi-lm" + (num ? " num" : cb ? " task" : ""), ch + " "));
     if (cb) {
       ctx.done = /[xX]/.test(cb);
       ln.classList.add("task");
       if (ctx.done) ln.classList.add("done");
       const c = el("span", "lumi-cb" + (ctx.done ? " chk" : ""), cb);
-      c.dataset.s = ws.length + 2;
-      c.dataset.e = ws.length + 2 + cb.length;
+      c.dataset.s = ws.length + ch.length + 1;
+      c.dataset.e = ws.length + ch.length + 1 + cb.length;
       ln.append(c);
     }
     ln.append(body(all.length));
@@ -262,29 +265,68 @@ export function createLive({ text = "", onChange, onLink, onBlur } = {}) {
     if (a == b) return;
     edit(a, b, "", "del", sel, a);
   }
-  function enter(sel) { // Enter: в списке продолжает список (пустой пункт — выход из списка), в цитате — цитату
+  // Номера пунктов: списки с одним отступом — один ряд (другой маркер, строка без отступа или смена знака «.»/«)» начинают новый). Ряды блока списка, где правили строки hot,
+  // переписываются 1,2,3…; первая строка ряда сохраняет свой номер, если её не двигали (тогда 1). Возвращает { text, map } — map переносит смещения старого текста в новый.
+  function renum(text, hot) {
+    const arr = text.split("\n"), blk = [], tgt = [], stack = [];
+    let b = 0;
+    arr.forEach((line, i) => {
+      const m = LIST.exec(line);
+      if (m) {
+        const c = cols(m[1]), nm = NUMBER.exec(m[2]);
+        while (stack.length && stack.at(-1).c > c) stack.pop();
+        const top = stack.at(-1), sib = top?.c == c;
+        const n = nm ? (sib && top.n != null && top.d == nm[2] ? top.n + 1 : hot.has(i) ? 1 : +nm[1]) : null;
+        const e = { c, n, d: nm?.[2] };
+        if (sib) stack[stack.length - 1] = e; else stack.push(e);
+        blk[i] = b;
+        tgt[i] = n;
+      } else if (!line.trim() || /^[ \t]/.test(line)) blk[i] = b;
+      else { b++; stack.length = 0; }
+    });
+    const hotBlocks = new Set([...hot].map(i => blk[i]).filter(x => x != null)), fixes = []; // fixes: [строка, конец номера, на сколько длиннее]
+    arr.forEach((line, i) => {
+      if (tgt[i] == null || !hotBlocks.has(blk[i])) return;
+      const [, ws, mk] = LIST.exec(line), nm = NUMBER.exec(mk), now = String(tgt[i]);
+      if (nm[1] == now) return;
+      arr[i] = ws + now + nm[2] + line.slice(ws.length + mk.length);
+      fixes.push([i, ws.length + mk.length, now.length - nm[1].length]);
+    });
+    const ls = text.split("\n"), map = p => { // p — смещение в text до переписывания номеров
+      let i = 0, o = 0;
+      while (i < ls.length - 1 && p > o + ls[i].length) { o += ls[i].length + 1; i++; }
+      return p + fixes.reduce((s, [fi, at, d]) => s + (fi < i || (fi == i && p - o >= at) ? d : 0), 0);
+    };
+    return { text: arr.join("\n"), map };
+  }
+  function enter(sel) { // Enter: в списке продолжает список (пустой пункт — выход из списка), в цитате — цитату; в нумерованном — со следующим номером
     const st = starts(), i = lineAt(sel.a), line = lines[i], col = sel.a - st[i];
     const l = LIST.exec(line), q = !l && QUOTE.exec(line), mk = l ?? q;
     if (mk && col >= mk[0].length) {
       if (sel.a == sel.b && !line.slice(mk[0].length).trim()) return edit(st[i], st[i] + line.length, "", "other", sel, st[i]);
-      return edit(sel.a, sel.b, "\n" + (l ? l[1] + l[2] + " " + (l[3] ? "[ ] " : "") : mk[0]), "other", sel);
+      const nm = l && NUMBER.exec(l[2]);
+      const ins = "\n" + (l ? l[1] + (nm ? +nm[1] + 1 + nm[2] : l[2]) + " " + (l[3] ? "[ ] " : "") : mk[0]);
+      if (!nm) return edit(sel.a, sel.b, ins, "other", sel);
+      const r = renum(doc.slice(0, sel.a) + ins + doc.slice(sel.b), new Set([i + 1])), p = r.map(sel.a + ins.length);
+      return commit(r.text, p, p, "other", ins, sel);
     }
     edit(sel.a, sel.b, "\n", "other", sel);
   }
   function tab(sel, back) { // Tab / Shift+Tab: отступ пунктов списка (таб, как пишет serialize); вне списка Tab — символ табуляции
     const st = starts(), i0 = lineAt(sel.a), i1 = lineAt(sel.b), next = lines.slice();
-    const cut = []; // [начало строки, +1 вставлено | −k убрано]
+    const cut = [], hot = new Set(); // cut: [начало строки, +1 вставлено | −k убрано]; hot — сдвинутые строки (их ряды перенумеруются)
     for (let i = i0; i <= i1; i++) {
       if (!LIST.test(lines[i])) continue;
-      if (!back) { next[i] = "\t" + lines[i]; cut.push([st[i], 1]); }
+      if (!back) { next[i] = "\t" + lines[i]; cut.push([st[i], 1]); hot.add(i); }
       else {
         const k = lines[i][0] == "\t" ? 1 : Math.min(4, /^ */.exec(lines[i])[0].length);
-        if (k) { next[i] = lines[i].slice(k); cut.push([st[i], -k]); }
+        if (k) { next[i] = lines[i].slice(k); cut.push([st[i], -k]); hot.add(i); }
       }
     }
     if (!cut.length) { if (back || sel.a != sel.b) return false; edit(sel.a, sel.b, "\t", "other", sel); return true; }
     const at = p => cut.reduce((acc, [s, d]) => acc + (d > 0 ? (p >= s ? d : 0) : -Math.min(Math.max(p - s, 0), -d)), p);
-    commit(next.join("\n"), at(sel.a), at(sel.b), "other", "", sel);
+    const r = renum(next.join("\n"), hot);
+    commit(r.text, r.map(at(sel.a)), r.map(at(sel.b)), "other", "", sel);
     return true;
   }
 

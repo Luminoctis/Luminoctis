@@ -159,6 +159,9 @@ span.lumi-fold { display: none; } /* у пункта без подпунктов
 .lumi-lm { display: inline-block; width: 1.3em; text-indent: 0; position: relative; color: transparent;
   &::after { content: "•"; position: absolute; left: .3em; color: var(--lumi-muted, #a9b1d6); } }
 .lumi-ln.on .lumi-lm { color: var(--lumi-dim, #565f89); &::after { content: none; } }
+.lumi-ln.li.ord { --m: 1.9em; }
+.lumi-ln.li.ord.task { --m: 3.8em; }
+.lumi-lm.num { width: 1.9em; color: var(--lumi-muted, #a9b1d6); font-variant-numeric: tabular-nums; &::after { content: none; } }
 .lumi-lm.task { display: none; }
 .lumi-ln.on .lumi-lm.task { display: inline-block; width: auto; }
 .lumi-cb { display: inline-block; width: 1.9em; text-indent: 0; position: relative; color: transparent; cursor: pointer;

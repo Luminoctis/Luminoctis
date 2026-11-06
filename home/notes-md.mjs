@@ -9,7 +9,8 @@
 //   даты в конце первой строки: "🛫 ГГГГ-ММ-ДД" (начало) и "📅 ГГГГ-ММ-ДД" (срок) → поля start/due; остальные эмодзи Obsidian Tasks остаются в тексте.
 // Строка "# Текст" … "###### Текст" в начале строки — заголовок-разделитель: пункт { text, check: null, heading: 1..6, children: [] } (без дат и подпунктов).
 // Прочие посторонние строки (абзац из внешнего редактора) становятся отдельным пунктом-заметкой — ничего не теряется.
-// Пункт: { text, check: null|bool, start?, due?, heading?, children: [] }.
+//   "1. текст" / "1) текст" — пункт-заметка с номером прямо в тексте (ol: true), пишется обратно как была; отдельной нумерации в карточках нет.
+// Пункт: { text, check: null|bool, start?, due?, heading?, ol?, children: [] }.
 // Лист в раскладке может быть документом (mode: "doc"): тот же .md, но показан цельным текстом (docBlocks/docToggle).
 // inline(text) разбирает Markdown внутри строки в токены (без DOM: DOM строит страница).
 // Чистые функции (parse, serialize, normalizeLayout) не трогают диск — их проверяет dev/check-notes-md.mjs в node.
@@ -30,8 +31,10 @@ export const COLORS = {
 // ---------- разбор и запись листа ----------
 const MARK = /^([ \t]*)[-*+](?: |$)(?:\[([ xX])\](?: |$))?(.*)$/;
 const DATE = /\s*([\u{1F6EB}\u{1F4C5}])️?\s*(\d{4}-\d{2}-\d{2})\s*$/u; // 🛫 начало, 📅 срок
+const NUM = /^([ \t]*)(\d{1,9}[.)](?: .*|))$/; // «1. текст» / «1) текст»: пункт-заметка, номер остаётся в тексте
+const NUMTXT = /^\d{1,9}[.)](?: |$)/;
 const HEAD = /^(#{1,6})[ \t]+(\S.*?)[ \t]*$/;
-const LISTLIKE = /^[ \t]*(?:[-*+](?: |$)|#{1,6}[ \t]+\S)/m;
+const LISTLIKE = /^[ \t]*(?:[-*+](?: |$)|\d{1,9}[.)](?: |$)|#{1,6}[ \t]+\S)/m;
 export const listLike = text => LISTLIKE.test(text); // в тексте маркер списка или заголовок — вставка раскладывается через parse
 const cols = ws => { let c = 0; for (const ch of ws) c += ch == "\t" ? 4 : 1; return c; };
 // снять отступ хозяина (в колонках: таб = 4) и ещё один уровень продолжения (таб или 2 пробела)
@@ -54,12 +57,12 @@ export function parse(md) {
   const root = [], stack = []; // stack — цепочка предков последнего пункта: { col, item }
   let blanks = 0;
   for (const line of md.replace(/\r\n?/g, "\n").split("\n")) {
-    const hd = HEAD.exec(line), m = MARK.exec(line);
+    const hd = HEAD.exec(line), m = MARK.exec(line) ?? NUM.exec(line);
     if (hd) { root.push({ text: hd[2], check: null, heading: hd[1].length, children: [] }); stack.length = 0; blanks = 0; }
     else if (m) {
       const col = cols(m[1]);
       while (stack.length && stack.at(-1).col >= col) stack.pop();
-      const it = item(m[3], m[2] == null ? null : m[2] != " ");
+      const it = m.length == 3 ? { ...item(m[2], null), ol: true } : item(m[3], m[2] == null ? null : m[2] != " ");
       (stack.length ? stack.at(-1).item.children : root).push(it);
       stack.push({ col, item: it });
       blanks = 0;
@@ -83,7 +86,7 @@ export function serialize(items) {
       if (c.heading) { out.push("#".repeat(c.heading) + " " + c.text.replace(/\s*\n\s*/g, " ")); walk(c.children ?? [], d); continue; }
       const lines = c.text.split("\n");
       const first = [lines[0], c.start && `\u{1F6EB} ${c.start}`, c.due && `\u{1F4C5} ${c.due}`].filter(Boolean).join(" ");
-      out.push(pad + (c.check == null ? "- " : c.check ? "- [x] " : "- [ ] ") + first);
+      out.push(pad + (c.check == null ? (c.ol && NUMTXT.test(c.text) ? "" : "- ") : c.check ? "- [x] " : "- [ ] ") + first); // ol — строка с номером из документа: без «- »
       for (const l of lines.slice(1)) out.push(l ? pad + "  " + l : "");
       walk(c.children ?? [], d + 1);
     }
@@ -156,7 +159,7 @@ export function docBlocks(text) {
 // галочка "- [ ]" ↔ "- [x]" в строке line текста документа
 export function docToggle(text, line) {
   const lines = text.replace(/\r\n/g, "\n").split("\n");
-  lines[line] = lines[line].replace(/^([ \t]*[-*+] \[)([ xX])(\])/, (_, a, c, z) => a + (c == " " ? "x" : " ") + z);
+  lines[line] = lines[line].replace(/^([ \t]*(?:[-*+]|\d{1,9}[.)]) \[)([ xX])(\])/, (_, a, c, z) => a + (c == " " ? "x" : " ") + z);
   return lines.join("\n");
 }
 

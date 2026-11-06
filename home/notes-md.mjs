@@ -93,7 +93,7 @@ export function serialize(items) {
 }
 
 // ---------- раскладка boards.json ----------
-// { version: 2, rows: [ { color, fill, sheets: [ { name, color, width, height, mode? } ] } ] }; старый вид — массив имён листов; у старого ряда была height — переезжает в его листы без своей высоты
+// { version: 2, rows: [ { color, fill, name?, sheets: [ { name, color, width, height, mode?, icon? } ] } ] }; name ряда и icon листа (эмодзи или chrome://…svg из выбора значков Zen) пишутся, только когда заданы; старый вид — массив имён листов; у старого ряда была height — переезжает в его листы без своей высоты
 export function normalizeLayout(raw, files) {
   const have = new Set(files), seen = new Set();
   const num = v => (typeof v == "number" && v > 0 && isFinite(v) ? Math.round(v) : null);
@@ -102,12 +102,12 @@ export function normalizeLayout(raw, files) {
     const o = typeof s == "string" ? { name: s } : s;
     if (typeof o?.name != "string" || !have.has(o.name) || seen.has(o.name)) return null; // записи без файла выбрасываются
     seen.add(o.name);
-    return { name: o.name, color: color(o.color), width: num(o.width), height: num(o.height) ?? rowH, ...(o.mode === "doc" && { mode: "doc" }) };
+    return { name: o.name, color: color(o.color), width: num(o.width), height: num(o.height) ?? rowH, ...(o.mode === "doc" && { mode: "doc" }), ...(typeof o.icon == "string" && o.icon && o.icon.length < 300 && { icon: o.icon }) };
   };
   let rows = [];
   if (Array.isArray(raw)) rows = [{ sheets: raw }];
   else if (Array.isArray(raw?.rows)) rows = raw.rows.filter(r => r && typeof r == "object");
-  rows = rows.map(r => ({ color: color(r.color), fill: r.fill === true, sheets: (Array.isArray(r.sheets) ? r.sheets : []).map(x => sheet(x, num(r.height))).filter(Boolean) }))
+  rows = rows.map(r => ({ color: color(r.color), fill: r.fill === true, ...(typeof r.name == "string" && r.name.trim() && { name: r.name.trim().slice(0, 80) }), sheets: (Array.isArray(r.sheets) ? r.sheets : []).map(x => sheet(x, num(r.height))).filter(Boolean) }))
     .filter(r => r.sheets.length);
   if (!rows.length) rows.push({ color: null, fill: false, sheets: [] });
   rows.at(-1).sheets.push(...files.filter(f => !seen.has(f)).sort().map(name => ({ name, color: null, width: null, height: null }))); // файлы снаружи — в конец последнего ряда

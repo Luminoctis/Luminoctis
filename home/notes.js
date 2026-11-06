@@ -1,11 +1,11 @@
 // LumiNotes — канбан-доска под первым экраном Home (#lumi-notes; до неё долистывают прокруткой). Файлы и формат — home/notes-md.mjs.
 // Доска = ряды (горизонтальные полосы) → листы (колонки, файлы notes\<лист>.md) → пункты. Всё правится сразу, режима правки нет:
 // галочки, строка добавления внизу листа, клик по тексту пункта — поле, перетаскивание пунктов и листов (HTML5 DnD),
-// ПКМ по пустому месту ряда — меню ряда, ПКМ по листу — меню листа, размер листа тянется за правый край, нижний край и угол (у каждого листа своя высота, ряд — по самому высокому).
+// шапка ряда (название, «⋯», перетаскивание ряда) и ПКМ по пустому месту — меню ряда, ПКМ по листу — меню листа, размер листа тянется за правый край, нижний край и угол (у каждого листа своя высота, ряд — по самому высокому).
 // Markdown в тексте пунктов рисует renderInline (md.inline → createElement). Лист в режиме "doc" (меню листа) — цельный Markdown-текст: живой редактор notes-live.mjs (всегда оформлен, разметка видна у каретки, как Live Preview в Obsidian). Удаление пункта/листа — плашка «Отменить» (pushUndo, Ctrl+Z); файл листа уходит в Корзину (или в папку из pref luminoctis.notes.trash-dir — для проверок).
 // Пункт — задача (check — bool, есть галочка и даты) или заметка (check — null). Подпункты — любой глубины: на экране дерево лежит плоским
 // списком (.lumi-card, отступ --d), путь пункта — индексы от корня листа ("0.2.1" в data-p). Свёрнутые пункты помнит только память.
-// Раскладка (цвет/fill ряда, цвет/ширина/высота листа) — notes\boards.json (writeLayout). Сохранение листа: через 400 мс после правки
+// Раскладка (имя/цвет/fill ряда, цвет/ширина/высота/иконка листа) — notes\boards.json (writeLayout). Сохранение листа: через 400 мс после правки
 // (атомарно, store.js); ошибка — плашкой сверху, правка остаётся в памяти. Файлы, изменённые снаружи, перечитываются при возврате на Home.
 import * as md from "./notes-md.mjs";
 import { createLive } from "./notes-live.mjs";
@@ -25,7 +25,7 @@ const ICONS = {
   start: ["M6 21V4M6 5h11l-2.5 4 2.5 4H6"],
   due: ["M5 5h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zM4 10h16M8 3v4M16 3v4"],
   task: ["M7 4h10a3 3 0 0 1 3 3v10a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V7a3 3 0 0 1 3-3zM8.5 12.2l2.4 2.4 4.6-5"],
-  note: ["M5 7h14M5 12h14M5 17h9"],
+  note: ["M5 7h14M5 12h14M5 17h9"], more: ["M5 12h.01M12 12h.01M19 12h.01"],
 };
 function svg(name) {
   const NS = "http://www.w3.org/2000/svg", s = document.createElementNS(NS, "svg");
@@ -76,7 +76,7 @@ const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 // ---------- чтение ----------
 let loading = null;
 async function load() {
-  if (root.querySelector(".lumi-note-editor, .lumi-sheet-rename, .lumi-sub-input, .lumi-add-input:not(:placeholder-shown)") || document.activeElement?.closest?.(".lumi-live") || drag) return; // идёт ввод — не мешаем (перерисовка убила бы каретку)
+  if (root.querySelector(".lumi-note-editor, .lumi-sheet-rename, .lumi-row-rename, .lumi-sub-input, .lumi-add-input:not(:placeholder-shown)") || document.activeElement?.closest?.(".lumi-live") || drag) return; // идёт ввод — не мешаем (перерисовка убила бы каретку)
   try {
     await lp;
     const lay = await md.readLayout();
@@ -274,6 +274,7 @@ function sheetEl(b, row) {
   dot.append(el("span", "lumi-dot"));
   tools.append(dot);
   if (boards.length > 1) tools.append(ibtn("x", "lumi-sheet-del", "Удалить лист"));
+  if (b.meta.icon) head.append(sheetIcon(b.meta.icon));
   head.append(el("h3", "lumi-sheet-title", b.name), el("span", "lumi-sheet-count", b.cards.length || ""), tools);
   s.append(head);
   if (b.confirm) {
@@ -309,22 +310,35 @@ function sheetEl(b, row) {
   grips(s);
   return s;
 }
+function rowHead(r) { // шапка ряда: цветная точка, название (пусто — приглушённое «Без названия»), «⋯»; за неё ряд перетаскивается
+  const h = el("div", "lumi-row-head"), name = el("span", "lumi-row-name" + (r.name ? "" : " empty"), r.name || "Без названия");
+  h.draggable = true;
+  name.title = "Двойной клик — переименовать. Шапку можно перетащить, чтобы переставить ряд";
+  h.append(el("span", "lumi-row-dot"), name, ibtn("more", "lumi-row-more", "Меню ряда"));
+  return h;
+}
+function sheetIcon(v) { // эмодзи — текстом, значок Zen (chrome://…svg) — маской, чтобы красился в цвет текста
+  const s = el("span", "lumi-sheet-icon");
+  if (/^(chrome|resource|data|https?):/.test(v)) { s.classList.add("img"); s.style.setProperty("--ic", "url(" + JSON.stringify(v) + ")"); } else s.textContent = v;
+  return s;
+}
 function rowEl(r) {
   const row = el("div", "lumi-row"), scroll = el("div", "lumi-row-scroll");
   row._r = r;
   row.classList.toggle("fill", r.fill);
   row.style.setProperty("--rc", r.color ? md.COLORS[r.color] : "transparent");
   scroll.append(...r.sheets.map(m => sheetEl(byMeta.get(m), r)), ibtn("plus", "lumi-add-sheet", "Новый лист в этом ряду", "лист"));
-  row.append(scroll);
+  row.append(rowHead(r), scroll);
   return row;
 }
 function render() {
   const keep = new Map([...box.querySelectorAll(".lumi-sheet")].map(s => [s._b, s.querySelector(".lumi-cards")?.scrollTop ?? 0]));
-  const left = new Map([...box.querySelectorAll(".lumi-row")].map(r => [r._r, r.firstChild.scrollLeft]));
+  const left = new Map([...box.querySelectorAll(".lumi-row")].map(r => [r._r, r.querySelector(".lumi-row-scroll").scrollLeft]));
   box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", "Новый ряд", "ряд"));
   for (const s of box.querySelectorAll(".lumi-sheet")) { const c = s.querySelector(".lumi-cards"); if (c) c.scrollTop = keep.get(s._b) ?? 0; }
-  for (const r of box.querySelectorAll(".lumi-row")) r.firstChild.scrollLeft = left.get(r._r) ?? 0;
+  for (const r of box.querySelectorAll(".lumi-row")) r.querySelector(".lumi-row-scroll").scrollLeft = left.get(r._r) ?? 0;
 }
+const rowNode = r => [...box.querySelectorAll(".lumi-row")].find(n => n._r == r);
 const sheetNode = b => [...box.querySelectorAll(".lumi-sheet")].find(s => s._b == b);
 
 // ---------- меню (своё, внутри страницы) ----------
@@ -363,16 +377,22 @@ const palette = (cur, pick) => m => {
 const changed = () => { closeMenu(); saveLayout(); render(); };
 
 function rowMenu(r, x, y) {
+  const i = layout.rows.indexOf(r);
   openMenu(x, y, m => m.append(
-    item("Toggle fill mode", () => { r.fill = !r.fill; changed(); }),
+    item("Переименовать ряд", () => { closeMenu(); openRowRename(r); }),
     item("Цвет ряда", () => setMenu(palette(r.color, k => { r.color = k; changed(); }))),
+    item((r.fill ? "✓ " : "") + "Растянуть листы по ширине", () => { r.fill = !r.fill; changed(); }),
     item("Добавить лист", () => addSheet(r)),
+    item("Выше", () => moveRow(r, i - 1), i < 1),
+    item("Ниже", () => moveRow(r, i + 2), i > layout.rows.length - 2),
     item("Удалить ряд", () => setMenu(confirmView("Удалить ряд? Его листы переедут в соседний ряд.", () => deleteRow(r))), layout.rows.length < 2, "Единственный ряд удалить нельзя")));
 }
 function sheetMenu(b, x, y) {
   openMenu(x, y, m => m.append(
     item("Цвет листа", () => setMenu(palette(b.meta.color, k => { b.meta.color = k; changed(); }))),
     item("Переименовать", () => { closeMenu(); openRename(b); }),
+    item("Иконка…", () => pickIcon(b, x, y)),
+    ...(b.meta.icon ? [item("Убрать иконку", () => { delete b.meta.icon; changed(); })] : []),
     item(isDoc(b) ? "Сделать карточками" : "Сделать документом", () => setMode(b, !isDoc(b))),
     item("Удалить лист", () => { closeMenu(); b.confirm = true; render(); }, boards.length < 2, "Последний лист удалить нельзя")));
 }
@@ -479,6 +499,7 @@ function openRename(b) {
   const input = el("input", "lumi-sheet-rename");
   input.value = b.name;
   input.spellcheck = false;
+  h.closest(".lumi-sheet-head").draggable = false; // иначе в поле нельзя ставить каретку и выделять мышью
   h.replaceWith(input);
   let done = false;
   const commit = async ok => {
@@ -504,6 +525,43 @@ function openRename(b) {
   });
   input.focus();
   input.select();
+}
+
+function openRowRename(r) {
+  const row = rowNode(r), name = row?.querySelector(".lumi-row-name");
+  if (!name) return;
+  const input = el("input", "lumi-row-rename");
+  input.value = r.name ?? "";
+  input.placeholder = "Название ряда";
+  input.spellcheck = false;
+  row.querySelector(".lumi-row-head").draggable = false;
+  name.replaceWith(input);
+  let done = false;
+  const commit = ok => {
+    if (done) return;
+    done = true;
+    if (ok) { const v = input.value.replace(/\s+/g, " ").trim().slice(0, 80); if (v) r.name = v; else delete r.name; saveLayout(); }
+    render();
+  };
+  input.addEventListener("blur", () => commit(true));
+  input.addEventListener("keydown", e => {
+    if (e.key == "Enter" || e.key == "Escape") { e.preventDefault(); e.stopPropagation(); commit(e.key == "Enter"); }
+  });
+  input.focus();
+  input.select();
+}
+// иконка листа: родной выбор значков Zen (gZenEmojiPicker окна браузера); якорь — невидимая точка окна на месте клика
+function pickIcon(b, x, y) {
+  closeMenu();
+  if (!win.gZenEmojiPicker) return fail(new Error("в окне нет выбора значков Zen"), "открыть выбор иконки");
+  const d = win.document, NS = "http://www.w3.org/1999/xhtml", br = window.browsingContext.embedderElement.getBoundingClientRect();
+  const wrap = d.createElementNS(NS, "div"), a = d.createElementNS(NS, "div");
+  wrap.style.cssText = `position:fixed;left:${br.left + x}px;top:${br.top + y}px;width:1px;height:1px;pointer-events:none`;
+  wrap.append(a);
+  (d.body ?? d.documentElement).append(wrap);
+  const p = win.gZenEmojiPicker.open(a, { allowNone: !!b.meta.icon, onSelect: v => { if (v) b.meta.icon = v; else delete b.meta.icon; changed(); } });
+  win.focus();
+  (p ?? Promise.resolve()).catch(() => {}).then(() => wrap.remove());
 }
 
 async function newSheet() {
@@ -606,6 +664,13 @@ function moveItem(from, p, to, tp) { // пункт p (с подпунктами)
   if (to != from) save(to);
   render();
 }
+function moveRow(r, k) { // ряд на место k (индексы считаются с самим r)
+  const i = layout.rows.indexOf(r);
+  layout.rows.splice(i, 1);
+  layout.rows.splice(k > i ? k - 1 : k, 0, r);
+  sync();
+  changed();
+}
 function moveSheet(b, r, k) { // лист в ряд r на место k (индексы считаются с самим b)
   const from = rowOf(b), i = from.sheets.indexOf(b.meta);
   from.sheets.splice(i, 1);
@@ -623,6 +688,8 @@ box.addEventListener("click", e => {
   if (a) { e.preventDefault(); return win.openTrustedLinkIn(a.href, "tab"); }
   if (t.closest(".lumi-add-row")) return addSheet(null, true);
   const row = t.closest(".lumi-row")?._r, s = t.closest(".lumi-sheet"), b = s?._b;
+  const more = t.closest(".lumi-row-more");
+  if (more) { const q = more.getBoundingClientRect(); return rowMenu(row, q.left, q.bottom + 4); }
   if (t.closest(".lumi-add-sheet")) return addSheet(row);
   if (!b || t.matches("input, textarea")) return;
   const li = t.closest(".lumi-card"), p = li && pathOf(li), c = p && itemAt(b, p);
@@ -655,6 +722,8 @@ box.addEventListener("click", e => {
   else if (t.closest(".lumi-confirm-no")) { b.confirm = false; render(); }
 });
 box.addEventListener("dblclick", e => {
+  const rn = e.target.closest(".lumi-row-name");
+  if (rn) return openRowRename(rn.closest(".lumi-row")._r);
   const b = e.target.closest(".lumi-sheet-title")?.closest(".lumi-sheet")?._b;
   if (b) openRename(b);
 });
@@ -710,7 +779,7 @@ box.addEventListener("pointerdown", e => {
 // перетаскивание (HTML5 DnD): пункты — внутри листа, между листами и рядами; листы — за шапку, внутри ряда и в другой ряд.
 // Под курсором — копия (setDragImage); исходное место — невидимая «дырка» (.lumi-hole); соседи раздвигаются через translate (150 мс), место вставки — рамка .lumi-slot.
 // Место вставки считается по естественным координатам (offsetTop/Left), а не по сдвинутым — иначе пункты «убегали» бы из-под курсора. prefers-reduced-motion: без сдвигов, место — тонкая линия.
-let drag = null; // { card: true, b, p (путь), nodes (пункт и его подпункты на экране), h (высота с зазором), heading } | { b, node, w }
+let drag = null; // { rowMove: true, r, node } | { card: true, b, p (путь), nodes (пункт и его подпункты на экране), h (высота с зазором), heading } | { b, node, w }
 let slot = null, shifted = new Map(), lastKey = ""; // shifted: узел → сдвиг в px
 const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 const after = (a, n) => !!(a.compareDocumentPosition(n) & Node.DOCUMENT_POSITION_FOLLOWING); // n идёт после a
@@ -763,6 +832,18 @@ function cardTarget(e) { // лист, в который бросаем, и пу�
   const li = all.find(n => !(mine && drag.nodes.includes(n)) && y < n.offsetTop + n.offsetHeight / 2) ?? null;
   return { all, li, to: s._b, tp: li && pathOf(li), ul };
 }
+function rowTarget(e) { // место ряда: перед первым рядом, чья середина ниже курсора (кроме самого перетаскиваемого)
+  const rows = [...box.querySelectorAll(".lumi-row")], y = e.clientY - box.getBoundingClientRect().top;
+  const nxt = rows.find(n => n != drag.node && y < n.offsetTop + n.offsetHeight / 2) ?? null;
+  return { rows, nxt, k: nxt ? layout.rows.indexOf(nxt._r) : layout.rows.length };
+}
+function rowGhost(h) {
+  const g = h.cloneNode(true);
+  g.classList.add("lumi-row-ghost");
+  g.style.width = h.offsetWidth + "px";
+  g.style.setProperty("--rc", h.parentNode.style.getPropertyValue("--rc"));
+  return g;
+}
 function sheetTarget(e) {
   const row = e.target.closest?.(".lumi-row");
   if (!row) return null;
@@ -778,13 +859,17 @@ function showSlot(parent, css, line) {
   Object.assign(slot.style, css);
 }
 function showDrag(t) { // сдвиги соседей и метка места под текущую цель (null — всё на место)
-  const key = !t ? "" : drag.card ? `${t.to.name}|${t.tp?.join(".") ?? "end"}` : `${layout.rows.indexOf(t.r)}:${t.k}`;
+  const key = !t ? "" : drag.rowMove ? `row:${t.k}` : drag.card ? `${t.to.name}|${t.tp?.join(".") ?? "end"}` : `${layout.rows.indexOf(t.r)}:${t.k}`;
   if (key == lastKey) return;
   lastKey = key;
   const map = new Map(), moving = !calm();
   if (!t) { shiftTo(map); slot?.remove(); slot = null; return; }
   const dy = n => map.get(n) ?? 0;
-  if (drag.card) {
+  if (drag.rowMove) { // между рядами — линия вставки
+    shiftTo(map);
+    const e = t.rows.findLast(n => n != drag.node);
+    showSlot(box, { left: "24px", right: "24px", width: "auto", top: (t.nxt ? t.nxt.offsetTop - 10 : e ? e.offsetTop + e.offsetHeight + 6 : 0) + "px", height: "4px" }, true);
+  } else if (drag.card) {
     const H = drag.h, first = drag.nodes[0], last = drag.nodes.at(-1), depth = t.tp ? (drag.heading && t.tp.length > 1 ? 0 : t.tp.length - 1) : 0;
     if (moving) {
       for (const n of first.parentNode.querySelectorAll(".lumi-card")) if (after(last, n)) map.set(n, -H); // исходное место смыкается
@@ -809,6 +894,16 @@ function showDrag(t) { // сдвиги соседей и метка места �
   }
 }
 box.addEventListener("dragstart", e => {
+  const rh = e.target.closest?.(".lumi-row-head");
+  if (rh) {
+    const node = rh.parentNode;
+    e.dataTransfer.setData("text/plain", node._r.name ?? "");
+    e.dataTransfer.effectAllowed = "move";
+    drag = { rowMove: true, r: node._r, node };
+    setImage(e.dataTransfer, rowGhost(rh), e, rh);
+    node.classList.add("lumi-hole");
+    return;
+  }
   const li = e.target.closest?.(".lumi-card"), s = e.target.closest?.(".lumi-sheet"), b = s?._b;
   if (!b || (!li && !e.target.closest?.(".lumi-sheet-head"))) return e.preventDefault();
   e.dataTransfer.setData("text/plain", li ? itemAt(b, pathOf(li)).text : b.name);
@@ -826,18 +921,18 @@ box.addEventListener("dragstart", e => {
 });
 box.addEventListener("dragover", e => {
   if (!drag) return;
-  const t = drag.card ? cardTarget(e) : sheetTarget(e);
+  const t = drag.rowMove ? rowTarget(e) : drag.card ? cardTarget(e) : sheetTarget(e);
   if (t) { e.preventDefault(); e.dataTransfer.dropEffect = "move"; }
   showDrag(t);
 });
 box.addEventListener("dragleave", e => { if (drag && !box.contains(e.relatedTarget)) showDrag(null); });
 box.addEventListener("drop", e => {
   if (!drag) return;
-  const d = drag, t = d.card ? cardTarget(e) : sheetTarget(e);
+  const d = drag, t = d.rowMove ? rowTarget(e) : d.card ? cardTarget(e) : sheetTarget(e);
   e.preventDefault();
   endDrag();
   if (!t) return;
-  if (d.card) moveItem(d.b, d.p, t.to, t.tp); else moveSheet(d.b, t.r, t.k);
+  if (d.rowMove) moveRow(d.r, t.k); else if (d.card) moveItem(d.b, d.p, t.to, t.tp); else moveSheet(d.b, t.r, t.k);
 });
 box.addEventListener("dragend", endDrag); // Esc или мимо — всё плавно возвращается
 
@@ -858,5 +953,5 @@ window.addEventListener("unload", () => {
 });
 
 // для dev/check-home-notes.js
-window.lumiNotes = { get boards() { return boards; }, get layout() { return layout; }, get undoDepth() { return undoStack.length; }, reload, flushAll, moveItem, moveSheet, undo };
+window.lumiNotes = { get boards() { return boards; }, get layout() { return layout; }, get undoDepth() { return undoStack.length; }, reload, flushAll, moveItem, moveSheet, moveRow, undo };
 reload();

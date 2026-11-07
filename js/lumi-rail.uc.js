@@ -66,7 +66,7 @@
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
     openTime, // LumiTime целиком — вкладкой (панель: settings|stats|journal|day)
-    pins: pinTabs, addPin, pinTab, movePin, unpin, showPin, hidePin, migratePins, unloadIdleTabs,
+    pins: pinTabs, addPin, pinTab, movePin, unpin, showPin, hidePin, migratePins, unloadIdleTabs, isKept, setKept,
     unload, unloadShortcut, gap, clearGap, shiftOf, calm, setIcon, DOT, pinStartURL,
     get dragPin() { return dragPin; }, // закреп, который сейчас тащат с рейки (полоса вкладок принимает его бросок)
   };
@@ -132,6 +132,7 @@
     gZenWorkspaces.promiseInitialized
       .then(() => SessionStore.promiseAllWindowsRestored)
       .then(migratePins)
+      .then(loadKept)
       .catch(console.error);
   });
 
@@ -527,12 +528,14 @@
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-pin-menu">
         <menuitem id="lumi-pin-menu-unload" label="Выгрузить"/>
+        <menuitem id="lumi-pin-menu-keep" type="checkbox" label="Всегда загружен"/>
         <menuitem id="lumi-pin-menu-unpin" label="Открепить"/>
       </menupopup>`).firstElementChild;
     document.getElementById("mainPopupSet").append(menu);
     let menuTab;
     menu.querySelector("#lumi-pin-menu-unload").addEventListener("command", () => unloadPin(menuTab));
     menu.querySelector("#lumi-pin-menu-unpin").addEventListener("command", () => unpin(menuTab));
+    menu.querySelector("#lumi-pin-menu-keep").addEventListener("command", () => setKept(menuTab, !isKept(menuTab)));
     unloadShortcut(box, event => event.target.closest?.(".lumi-pin")?.tab);
     box.addEventListener("contextmenu", event => {
       const tab = event.target.closest(".lumi-pin")?.tab;
@@ -540,6 +543,7 @@
       event.preventDefault();
       menuTab = tab;
       menu.querySelector("#lumi-pin-menu-unload").disabled = tab.hasAttribute("pending");
+      menu.querySelector("#lumi-pin-menu-keep").setAttribute("checked", isKept(tab));
       menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
     });
 
@@ -652,12 +656,13 @@
       btn.setAttribute("role", "button");
       // второй значок — маленький значок сайта из Glance (Alt+клик по ссылке), пока он открыт; клик по нему снова показывает Glance
       const glance = h("img", "lumi-pin-glance", { alt: "" });
-      btn.append(h("img", "", { alt: "" }), glance);
+      btn.append(h("img", "", { alt: "" }), glance, h("span", "lumi-pin-badge"));
       btn.addEventListener("click", event => {
         if (event.target === glance && tab.glanceTab) return void (event.stopPropagation(), gBrowser.selectedTab = tab.glanceTab);
         shown?.pin === tab ? hidePin(true) : showPin(tab);
       });
       btn.addEventListener("auxclick", event => event.button == 1 && openPinAsTab(tab));
+      btn.addEventListener("animationend", event => event.animationName == "lumi-pin-ping" && btn.removeAttribute("lumi-ping"));
       btn.addEventListener("keydown", event => {
         if (event.key != "Enter" && event.key != " ") return;
         event.preventDefault();
@@ -671,9 +676,60 @@
     btn.toggleAttribute("pending", tab.hasAttribute("pending"));
     const g = tab.glanceTab;
     btn.toggleAttribute("glance", !!g);
-    if (g) setIcon(btn.lastChild, gBrowser.getIcon(g));
+    if (g) setIcon(btn.children[1], gBrowser.getIcon(g));
     btn.toggleAttribute("selected", tab.selected || !!g?.selected);
+    applyKeep(tab);
+    updateBadge(btn, tab);
     return btn;
+  }
+
+  // ---------- Значок непрочитанного: число из заголовка вкладки, как в Opera GX ----------
+  // Первое число в круглых скобках — «(3) Discord», «Inbox (12) — почта». Нет числа, но заголовок сменился, пока закреп не был выбран
+  // (родной атрибут titlechanged, Firefox снимает его при выборе) — точка. Закреп открыт — значка нет. Рост числа / появление точки — пульсация.
+  const badgeSeen = new WeakMap(); // вкладка -> { n, dot } на прошлой отрисовке
+  function updateBadge(btn, tab) {
+    const n = +(/\((\d+)\)/.exec(tab.label || "")?.[1] ?? 0), dot = !n && tab.hasAttribute("titlechanged");
+    const open = btn.hasAttribute("selected"), prev = badgeSeen.get(tab);
+    badgeSeen.set(tab, { n, dot });
+    btn.lastChild.textContent = !open && n ? (n > 99 ? "99+" : n) : "";
+    btn.toggleAttribute("lumi-unread", !open && (n > 0 || dot));
+    btn.toggleAttribute("lumi-dot", !open && dot);
+    if (prev && !open && !calm() && (n > prev.n || (dot && !prev.dot))) {
+      btn.removeAttribute("lumi-ping");
+      void btn.offsetWidth; // перезапуск анимации
+      btn.setAttribute("lumi-ping", "");
+    }
+  }
+
+  // ---------- «Всегда загружен» (пункт меню закрепа): грузится при запуске и не выгружается сам ----------
+  // Список ключей закрепов (pinKey) в pref luminoctis.pins.keep. Защита: атрибут undiscardable (его уважает выгрузчик Firefox при нехватке памяти,
+  // TabUnloader) + обёртка discardBrowser (наш таймер и любой код, зовущий discardBrowser без force). Вручную («Выгрузить», Shift+ПКМ) — выгружается.
+  const KEEP = "luminoctis.pins.keep";
+  const kept = () => { try { return JSON.parse(Services.prefs.getStringPref(KEEP, "[]")) || []; } catch { return []; } };
+  // id Essentials Zen присваивает не сразу — у только что созданного закрепа ключ пока адрес, поэтому подходит любой из двух
+  const keysOf = tab => [tab.id, tab._zenPinnedInitialState?.entry?.url || pinURL(tab)].filter(Boolean);
+  function isKept(tab) { return isPin(tab) && keysOf(tab).some(k => kept().includes(k)); } // function: window.luminoctis выше берёт её до этой строки
+  const applyKeep = tab => tab.toggleAttribute("undiscardable", isKept(tab));
+  function setKept(tab, on) {
+    const own = keysOf(tab), list = kept().filter(k => !own.includes(k));
+    if (on) list.push(own[0]);
+    Services.prefs.setStringPref(KEEP, JSON.stringify(list));
+    applyKeep(tab);
+    if (on && tab.hasAttribute("pending")) gBrowser.reloadTab(tab); // загрузить сразу, в фоне
+  }
+  const discardOrig = gBrowser.discardBrowser;
+  gBrowser.discardBrowser = function (tab, force) {
+    return !force && isKept(tab) ? false : discardOrig.call(this, tab, force);
+  };
+  // При запуске браузера (не в окне, открытом позже) выгруженные «всегда загруженные» грузим по очереди в фоне
+  async function loadKept() {
+    if (Date.now() - Services.startup.getStartupInfo().process > 5 * 60000) return;
+    // Home на старте выгружает всё загруженное (settle, lumi-home.uc.js) и потом снимает pref startup-saved — ждём этого, иначе она выгрузила бы и наши
+    for (let i = 0; i < 60 && (i == 0 || Services.prefs.prefHasUserValue("luminoctis.home.startup-saved")); i++) await new Promise(r => setTimeout(r, 500));
+    for (const tab of pinTabs().filter(t => isKept(t) && t.hasAttribute("pending"))) {
+      gBrowser.reloadTab(tab);
+      await new Promise(r => setTimeout(r, 300));
+    }
   }
 
   // ---------- Таймер выгрузки: настройка Unload Countdown Time (luminoctis.tabs.unload-minutes, 0 — никогда) ----------

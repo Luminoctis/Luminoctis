@@ -1097,6 +1097,10 @@ zen-library {
   mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12 8.5 4h7l2 8M3 12.5h18'/%3E%3Ccircle cx='7.8' cy='18' r='2.6'/%3E%3Ccircle cx='16.2' cy='18' r='2.6'/%3E%3Cpath d='M10.4 17.4h3.2'/%3E%3C/svg%3E");
 }
 
+/* В инкогнито нет LumiTime и LumiNotes: плитка таймера на рейке и точка задач на «L» (Home и пункт ПКМ «В LumiNotes» убирают home.js и lumi-notes-capture.uc.js) */
+:root[lumi-private] #lumi-time-tile, :root[lumi-private] #lumi-notes-capture { display: none !important; }
+:root[lumi-private] #lumi-logo[lumi-tasks]::before { display: none; }
+
 /* ---------- 18. Эффект загрузок ----------
  * Строит js/lumi-downloads-fx.uc.js (#lumi-downloads-fx в корне окна; выключатель luminoctis.look.download-fx). Пока идёт загрузка ([run]): от кнопки загрузок
  * вдоль низа панели адреса и правого края рейки бегут блики. Загрузка кончилась — волна от кнопки по всему окну. Без загрузок оверлей [hidden]: ни одной анимации.
@@ -1137,3 +1141,24 @@ zen-library {
   #lumi-downloads-fx :is(.lumi-dlfx-hl, .lumi-dlfx-wave) { display: none; }
   #downloads-button[lumi-dlfx-done] { background: color-mix(in srgb, var(--lumi-accent) 35%, transparent) !important; border-radius: 8px; }
 }
+
+/* ---------- 19. Значки закрепов: число непрочитанного / точка и пульсация (js/lumi-rail.uc.js, updateBadge) ---------- */
+.lumi-pin {
+  position: relative;
+  & .lumi-pin-badge {
+    display: none; position: absolute; top: -5px; right: -5px; z-index: 1; pointer-events: none;
+    box-sizing: border-box; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
+    align-items: center; justify-content: center;
+    background: var(--lumi-red); color: var(--lumi-bg1); font: 700 10px/1 system-ui, sans-serif;
+    box-shadow: 0 0 0 2px var(--lumi-bg1);
+  }
+  &[lumi-unread] .lumi-pin-badge { display: flex; }
+  &[lumi-dot] .lumi-pin-badge { min-width: 0; width: 10px; height: 10px; padding: 0; border-radius: 50%; font-size: 0; }
+  &[glance] .lumi-pin-badge { right: auto; left: -5px; } /* справа сверху уже значок Glance */
+  &[lumi-ping] { animation: lumi-pin-ping 0.9s ease-out 2; }
+}
+@keyframes lumi-pin-ping {
+  0%, 100% { box-shadow: none; }
+  40% { box-shadow: 0 0 0 1px var(--lumi-red), 0 0 16px color-mix(in srgb, var(--lumi-red) 60%, transparent); }
+}
+@media (prefers-reduced-motion: reduce) { .lumi-pin[lumi-ping] { animation: none; } }

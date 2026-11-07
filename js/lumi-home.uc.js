@@ -30,12 +30,18 @@
   const isEmpty = tab => !!tab?.hasAttribute("zen-empty-tab"); // серая пустая вкладка Zen: выбрана в пространстве без вкладок
   const isHome = tab => !!tab?.hasAttribute(KEY);
   const urlOf = tab => tab.linkedBrowser?.currentURI?.spec;
-  // Home этого окна: помеченная, иначе восстановленная сессией (значение или адрес); лишние закрываем
+  const fresh = new WeakSet(); // только что созданные create(): адрес ещё не дошёл до вкладки и сессии
+  const entryUrl = tab => { try { const s = JSON.parse(SessionStore.getTabState(tab)); return s.entries?.[s.index - 1]?.url; } catch { return null; } };
+  // Home из сессии без своей страницы (about:blank в процессе сайтов — так было после обновления 0.5.0): она пустая навсегда, заменяем новой
+  const broken = tab => !fresh.has(tab) && urlOf(tab) != URL && entryUrl(tab) != URL;
+  // Home этого окна: помеченная, иначе восстановленная сессией (значение или адрес); лишние и пустые закрываем
   function find() {
     // gBrowser.tabs у Zen — только активное пространство; allStoredTabs — все пространства
     const found = (gZenWorkspaces.allStoredTabs ?? gBrowser.tabs).filter(t => !t.closing &&
       (isHome(t) || SessionStore.getCustomTabValue(t, KEY) == "1" || urlOf(t) == URL));
-    const [home, ...extra] = found.sort((a, b) => isHome(b) - isHome(a));
+    const ok = found.filter(t => !broken(t));
+    for (const t of found) if (!ok.includes(t)) gBrowser.removeTab(t, { animate: false, skipSessionStore: true });
+    const [home, ...extra] = ok.sort((a, b) => isHome(b) - isHome(a));
     for (const t of extra) gBrowser.removeTab(t, { animate: false, skipSessionStore: true });
     if (home && !isHome(home)) mark(home);
     return home ?? null;
@@ -48,6 +54,7 @@
   function create(background = false) {
     // не inBackground: иначе Zen показывает тост «New background tab opened!» (open() всё равно сразу её выбирает)
     const tab = gBrowser.addTrustedTab(URL, { inBackground: background, skipAnimation: true });
+    fresh.add(tab);
     mark(tab);
     return tab;
   }

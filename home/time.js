@@ -13,9 +13,23 @@ const q = new URLSearchParams(location.search), mini = q.has("mini");
 document.body.toggleAttribute("lumi-mini", mini);
 await E.init();
 
-let els = {}, buttonsKey = "", rebuildOnBlur = false;
+let els = {}, buttonsKey = "";
 const D = () => E.data;
 const phaseName = { focus: "Фокус", break: "Перерыв", "long-break": "Длинный перерыв" };
+
+let addingTopic = false;
+// тема — выпадающий список из настроек; «Новая тема…» заменяет его полем ввода (Enter — добавить, Esc/уход — отмена)
+function topicSelect(S, value) {
+  const el = h("select", { class: "lt-topic-pick", "aria-label": "Тема фокуса", title: "Тема фокуса", on: { change: () => {
+    if (el.value == NEW) { addingTopic = true; build(); els.topic.focus(); return; }
+    E.changeTopic(el.value); E.changeSelection({});
+  } } }, h("option", { value: "", text: "Без темы" }),
+    [...new Set([...S.topics, ...(value && !S.topics.includes(value) ? [value] : [])])].map(t => h("option", { value: t, text: t })),
+    h("option", { value: NEW, text: "Новая тема…" }));
+  el.value = value;
+  return el;
+}
+const NEW = "__new__";
 
 function build() {
   const { settings: S, selection: sel, state: st, timerMode } = D(), idle = st.phase == "idle";
@@ -25,7 +39,6 @@ function build() {
     el.value = String(value);
     return el;
   };
-  const topicId = "lt-topic-suggest";
   els = {};
   root.replaceChildren(
     h("header", { class: "lt-head" },
@@ -40,10 +53,12 @@ function build() {
         const p = S.presets.find(x => x.id == v);
         E.changeSelection(p ? { presetId: p.id, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every } : { presetId: "" });
       }),
-      els.topic = h("input", { type: "text", class: "lt-topic", placeholder: "Тема", "aria-label": "Тема фокуса", maxLength: 200, list: topicId,
-        value: st.phase == "focus" ? st.topic : sel.topic,
-        on: { input: e => E.changeTopic(e.target.value), blur: () => { if (rebuildOnBlur) { rebuildOnBlur = false; build(); } } } }),
-      h("datalist", { id: topicId }, S.topics.map(t => h("option", { value: t })))),
+      addingTopic ? els.topic = h("input", { type: "text", class: "lt-topic-pick", placeholder: "Новая тема — Enter", "aria-label": "Новая тема", maxLength: 200,
+        on: { keydown: e => {
+          if (e.key == "Enter" && e.target.value.trim()) { addingTopic = false; E.addTopic(e.target.value); }
+          else if (e.key == "Escape") { e.stopPropagation(); addingTopic = false; build(); }
+        }, blur: () => { if (addingTopic) { addingTopic = false; build(); } } } })
+      : els.topic = topicSelect(S, st.phase == "focus" ? st.topic : sel.topic)),
     h("div", { class: "lt-ring" },
       s("svg", { viewBox: "0 0 120 120", "aria-hidden": "true" },
         s("circle", { class: "lt-track", cx: 60, cy: 60, r: 54 }),
@@ -138,9 +153,9 @@ function update() {
   if (els.status.textContent != status) els.status.textContent = status;
 }
 
-// перерисовка по событиям движка; поле темы, в котором печатают, не трогаем до потери фокуса
+// перерисовка по событиям движка; поле новой темы, в котором печатают, не пересобираем
 const off = E.subscribe(kind => {
-  if (document.activeElement == els.topic && kind != "load") { rebuildOnBlur = true; update(); }
+  if (addingTopic && document.activeElement == els.topic && kind != "load") update();
   else build();
   refreshPanel(kind);
 });

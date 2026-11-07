@@ -186,3 +186,12 @@ body.lt-block {
     background: var(--lumi-raised, #292e42); color: var(--lumi-fg, #c0caf5); }
   & .lt-primary { background: var(--lumi-accent, #7aa2f7); color: var(--lumi-bg0, #16161e); font-weight: 600; }
 }
+
+/* тема — выпадающий список; блок сайтов пресета — раскрывающаяся строка под пресетом */
+.lt-topic-pick { width: 100%; min-width: 0; }
+.lt-preset-item { display: flex; flex-direction: column; gap: 4px; }
+.lt-block { border-radius: 10px; background: color-mix(in srgb, var(--lumi-raised) 35%, transparent);
+  & summary { padding: 6px 12px; cursor: pointer; font-size: 12px; color: var(--lumi-muted); }
+  &[open] summary { color: var(--lumi-fg); }
+  & .lt-block-body { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 10px; } }
+.lt-block-body textarea { width: 100%; }

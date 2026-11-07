@@ -10,7 +10,7 @@
 // Записи журнала — тот же формат, что у плагина (kind Focus/Break/Long break, Countdown/Stopwatch, Completed/Stopped); подписи — в интерфейсе.
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
-import { pageUrl } from "./lumi-paths.sys.mjs";
+import { pageUrl } from "./lumi-paths.sys.mjs"; // (и для home/time-import.mjs)
 const STORE_URL = pageUrl("home/store.js");
 const store = () => ChromeUtils.importESModule(STORE_URL);
 export const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json" };
@@ -207,7 +207,8 @@ export const DEFAULT_SETTINGS = {
   monthGoalsEnabled: false, monthGoalHours: null, topicMonthGoals: [],
   weekGoalsEnabled: false, weekGoalHours: null, topicWeekGoals: [],
   streakGoalsEnabled: false, streakGoalHours: null, topicStreakGoals: [],
-  blockEnabled: false, blockSites: [], blockBreaks: false, // blockBreaks: блокировать и в перерывах («строгий режим»)
+  // блок сайтов: у каждого пресета свой (presets[].block = { enabled, sites, breaks }); верхние поля — для режима «Свой» (без пресета)
+  blockEnabled: false, blockSites: [], blockBreaks: false, // breaks: блокировать и в перерывах («строгий режим»)
 };
 function topicGoals(v) {
   return Array.isArray(v) ? v.filter(g => g && typeof g.topic == "string" && g.topic.trim() && validGoalHours(g.hours))
@@ -220,17 +221,21 @@ export function loadSettings(data) {
   const longBreaks = Array.isArray(raw.longBreaks) ? raw.longBreaks.filter(validMinutes) : [];
   const counts = Array.isArray(raw.counts) ? raw.counts.filter(validCount) : [];
   const topics = Array.isArray(raw.topics) ? raw.topics.filter(t => typeof t == "string" && t.trim()).map(t => t.trim()) : [];
+  const bool = (k) => (typeof raw[k] == "boolean" ? raw[k] : D[k]);
+  const sites = v => (Array.isArray(v) ? [...new Set(v.map(normDomain).filter(Boolean))] : []);
+  // миграция: у пресета без block берётся прежний общий блок (список и «в перерывах» не теряются); новые пресеты создаются с block выкл.
+  const blockOf = b => (b && typeof b == "object" ? { enabled: b.enabled === true, sites: sites(b.sites), breaks: b.breaks === true }
+    : { enabled: bool("blockEnabled"), sites: sites(raw.blockSites), breaks: bool("blockBreaks") });
   const presets = Array.isArray(raw.presets) ? raw.presets.filter(p => p && typeof p.id == "string" && typeof p.name == "string"
     && Number.isInteger(p.pairIndex) && p.pairIndex >= 0 && p.pairIndex < (pairs.length || D.pairs.length)
-    && validMinutes(p.longBreak) && validCount(p.every)).map(p => ({ id: p.id, name: p.name, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every })) : [];
-  const bool = (k) => (typeof raw[k] == "boolean" ? raw[k] : D[k]);
+    && validMinutes(p.longBreak) && validCount(p.every)).map(p => ({ id: p.id, name: p.name, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every, block: blockOf(p.block) })) : [];
   const hours = k => (typeof raw[k] == "number" && validGoalHours(raw[k]) ? raw[k] : null);
   return {
     version: 1,
     pairs: pairs.length ? pairs : structuredClone(D.pairs),
     longBreaks: longBreaks.length ? [...new Set(longBreaks)] : [...D.longBreaks],
     counts: counts.length ? [...new Set(counts)] : [...D.counts],
-    presets: presets.length ? presets : structuredClone(D.presets),
+    presets: presets.length ? presets : structuredClone(D.presets).map(p => ({ ...p, block: blockOf(null) })),
     topics: topics.length ? [...new Set(topics)] : [...D.topics],
     sound: bool("sound"),
     soundPreset: ["bell", "chime"].includes(raw.soundPreset) ? raw.soundPreset : "classic",
@@ -241,7 +246,7 @@ export function loadSettings(data) {
     weekGoalsEnabled: bool("weekGoalsEnabled"), weekGoalHours: hours("weekGoalHours"), topicWeekGoals: topicGoals(raw.topicWeekGoals),
     streakGoalsEnabled: bool("streakGoalsEnabled"), streakGoalHours: hours("streakGoalHours"), topicStreakGoals: topicGoals(raw.topicStreakGoals),
     blockEnabled: bool("blockEnabled"), blockBreaks: bool("blockBreaks"),
-    blockSites: Array.isArray(raw.blockSites) ? [...new Set(raw.blockSites.map(normDomain).filter(Boolean))] : [],
+    blockSites: sites(raw.blockSites),
   };
 }
 
@@ -509,15 +514,18 @@ export function act(action) {
     if (s.phase == "break" || s.phase == "long-break") enqueue(done(s, t, "Completed"));
     const pair = data.settings.pairs[data.selection.pairIndex] ?? data.settings.pairs[0];
     data.state = startFocus(s, t, pair, data.selection.longBreak, data.selection.every, data.selection.topic, data.timerMode);
+    data.state.presetId = data.selection.presetId; // пресет цикла — его блок сайтов
   } else if (action == "start-break") {
     if (s.phase != "focus") return;
     enqueue(done(s, t, "Completed"));
     data.state = startBreak(s, t);
+    data.state.presetId = s.presetId;
   } else if (action == "pause") pause(s, t);
   else if (action == "resume") resume(s, t);
   else if (action == "toggle-mode" && data.timerMode == "Stopwatch" && s.phase != "idle") {
     enqueue(done(s, t, "Completed"));
     data.state = startStopwatchSegment(s, t, s.phase == "focus" ? "break" : "focus", data.selection.topic);
+    data.state.presetId = s.presetId;
   } else if (action == "uncount-overtime") uncountOvertime(s, t);
   else if (action == "stop" && s.phase != "idle") {
     // стоп сохраняет прерванный фокус (и отрезок секундомера), прерванный перерыв — нет
@@ -575,6 +583,88 @@ export async function saveSettings(next) {
   await write(FILES.settings, data.settings);
   persist();
 }
+
+// новая тема из выпадающего списка: в настройки (если такой ещё нет) и выбрать
+export async function addTopic(name) {
+  const t = String(name).trim().slice(0, 200);
+  if (!t) return false;
+  const known = data.settings.topics.find(x => x.toLocaleLowerCase() == t.toLocaleLowerCase());
+  if (!known) await saveSettings({ ...data.settings, topics: [...data.settings.topics, t] });
+  changeTopic(known ?? t);
+  changeSelection({});
+  return true;
+}
+
+// ---------- импорт лога Obsidian «Focus Cycle Timer» (home/time-import.mjs) ----------
+const IMPORT_URL = pageUrl("home/time-import.mjs");
+// data.json плагина лежит в <хранилище>/.obsidian/plugins/focus-cycle-timer: ищем, поднимаясь от лога вверх
+export async function pluginDataFor(logPath) {
+  let dir = logPath;
+  for (let i = 0; i < 8; i++) {
+    const up = PathUtils.parent(dir);
+    if (!up || up == dir) break;
+    dir = up;
+    const file = PathUtils.join(dir, ".obsidian", "plugins", "focus-cycle-timer", "data.json");
+    try { if (await IOUtils.exists(file)) return JSON.parse(await IOUtils.readUTF8(file)); } catch (e) { console.error("LumiTime import:", e); }
+  }
+  return null;
+}
+// Сливает записи лога в журнал в памяти (работающий таймер не затрёт файл) и сохраняет. Повторный импорт ничего не добавляет (по id).
+// plugin — data.json плагина (необязательно): цели берутся, только где у LumiTime они ещё не заданы.
+export async function importLog(text, plugin = null) {
+  await init();
+  const P = ChromeUtils.importESModule(IMPORT_URL), log = P.parseLog(text);
+  const have = new Set(data.records.map(r => r.id)), fresh = [];
+  let bad = log.bad;
+  for (const r of [...log.records, ...P.tableRecords(log.tableOnly, new Set(log.records.filter(isRecord).map(P.recordDate)))]) {
+    if (!isRecord(r)) { bad++; continue; }
+    if (have.has(r.id)) continue;
+    have.add(r.id); fresh.push(r); putRecord(r);
+  }
+  // темы из лога — в список тем
+  const next = plain(data.settings), known = new Set(next.topics.map(t => t.toLocaleLowerCase()));
+  let changed = false;
+  for (const r of fresh) {
+    const t = r.kind == "Focus" ? r.topic.trim() : "";
+    if (t && !known.has(t.toLocaleLowerCase())) { known.add(t.toLocaleLowerCase()); next.topics.push(t); changed = true; }
+  }
+  // цели из плагина
+  let goals = false;
+  if (plugin && typeof plugin == "object") {
+    for (const p of ["month", "week", "streak"]) {
+      const h = plugin[p + "GoalHours"], k = p + "GoalHours";
+      if (next[k] === null && validGoalHours(h)) { next[k] = h; next[p + "GoalsEnabled"] = plugin[p + "GoalsEnabled"] !== false; goals = changed = true; }
+      const t = plugin["topic" + p[0].toUpperCase() + p.slice(1) + "Goals"], tk = "topic" + p[0].toUpperCase() + p.slice(1) + "Goals";
+      if (!next[tk].length && topicGoals(t).length) { next[tk] = topicGoals(t); goals = changed = true; }
+    }
+  }
+  // «День»: файл дня создаётся, только если у LumiTime за этот день своего нет
+  let dailyAdded = 0;
+  const st = store();
+  for (const d of log.dailies) {
+    if (!d || typeof d.date != "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.date)) { bad++; continue; }
+    const day = P.dailyToDay(d);
+    if (!day.tasks.length && !day.comments.length) continue;
+    try { if (await st.readJSON(dayFile(d.date), null)) continue; await st.writeJSON(dayFile(d.date), day); dailyAdded++; }
+    catch (e) { console.error("LumiTime import day:", e); } // битый файл дня не трогаем
+  }
+  if (fresh.length) flush();
+  if (changed) await saveSettings(next);
+  await queue.catch(() => {});
+  bump("journal");
+  const days = new Set(fresh.map(P.recordDate));
+  return { sessions: fresh.length, days: days.size, focusSessions: fresh.filter(r => r.kind == "Focus").length,
+    focusMs: fresh.filter(r => r.kind == "Focus").reduce((m, r) => m + countedRecordMs(r), 0), dailyAdded, goals, bad };
+}
+export async function importFile(path) {
+  const text = await IOUtils.readUTF8(path);
+  return importLog(text, await pluginDataFor(path));
+}
+export const importMessage = r => (r.sessions
+  ? `Импортировано ${r.sessions} ${plural(r.sessions, "сессия", "сессии", "сессий")} за ${r.days} ${plural(r.days, "день", "дня", "дней")}`
+    + (r.dailyAdded ? ` · дней с задачами: ${r.dailyAdded}` : "") + (r.goals ? " · цели взяты из плагина" : "")
+  : "Новых записей нет" + (r.dailyAdded ? ` · дней с задачами: ${r.dailyAdded}` : "")) + (r.bad ? ` · пропущено строк: ${r.bad}` : "");
+const plural = (n, a, b, c) => (n % 10 == 1 && n % 100 != 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? b : c);
 
 // ---------- сводки ----------
 let cache = { key: "", value: null };
@@ -701,14 +791,19 @@ function alertFinished(phase) {
 
 // ---------- блок сайтов во время фокуса (js/lumi-focus.uc.js) ----------
 const hhmm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+// блок текущего цикла: пресет цикла (state.presetId) или, без пресета («Свой»), общие поля настроек
+export function blockFor(st = data.state) {
+  const s = data.settings, p = s.presets.find(x => x.id == st.presetId);
+  return p ? p.block : { enabled: s.blockEnabled, sites: s.blockSites, breaks: s.blockBreaks };
+}
 const matchSite = host => {
   const h = host.toLowerCase().replace(/^www\./, "");
-  return data.settings.blockSites.find(d => h == d || h.endsWith("." + d)) ?? null;
+  return blockFor().sites.find(d => h == d || h.endsWith("." + d)) ?? null;
 };
 // адрес сайта блокируется? → { site, until: "чч:мм" | null (секундомер) } или null. Идущий фокус (не пауза); перерыв — только при blockBreaks.
 export function focusBlock(host) {
-  const s = data.settings, st = data.state;
-  if (!data.loaded || !s.blockEnabled || !s.blockSites.length || st.phase == "idle" || (st.phase != "focus" && !s.blockBreaks) || st.runningSince === null || !host) return null;
+  const st = data.state, b = blockFor(st);
+  if (!data.loaded || !b.enabled || !b.sites.length || st.phase == "idle" || (st.phase != "focus" && !b.breaks) || st.runningSince === null || !host) return null;
   const site = matchSite(host);
   if (!site || allowed.has(site)) return null;
   const t = now();

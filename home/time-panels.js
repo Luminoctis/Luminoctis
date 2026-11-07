@@ -138,18 +138,36 @@ function settingsView(root) {
       }).then(render))),
 
       h("h3", { text: "Пресеты" }),
-      h("div", { class: "lt-rows" }, S.presets.map((p, i) => h("div", { class: "lt-row lt-preset" },
+      h("div", { class: "lt-rows" }, S.presets.map((p, i) => h("div", { class: "lt-preset-item" }, h("div", { class: "lt-row lt-preset" },
         h("input", { type: "text", value: p.name, maxLength: 60, on: { change: e => { const v = e.target.value.trim(); e.target.classList.toggle("lt-bad", !v); if (v) save(n => (n.presets[i].name = v)); } } }),
         select(S.pairs.map((x, j) => [j, `${x.focus}/${x.rest}`]), p.pairIndex, v => save(n => (n.presets[i].pairIndex = Number(v)))),
         select(S.longBreaks.map(x => [x, `${x} мин`]), p.longBreak, v => save(n => (n.presets[i].longBreak = Number(v)))),
         select(S.counts.map(x => [x, `×${x}`]), p.every, v => save(n => (n.presets[i].every = Number(v)))),
-        h("button", { class: "lt-x", title: "Удалить пресет", text: "×", on: { click: () => save(n => n.presets.splice(i, 1)).then(render) } })))),
+        h("button", { class: "lt-x", title: "Удалить пресет", text: "×", on: { click: () => save(n => n.presets.splice(i, 1)).then(render) } })),
+        h("details", { class: "lt-block", open: p.block.enabled },
+          h("summary", { text: p.block.enabled ? "Блок сайтов · включён" : "Блок сайтов" }),
+          blockEditor(S, i))))),
       h("button", { class: "lt-add", text: "+ Пресет", on: { click: () => save(n => n.presets.push({ id: crypto.randomUUID(), name: "Новый пресет",
-        pairIndex: 0, longBreak: n.longBreaks[0], every: n.counts[0] })).then(render) } }),
+        pairIndex: 0, longBreak: n.longBreaks[0], every: n.counts[0], block: { enabled: false, sites: [], breaks: false } })).then(render) } }),
 
       h("h3", { text: "Темы" }),
-      field("Подсказки для темы (через запятую). Другую тему можно вписать на одну сессию",
-        h("input", { type: "text", value: S.topics.join(", "), on: { change: e => save(n => (n.topics = [...new Set(e.target.value.split(",").map(t => t.trim()).filter(Boolean))])) } })),
+      h("p", { class: "lt-dim", text: "Список тем в выпадающем списке таймера. «Новая тема…» там же добавляет тему сюда. Переименование меняет и цели по теме; старые записи журнала остаются под прежним названием." }),
+      h("div", { class: "lt-rows" }, S.topics.map((t, i) => h("div", { class: "lt-row" },
+        h("input", { type: "text", class: "lt-grow", value: t, maxLength: 200, on: { change: e => {
+          const v = e.target.value.trim(), dup = E.data.settings.topics.some((x, j) => j != i && x.toLocaleLowerCase() == v.toLocaleLowerCase());
+          e.target.classList.toggle("lt-bad", !v || dup);
+          if (v && !dup) save(n => {
+            const old = n.topics[i];
+            n.topics[i] = v;
+            for (const k of ["topicMonthGoals", "topicWeekGoals", "topicStreakGoals"]) for (const g of n[k]) if (g.topic.toLocaleLowerCase() == old.toLocaleLowerCase()) g.topic = v;
+          });
+        } } }),
+        h("button", { class: "lt-x", title: "Удалить тему", text: "×", disabled: S.topics.length == 1, on: { click: () => save(n => n.topics.splice(i, 1)).then(render) } })))),
+      h("button", { class: "lt-add", text: "+ Тема", on: { click: () => save(n => {
+        let k = n.topics.length + 1;
+        while (n.topics.some(t => t.toLocaleLowerCase() == `тема ${k}`)) k++;
+        n.topics.push(`Тема ${k}`);
+      }).then(render) } }),
 
       h("h3", { text: "Звук и уведомления" }),
       toggle("Звук", S.sound, v => save(n => (n.sound = v))),
@@ -171,14 +189,40 @@ function settingsView(root) {
       h("div", { class: "lt-row" }, h("span", { class: "lt-dim", text: "Серия — дни подряд с фокусом." }),
         confirmButton("Сбросить серию", "Точно сбросить?", () => { E.endStreak(); render(); })),
 
-      h("h3", { text: "Блок сайтов во время фокуса" }),
-      toggle("Блокировать отвлекающие сайты", S.blockEnabled, v => save(n => (n.blockEnabled = v)),
-        "Пока идёт фокус (не пауза), эти сайты и их поддомены открываются заглушкой «Фокус — вернись после чч:мм»"),
-      toggle("Блокировать и в перерывах", S.blockBreaks, v => save(n => (n.blockBreaks = v)), "Строгий режим: сайты закрыты и во время перерыва. Выключено — только во время фокуса"),
-      h("textarea", { class: "lt-sites", rows: 4, placeholder: "youtube.com\nreddit.com", value: S.blockSites.join("\n"),
-        on: { change: e => save(n => (n.blockSites = e.target.value.split(/[\s,]+/).map(E.normDomain).filter(Boolean))).then(() => (e.target.value = E.data.settings.blockSites.join("\n"))) } }),
+      h("h3", { text: "Блок сайтов без пресета" }),
+      h("p", { class: "lt-dim", text: "Блок настраивается у каждого пресета (выше, «Блок сайтов»). Здесь — для таймера «Свой», когда длительности выбраны вручную." }),
+      blockEditor(S, -1),
+
+      h("h3", { text: "Импорт" }),
+      h("div", { class: "lt-row" }, h("button", { text: "Импорт из Obsidian…", title: "Файл лога плагина Focus Cycle Timer (StudyLogs.md)", on: { click: pickImport } }),
+        importNote = h("span", { class: "lt-dim", role: "status" })),
+      h("p", { class: "lt-dim", text: "Записи, цели и задачи дней из лога плагина. Повторный импорт того же файла дублей не создаёт." }),
       h("p", { class: "lt-dim", text: `Файлы: ${store.path("time")}` }),
     );
+  }
+  // блок сайтов пресета i (или «Свой», i = -1): вкл/выкл, «и в перерывах», список
+  function blockEditor(S, i) {
+    const b = i < 0 ? { enabled: S.blockEnabled, sites: S.blockSites, breaks: S.blockBreaks } : S.presets[i].block;
+    const set = (n, k, v) => (i < 0 ? (n[{ enabled: "blockEnabled", sites: "blockSites", breaks: "blockBreaks" }[k]] = v) : (n.presets[i].block[k] = v));
+    return h("div", { class: "lt-block-body" },
+      toggle("Блокировать сайты", b.enabled, v => save(n => set(n, "enabled", v)).then(() => i >= 0 && render()),
+        "Пока идёт фокус (не пауза), эти сайты и их поддомены открываются заглушкой «Фокус — вернись после чч:мм»"),
+      toggle("Блокировать и в перерывах", b.breaks, v => save(n => set(n, "breaks", v)), "Строгий режим: сайты закрыты и во время перерыва. Выключено — только во время фокуса"),
+      h("textarea", { class: "lt-sites", rows: 4, placeholder: "youtube.com\nreddit.com", value: b.sites.join("\n"),
+        on: { change: e => save(n => set(n, "sites", e.target.value.split(/[\s,]+/).map(E.normDomain).filter(Boolean)))
+          .then(() => (e.target.value = (i < 0 ? E.data.settings.blockSites : E.data.settings.presets[i].block.sites).join("\n"))) } }));
+  }
+  let importNote = null;
+  function pickImport() {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, "Лог Focus Cycle Timer", Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter("Markdown", "*.md");
+    fp.open(async rv => {
+      if (rv != Ci.nsIFilePicker.returnOK || !fp.file) return;
+      importNote.textContent = "Импорт…";
+      try { importNote.textContent = E.importMessage(await E.importFile(fp.file.path)); }
+      catch (e) { importNote.textContent = `Не удалось импортировать: ${e.message ?? e}`; console.error(e); }
+    });
   }
   function goalSettings(title, onKey, totalKey, topicsKey) {
     const S = E.data.settings;

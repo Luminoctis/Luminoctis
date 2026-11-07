@@ -20,7 +20,7 @@
   &:empty { display: none; }
   & > * { flex-shrink: 0; } /* столбец прокручивается, строки не сжимаются */
 }
-#lumi-time, #lumi-time-panel {
+#lumi-time, #lumi-time-panel, #lumi-time-add {
   & button, & select, & input, & textarea {
     font: inherit; color: var(--lumi-fg); background: var(--lumi-raised); border: 1px solid transparent; border-radius: 9px;
     box-sizing: border-box; min-height: 30px; padding: 0 10px;
@@ -195,3 +195,16 @@ body.lt-block {
   &[open] summary { color: var(--lumi-fg); }
   & .lt-block-body { display: flex; flex-direction: column; gap: 6px; padding: 4px 8px 10px; } }
 .lt-block-body textarea { width: 100%; }
+
+/* ---------- окошко «Добавить время» ---------- */
+.lt-today-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; & h4 { margin: 0; }
+  & .lt-add-btn { flex: none; min-height: 24px !important; padding: 0 8px; font-size: 11px; color: var(--lumi-muted); } }
+#lumi-time-add { position: fixed; z-index: 20; width: 250px; box-sizing: border-box; padding: 12px; display: flex; flex-direction: column; gap: 8px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(22px);
+  border: 1px solid var(--lt-line); border-radius: 14px; box-shadow: 0 12px 40px rgb(0 0 0 / .45); font-size: 13px; color: var(--lumi-fg);
+  & .lt-add-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  & .lt-add-topic select, & .lt-add-topic input { width: 100%; }
+  & .lt-seg { display: flex; gap: 4px; & button { min-height: 30px !important; font-size: 12px;
+    &[aria-pressed="true"] { background: color-mix(in srgb, var(--lumi-accent) 25%, var(--lumi-raised)); } } }
+  & .lt-add-actions { display: flex; gap: 6px; & .lt-primary { flex: 1 1 0; } }
+}

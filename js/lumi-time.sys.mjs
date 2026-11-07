@@ -562,7 +562,13 @@ export function adjust(minutes) {
   return true;
 }
 export function lastRecord() { return latestRecord(data.records); }
+// запись вручную: addManual({ kind, topic, minutes }) или addManual(kind, topic, durationMs); минуты — целые 1..600
 export function addManual(kind, topic, durationMs) {
+  if (kind && typeof kind == "object") {
+    const { minutes } = kind;
+    if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) return false;
+    ({ kind, topic = "" } = kind); durationMs = minutes * MIN;
+  }
   if (!["Focus", "Break"].includes(kind) || !(durationMs > 0)) return false;
   const endedAt = now(), startedAt = endedAt - durationMs;
   putRecord({ version: 1, id: uuid(), kind, topic: kind == "Focus" ? topic.trim().slice(0, 200) || "Фокус" : "", result: "Completed",

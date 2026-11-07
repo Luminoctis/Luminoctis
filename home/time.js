@@ -19,8 +19,9 @@ const phaseName = { focus: "Фокус", break: "Перерыв", "long-break": 
 
 let addingTopic = false;
 // тема — выпадающий список из настроек; «Новая тема…» заменяет его полем ввода (Enter — добавить, Esc/уход — отмена)
-function topicSelect(S, value) {
+function topicSelect(S, value, on) { // on — свой обработчик (окошко «Добавить время»): { pick(v), isNew() }
   const el = h("select", { class: "lt-topic-pick", "aria-label": "Тема фокуса", title: "Тема фокуса", on: { change: () => {
+    if (on) return el.value == NEW ? on.isNew() : on.pick(el.value);
     if (el.value == NEW) { addingTopic = true; build(); els.topic.focus(); return; }
     E.changeTopic(el.value); E.changeSelection({});
   } } }, h("option", { value: "", text: "Без темы" }),
@@ -77,7 +78,8 @@ function build() {
       sel_("Длинный перерыв", S.longBreaks.map(v => opt(v, `${v} мин`)), sel.longBreak, v => E.changeSelection({ longBreak: Number(v), presetId: "" })),
       sel_("Длинный перерыв после N фокусов", S.counts.map(v => opt(v, `×${v}`)), sel.every, v => E.changeSelection({ every: Number(v), presetId: "" }))),
     els.count = h("div", { class: "lt-count" }),
-    h("div", { class: "lt-today" }, h("h4", { text: "Сегодня" }), els.today = h("div", { class: "lt-today-list" })),
+    h("div", { class: "lt-today" }, h("div", { class: "lt-today-head" }, h("h4", { text: "Сегодня" }),
+      h("button", { class: "lt-add-btn", text: "+ Добавить время", title: "Записать время в журнал вручную", on: { click: e => toggleAdd(e.currentTarget) } })), els.today = h("div", { class: "lt-today-list" })),
     els.goals = h("div"),
     els.status = h("div", { class: "lt-status" }),
     h("nav", { class: "lt-nav" }, [["settings", "Настройки"], ["stats", "Статистика"], ["journal", "Журнал"], ["day", "День"]].map(([p, t]) =>
@@ -86,6 +88,48 @@ function build() {
   );
   buttonsKey = "";
   update();
+}
+
+// окошко «Добавить время»: минуты, тема, Фокус/Перерыв → одна запись в журнал (E.addManual); Esc, клик мимо и «Отмена» закрывают
+let addPop = null;
+function closeAdd() {
+  if (!addPop) return;
+  addPop.remove(); addPop = null;
+  document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", escKey, true); window.removeEventListener("blur", closeAdd);
+}
+const outside = e => { if (addPop && !addPop.contains(e.target) && !e.target.closest(".lt-add-btn")) closeAdd(); };
+const escKey = e => { if (e.key == "Escape" && addPop) { e.preventDefault(); e.stopPropagation(); closeAdd(); } };
+function toggleAdd(anchor) {
+  if (addPop) return closeAdd();
+  const { settings: S, selection: sel } = D();
+  let kind = "Focus", topic = sel.topic ?? "", newTopic = false;
+  const minutes = h("input", { type: "number", min: 1, max: 600, step: 1, class: "lt-num", "aria-label": "Минуты", title: "Минуты (1–600)",
+    value: String((S.pairs[sel.pairIndex] ?? S.pairs[0]).focus), on: { input: valid, keydown: e => { if (e.key == "Enter" && !ok.disabled) ok.click(); } } });
+  const topicBox = h("div", { class: "lt-add-topic" });
+  const drawTopic = () => {
+    topicBox.hidden = kind != "Focus";
+    topicBox.replaceChildren(newTopic ? h("input", { type: "text", class: "lt-topic-pick", placeholder: "Новая тема — Enter", "aria-label": "Новая тема", maxLength: 200,
+      on: { keydown: e => {
+        if (e.key == "Enter" && e.target.value.trim()) {
+          e.stopPropagation(); const t = e.target.value.trim().slice(0, 200), known = D().settings.topics.find(x => x.toLocaleLowerCase() == t.toLocaleLowerCase());
+          topic = known ?? t; newTopic = false; if (!known) E.saveSettings({ ...D().settings, topics: [...D().settings.topics, t] }); drawTopic();
+        } else if (e.key == "Escape") { e.stopPropagation(); newTopic = false; drawTopic(); }
+      } } })
+      : topicSelect(D().settings, topic, { pick: v => { topic = v; }, isNew: () => { newTopic = true; drawTopic(); topicBox.firstChild.focus(); } }));
+  };
+  const seg = h("div", { class: "lt-seg" }, [["Focus", "Фокус"], ["Break", "Перерыв"]].map(([k, t]) => h("button", { text: t, "aria-pressed": String(kind == k),
+    on: { click: () => { kind = k; for (const b of seg.children) b.setAttribute("aria-pressed", String(b == seg.children[k == "Focus" ? 0 : 1])); drawTopic(); } } })));
+  const ok = h("button", { class: "lt-primary", text: "Добавить", on: { click: () => { if (E.addManual({ kind, topic, minutes: Number(minutes.value) })) closeAdd(); } } });
+  function valid() { ok.disabled = !(/^[0-9]+$/.test(minutes.value) && minutes.value >= 1 && minutes.value <= 600); minutes.classList.toggle("lt-bad", ok.disabled); }
+  addPop = h("div", { id: "lumi-time-add", role: "dialog", "aria-label": "Добавить время" },
+    h("div", { class: "lt-add-row" }, h("label", { text: "Минут" }), minutes), seg, topicBox,
+    h("div", { class: "lt-add-actions" }, h("button", { text: "Отмена", on: { click: closeAdd } }), ok));
+  drawTopic(); valid(); document.body.append(addPop);
+  const r = anchor.getBoundingClientRect(), w = addPop.offsetWidth, hh = addPop.offsetHeight;
+  addPop.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + "px";
+  addPop.style.top = Math.max(8, Math.min(r.bottom + 6, innerHeight - hh - 8)) + "px";
+  minutes.select();
+  document.addEventListener("pointerdown", outside, true); document.addEventListener("keydown", escKey, true); window.addEventListener("blur", closeAdd);
 }
 
 function button(label, action, cls = "") {
@@ -173,7 +217,7 @@ const run = () => {
   timer = setInterval(update, 1000);
 };
 document.addEventListener("visibilitychange", run);
-window.addEventListener("unload", () => { off(); clearInterval(timer); });
+window.addEventListener("unload", () => { off(); closeAdd(); clearInterval(timer); });
 build();
 run();
 if (!mini) openPanel(["settings", "stats", "journal", "day"].includes(q.get("panel")) ? q.get("panel") : "stats");

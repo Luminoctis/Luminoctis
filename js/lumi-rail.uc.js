@@ -543,7 +543,8 @@
       event.preventDefault();
       menuTab = tab;
       menu.querySelector("#lumi-pin-menu-unload").disabled = tab.hasAttribute("pending");
-      menu.querySelector("#lumi-pin-menu-keep").setAttribute("checked", isKept(tab));
+      const keep = menu.querySelector("#lumi-pin-menu-keep"); // checked="false" XUL тоже рисует галочкой — снимать атрибут
+      isKept(tab) ? keep.setAttribute("checked", "true") : keep.removeAttribute("checked");
       menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
     });
 

@@ -7,8 +7,9 @@ ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
 
 // блоки first screen и заметки включаются/выключаются: luminoctis.home.show.<clock|search|shortcuts|notes> (по умолчанию все включены)
 const SHOW = "luminoctis.home.show.";
+const priv = window.browsingContext.usePrivateBrowsing; // в инкогнито LumiNotes нет
 const applyShow = () => {
-  for (const b of ["clock", "search", "shortcuts", "notes"]) document.body.toggleAttribute("lumi-hide-" + b, !Services.prefs.getBoolPref(SHOW + b, true));
+  for (const b of ["clock", "search", "shortcuts", "notes"]) document.body.toggleAttribute("lumi-hide-" + b, !Services.prefs.getBoolPref(SHOW + b, true) || (b == "notes" && priv));
 };
 Services.prefs.addObserver(SHOW, applyShow);
 window.addEventListener("unload", () => Services.prefs.removeObserver(SHOW, applyShow));

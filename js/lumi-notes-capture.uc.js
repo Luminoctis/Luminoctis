@@ -5,6 +5,7 @@
 
 // Пишет те же файлы досок, что Home (home/notes-md.mjs + home/store.js); открытая Home перечитывает доски по уведомлению.
 (() => {
+  if (PrivateBrowsingUtils.isWindowPrivate(window)) return; // в инкогнито LumiNotes нет
   const { pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   const notes = ChromeUtils.importESModule(pageUrl("home/notes-md.mjs"));
 

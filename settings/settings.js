@@ -863,6 +863,76 @@ upd.installedVersion().then(v => {
   $("#backup-load").addEventListener("click", () => pick(false, p => backup.loadFrom(p)));
 }
 
+// ---------- «Строгий режим»: списки сайтов по расписанию (js/lumi-strict.sys.mjs), сохраняются сразу ----------
+{
+  const strict = ChromeUtils.importESModule(JS("lumi-strict.sys.mjs"));
+  const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
+  const FOCUS = { off: "Нет", focus: "Фокус", "focus+breaks": "Фокус и перерывы" };
+  const box = $("#strict-lists");
+  const render = () => {
+    box.replaceChildren(...strict.lists().map(l => {
+      const card = el("div", { className: "row stack strict-list" + (l.on ? "" : " off") });
+      card.dataset.id = l.id;
+      // собрать список из полей карточки и сохранить (id, порядок — как в карточках)
+      const commit = () => {
+        const sites = card.querySelector("textarea").value.split(/[\s,]+/);
+        const mine = {
+          id: l.id, name: card.querySelector(".name").value.trim(), sites,
+          days: [...card.querySelectorAll(".days button")].flatMap((b, i) => (b.getAttribute("aria-pressed") == "true" ? [i] : [])),
+          from: card.querySelector(".from").value || l.from, to: card.querySelector(".to").value || l.to,
+          focus: card.querySelector("select").value, on: card.querySelector(".on").checked,
+        };
+        strict.save(strict.lists().map(x => (x.id == l.id ? mine : x)));
+        const saved = strict.lists().find(x => x.id == l.id);
+        card.querySelector("textarea").value = saved.sites.join("\n");
+        card.classList.toggle("off", !saved.on);
+      };
+      const name = el("input", { type: "text", className: "name", value: l.name, placeholder: "Название списка", spellcheck: false });
+      const on = el("input", { type: "checkbox", className: "on", checked: l.on, title: "Список включён" });
+      const del = el("button", { className: "remove", textContent: "✕", title: "Удалить список" });
+      del.addEventListener("click", () => { strict.save(strict.lists().filter(x => x.id != l.id)); render(); });
+      const sites = el("textarea", { value: l.sites.join("\n"), placeholder: "youtube.com\nreddit.com", spellcheck: false, rows: 4, title: "Сайты по одному в строке; поддомены закрываются тоже" });
+      const days = el("div", { className: "days" }, ...DAYS.map((d, i) => {
+        const b = el("button", { textContent: d, type: "button" });
+        b.setAttribute("aria-pressed", l.days.includes(i));
+        b.addEventListener("click", () => { b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") != "true"); commit(); });
+        return b;
+      }));
+      const when = el("div", { className: "when" }, "с", el("input", { type: "time", className: "from", value: l.from }), "до", el("input", { type: "time", className: "to", value: l.to }),
+        el("span", { textContent: "через полночь — можно (22:00–07:00)" }));
+      const focus = el("select", {}, ...Object.entries(FOCUS).map(([v, t]) => el("option", { value: v, textContent: t, selected: v == l.focus })));
+      const focusRow = el("div", { className: "when" }, "Ещё и во время фокуса LumiTime:", focus);
+      card.append(el("div", { className: "head" }, on, name, del), sites, days, when, focusRow);
+      for (const c of [name, on, sites, focus, ...card.querySelectorAll("input[type=time]")]) c.addEventListener("change", commit);
+      return card;
+    }));
+  };
+  $("#strict-add").addEventListener("click", () => { strict.save([...strict.lists(), strict.newList(strict.lists().length + 1)]); render(); });
+  render();
+}
+
+// ---------- «Звуки»: ▶ прослушать, «Свой файл…», ↺ стандартный (js/lumi-sounds.uc.js играет и читает pref .file) ----------
+for (const row of document.querySelectorAll("#sounds .snd")) {
+  const id = row.dataset.sound, pref = `luminoctis.sounds.${id}.file`, label = row.querySelector(".snd-file");
+  const show = () => {
+    const f = Services.prefs.getStringPref(pref, "");
+    label.textContent = f.split(/[\\/]/).pop();
+    label.title = f;
+    row.querySelector(".snd-reset").disabled = !f;
+  };
+  show();
+  Services.prefs.addObserver(pref, show);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(pref, show), { once: true });
+  row.querySelector(".snd-play").addEventListener("click", () => win.lumiSounds?.play(id, { force: true, ignoreFocus: true }));
+  row.querySelector(".snd-reset").addEventListener("click", () => Services.prefs.clearUserPref(pref));
+  row.querySelector(".snd-pick").addEventListener("click", () => {
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, "Свой звук", Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter("Звуки (*.ogg, *.mp3, *.wav)", "*.ogg; *.mp3; *.wav");
+    fp.open(r => { if (r == Ci.nsIFilePicker.returnOK) { Services.prefs.setStringPref(pref, fp.file.path); win.lumiSounds?.play(id, { force: true, ignoreFocus: true }); } });
+  });
+}
+
 // ---------- «Сбросить вкладку»: в конце каждого раздела, кроме «О моде» ----------
 // Возвращает флажки, ползунки и выборы раздела (data-pref, data-int-pref, select[data-str-pref], [data-reset], шорткаты).
 // Не трогает пространства, закрепы, список и цвета тем, текстовые поля (поиск, папки, ключи).
@@ -877,7 +947,7 @@ function resetTab(section) {
   }
   for (const [pref, to] of todo) to == null ? Services.prefs.clearUserPref(pref) : Services.prefs.setBoolPref(pref, to == "true");
 }
-for (const section of document.querySelectorAll("main > section:not(#about)")) {
+for (const section of document.querySelectorAll("main > section:not(#about):not(#strict)")) {
   const button = el("button", { className: "reset-tab", textContent: "Сбросить вкладку", title: "Вернуть настройки этой вкладки к значениям по умолчанию" });
   const box = el("div", { className: "reset-wrap" }, button);
   button.addEventListener("click", () => {

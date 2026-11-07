@@ -16,6 +16,8 @@ const win = window.browsingContext.topChromeWindow;
 const FAV = "wallpapers/favorites.json", BANS = "wallpapers/bans.json", STATE = "wallpapers/state.json";
 const key = it => it && `${it.source}:${it.id}`;
 const transparent = () => str("mode", "wallpaper") == "transparent";
+// инкогнито: обои не грузим и не показываем — цветной фон, а у «Прозрачного» — тёмная вуаль (prefs не меняются)
+const priv = () => env.isPrivate();
 const hidden = it => !!it?.nsfw && !nsfwOn(); // NSFW-картинка, которую сейчас нельзя показывать (переключатель выключен, приватное окно, режим окна «Обои»)
 
 // ---------- виды обоев: как элемент получается из адреса ----------
@@ -109,9 +111,9 @@ function show(layer) {
 // Прозрачный режим окна (настройка «Внешний вид»): интерфейс — стекло; «Прозрачность обоев» на Home (luminoctis.look.homeTransparency) —
 // сквозь сами обои виден рабочий стол. Вне прозрачного режима оба не действуют — интерфейс и обои непрозрачные.
 const { windowMode: winMode } = ChromeUtils.importESModule(JS("lumi-palette.sys.mjs"));
-const glass = () => winMode() == "transparent" || winMode() == "wallpaper";
-const windowWall = () => winMode() == "wallpaper"; // режим окна «Обои»: кадр в окне виден на всех вкладках, Home может быть в фоне
-const wallAlpha = () => winMode() == "transparent" ? 1 - Math.min(Math.max(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0), 90) / 100 : 1;
+const glass = () => winMode(win) == "transparent" || winMode(win) == "wallpaper";
+const windowWall = () => winMode(win) == "wallpaper"; // режим окна «Обои»: кадр в окне виден на всех вкладках, Home может быть в фоне
+const wallAlpha = () => winMode(win) == "transparent" ? 1 - Math.min(Math.max(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0), 90) / 100 : 1;
 const liveWant = () => win.lumiHomeLive?.want(transparent() || wallAlpha() < 1 ? win.lumiHomeLive.DESKTOP : null);
 // прозрачная Home: свои обои убираются (видео и веб-обои не играют впустую)
 function clearWall() {
@@ -129,7 +131,7 @@ function clearWall() {
 // следующая картинка; не открылась — пробуем ещё (до 4 раз), нет ничего — остаётся градиент
 let busy = null;
 export function next() {
-  if (transparent()) return Promise.resolve(false);
+  if (transparent() || priv()) return Promise.resolve(false);
   return busy ??= (async () => {
     try {
       for (let tries = 0; tries < 4; tries++) {
@@ -354,7 +356,7 @@ const relayout = () => { if (place()) effects(); };
 // ---------- эффекты: затемнение, размытие обоев, интерфейс над обоями ----------
 function effects() {
   place();
-  const dimV = clamp(int("dim", 25), 0, 90) / 100, blur = clamp(int("blur", 0), 0, 40);
+  const dimV = priv() && transparent() ? 0.6 : clamp(int("dim", 25), 0, 90) / 100, blur = clamp(int("blur", 0), 0, 40);
   root.style.setProperty("--wp-dim", dimV);
   root.style.setProperty("--wp-blur", blur + "px");
   // размытие у краёв окна светлеет — только при размытии чуть увеличиваем, ровно на запас под него
@@ -460,7 +462,7 @@ async function readData() {
 }
 export const ready = (async () => {
   await readData();
-  if (transparent()) return liveWant(); // прозрачная Home — свои обои не грузим
+  if (transparent() || priv()) return liveWant(); // прозрачная Home — свои обои не грузим
   const keep = state.current && str("rotate", "open") != "open" && !due() && !bans.has(key(state.current)) && !hidden(state.current);
   if (!(keep && await load(state.current).then(l => (show(l), preload(), true), () => false))) await next();
   schedule();
@@ -468,7 +470,7 @@ export const ready = (async () => {
 
 let soon = 0;
 const onPref = (_, __, name) => {
-  if (name.endsWith(".mode")) transparent() ? clearWall() : current ? (liveWant(), applyAccent(), syncButtons()) : next();
+  if (name.endsWith(".mode")) { effects(); transparent() ? clearWall() : current ? (liveWant(), applyAccent(), syncButtons()) : next(); }
   else if (/\.(volume|muted)$/.test(name)) applyVolume();
   else if (/\.(src\.|nsfw|query|category|sorting|folder|favoritesOnly|favShuffle|wh\.|key\.|reddit\.)/.test(name)) { reset(); clearTimeout(soon); soon = setTimeout(() => (busy ?? Promise.resolve()).then(next), 300); } // несколько настроек подряд — одна смена, после текущей
   else if (name.endsWith(".rotate") || name.endsWith(".interval")) schedule();

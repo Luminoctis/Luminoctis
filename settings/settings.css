@@ -196,6 +196,19 @@ kbd {
     &:hover { background: color-mix(in srgb, var(--lumi-red) 85%, white) !important; } }
 }
 #space-add { margin-top: -2px; }
+/* «Строгий режим»: карточка списка */
+#strict-lists { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.strict-list {
+  & .head { display: flex; align-items: center; gap: 8px; }
+  & .head input[type="text"] { flex: 1; min-width: 0; }
+  & textarea { min-height: 70px; resize: vertical; padding: 8px 10px; border-radius: 8px; border: 1px solid var(--line); background: var(--lumi-bg1); color: var(--lumi-fg); font: 500 12.5px Inter, system-ui, sans-serif; }
+  & .days { display: flex; gap: 3px; }
+  & .days button { flex: 1; padding: 0; height: 28px; font-size: 12px; color: var(--lumi-muted); &[aria-pressed="true"] { background: var(--lumi-accent); color: var(--lumi-solid); border-color: transparent; } }
+  & .when { display: flex; align-items: center; gap: 8px; font-size: 12.5px; color: var(--lumi-muted); }
+  & input[type="time"] { height: 30px; padding: 0 8px; border-radius: 8px; border: 1px solid var(--line); background: var(--lumi-bg1); color: var(--lumi-fg); font: 500 12.5px Inter, system-ui, sans-serif; }
+  & .remove { width: 28px; height: 28px; padding: 0; border: none; color: var(--lumi-red); font-size: 16px; flex-shrink: 0; }
+  &.off { opacity: 0.6; }
+}
 
 /* перетаскивание строк */
 .grip { width: 14px; flex-shrink: 0; text-align: center; color: var(--lumi-dim); cursor: grab; user-select: none; font-size: 15px; }
@@ -265,3 +278,10 @@ a.row.link { color: inherit; text-decoration: none; &:hover { background: color-
 /* «Сбросить вкладку» — мелко и неброско, внизу раздела */
 .reset-wrap { margin-top: 16px; display: flex; justify-content: center; & .confirm { flex: 1; margin-top: 0; } }
 .reset-tab { height: 26px; padding: 0 10px; border: none; color: var(--lumi-dim); font-size: 11.5px; font-weight: 400; &:hover:not(:disabled) { background: transparent; color: var(--lumi-fg); text-decoration: underline; } }
+
+/* Звуки */
+.snd { gap: 6px; & .text { flex: 1; min-width: 0; } }
+.snd-file { max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 11px; color: var(--lumi-accent); &:empty { display: none; } }
+.snd-btn { height: 24px; padding: 0 8px; border: none; font-size: 11.5px; color: var(--lumi-muted); &:hover { color: var(--lumi-fg); background: var(--lumi-bg1); } }
+.snd-play { color: var(--lumi-accent); }
+.snd:not(:hover):not(:focus-within) .snd-pick, .snd:not(:hover):not(:focus-within) .snd-reset { opacity: 0.5; }

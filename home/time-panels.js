@@ -193,10 +193,6 @@ function settingsView(root) {
       h("p", { class: "lt-dim", text: "Блок настраивается у каждого пресета (выше, «Блок сайтов»). Здесь — для таймера «Свой», когда длительности выбраны вручную." }),
       blockEditor(S, -1),
 
-      h("h3", { text: "Импорт" }),
-      h("div", { class: "lt-row" }, h("button", { text: "Импорт из Obsidian…", title: "Файл лога плагина Focus Cycle Timer (StudyLogs.md)", on: { click: pickImport } }),
-        importNote = h("span", { class: "lt-dim", role: "status" })),
-      h("p", { class: "lt-dim", text: "Записи, цели и задачи дней из лога плагина. Повторный импорт того же файла дублей не создаёт." }),
       h("p", { class: "lt-dim", text: `Файлы: ${store.path("time")}` }),
     );
   }
@@ -211,18 +207,6 @@ function settingsView(root) {
       h("textarea", { class: "lt-sites", rows: 4, placeholder: "youtube.com\nreddit.com", value: b.sites.join("\n"),
         on: { change: e => save(n => set(n, "sites", e.target.value.split(/[\s,]+/).map(E.normDomain).filter(Boolean)))
           .then(() => (e.target.value = (i < 0 ? E.data.settings.blockSites : E.data.settings.presets[i].block.sites).join("\n"))) } }));
-  }
-  let importNote = null;
-  function pickImport() {
-    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    fp.init(window.browsingContext, "Лог Focus Cycle Timer", Ci.nsIFilePicker.modeOpen);
-    fp.appendFilter("Markdown", "*.md");
-    fp.open(async rv => {
-      if (rv != Ci.nsIFilePicker.returnOK || !fp.file) return;
-      importNote.textContent = "Импорт…";
-      try { importNote.textContent = E.importMessage(await E.importFile(fp.file.path)); }
-      catch (e) { importNote.textContent = `Не удалось импортировать: ${e.message ?? e}`; console.error(e); }
-    });
   }
   function goalSettings(title, onKey, totalKey, topicsKey) {
     const S = E.data.settings;

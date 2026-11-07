@@ -1,0 +1,5 @@
+Sounds in this folder are taken from two sound packs by Kenney (Kenney Vleugels, https://kenney.nl):
+  - "UI Audio"         https://kenney.nl/assets/ui-audio
+  - "Interface Sounds" https://kenney.nl/assets/interface-sounds
+License: Creative Commons Zero (CC0 1.0 Universal), https://creativecommons.org/publicdomain/zero/1.0/
+Files are used unchanged, only renamed. No attribution is required; credit is given as a courtesy.

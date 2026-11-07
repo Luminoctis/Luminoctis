@@ -10,7 +10,7 @@
 // Записи журнала — тот же формат, что у плагина (kind Focus/Break/Long break, Countdown/Stopwatch, Completed/Stopped); подписи — в интерфейсе.
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
-import { pageUrl } from "./lumi-paths.sys.mjs"; // (и для home/time-import.mjs)
+import { pageUrl } from "./lumi-paths.sys.mjs";
 const STORE_URL = pageUrl("home/store.js");
 const store = () => ChromeUtils.importESModule(STORE_URL);
 export const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json" };
@@ -595,77 +595,6 @@ export async function addTopic(name) {
   return true;
 }
 
-// ---------- импорт лога Obsidian «Focus Cycle Timer» (home/time-import.mjs) ----------
-const IMPORT_URL = pageUrl("home/time-import.mjs");
-// data.json плагина лежит в <хранилище>/.obsidian/plugins/focus-cycle-timer: ищем, поднимаясь от лога вверх
-export async function pluginDataFor(logPath) {
-  let dir = logPath;
-  for (let i = 0; i < 8; i++) {
-    const up = PathUtils.parent(dir);
-    if (!up || up == dir) break;
-    dir = up;
-    const file = PathUtils.join(dir, ".obsidian", "plugins", "focus-cycle-timer", "data.json");
-    try { if (await IOUtils.exists(file)) return JSON.parse(await IOUtils.readUTF8(file)); } catch (e) { console.error("LumiTime import:", e); }
-  }
-  return null;
-}
-// Сливает записи лога в журнал в памяти (работающий таймер не затрёт файл) и сохраняет. Повторный импорт ничего не добавляет (по id).
-// plugin — data.json плагина (необязательно): цели берутся, только где у LumiTime они ещё не заданы.
-export async function importLog(text, plugin = null) {
-  await init();
-  const P = ChromeUtils.importESModule(IMPORT_URL), log = P.parseLog(text);
-  const have = new Set(data.records.map(r => r.id)), fresh = [];
-  let bad = log.bad;
-  for (const r of [...log.records, ...P.tableRecords(log.tableOnly, new Set(log.records.filter(isRecord).map(P.recordDate)))]) {
-    if (!isRecord(r)) { bad++; continue; }
-    if (have.has(r.id)) continue;
-    have.add(r.id); fresh.push(r); putRecord(r);
-  }
-  // темы из лога — в список тем
-  const next = plain(data.settings), known = new Set(next.topics.map(t => t.toLocaleLowerCase()));
-  let changed = false;
-  for (const r of fresh) {
-    const t = r.kind == "Focus" ? r.topic.trim() : "";
-    if (t && !known.has(t.toLocaleLowerCase())) { known.add(t.toLocaleLowerCase()); next.topics.push(t); changed = true; }
-  }
-  // цели из плагина
-  let goals = false;
-  if (plugin && typeof plugin == "object") {
-    for (const p of ["month", "week", "streak"]) {
-      const h = plugin[p + "GoalHours"], k = p + "GoalHours";
-      if (next[k] === null && validGoalHours(h)) { next[k] = h; next[p + "GoalsEnabled"] = plugin[p + "GoalsEnabled"] !== false; goals = changed = true; }
-      const t = plugin["topic" + p[0].toUpperCase() + p.slice(1) + "Goals"], tk = "topic" + p[0].toUpperCase() + p.slice(1) + "Goals";
-      if (!next[tk].length && topicGoals(t).length) { next[tk] = topicGoals(t); goals = changed = true; }
-    }
-  }
-  // «День»: файл дня создаётся, только если у LumiTime за этот день своего нет
-  let dailyAdded = 0;
-  const st = store();
-  for (const d of log.dailies) {
-    if (!d || typeof d.date != "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.date)) { bad++; continue; }
-    const day = P.dailyToDay(d);
-    if (!day.tasks.length && !day.comments.length) continue;
-    try { if (await st.readJSON(dayFile(d.date), null)) continue; await st.writeJSON(dayFile(d.date), day); dailyAdded++; }
-    catch (e) { console.error("LumiTime import day:", e); } // битый файл дня не трогаем
-  }
-  if (fresh.length) flush();
-  if (changed) await saveSettings(next);
-  await queue.catch(() => {});
-  bump("journal");
-  const days = new Set(fresh.map(P.recordDate));
-  return { sessions: fresh.length, days: days.size, focusSessions: fresh.filter(r => r.kind == "Focus").length,
-    focusMs: fresh.filter(r => r.kind == "Focus").reduce((m, r) => m + countedRecordMs(r), 0), dailyAdded, goals, bad };
-}
-export async function importFile(path) {
-  const text = await IOUtils.readUTF8(path);
-  return importLog(text, await pluginDataFor(path));
-}
-export const importMessage = r => (r.sessions
-  ? `Импортировано ${r.sessions} ${plural(r.sessions, "сессия", "сессии", "сессий")} за ${r.days} ${plural(r.days, "день", "дня", "дней")}`
-    + (r.dailyAdded ? ` · дней с задачами: ${r.dailyAdded}` : "") + (r.goals ? " · цели взяты из плагина" : "")
-  : "Новых записей нет" + (r.dailyAdded ? ` · дней с задачами: ${r.dailyAdded}` : "")) + (r.bad ? ` · пропущено строк: ${r.bad}` : "");
-const plural = (n, a, b, c) => (n % 10 == 1 && n % 100 != 11 ? a : n % 10 >= 2 && n % 10 <= 4 && (n % 100 < 12 || n % 100 > 14) ? b : c);
-
 // ---------- сводки ----------
 let cache = { key: "", value: null };
 // сегодня / неделя / месяц / серия (дни подряд; от последнего «сброса серии»); живой фокус добавляет интерфейс
@@ -796,10 +725,17 @@ export function blockFor(st = data.state) {
   const s = data.settings, p = s.presets.find(x => x.id == st.presetId);
   return p ? p.block : { enabled: s.blockEnabled, sites: s.blockSites, breaks: s.blockBreaks };
 }
-const matchSite = host => {
+// сайт списка, под который подпадает хост (поддомены тоже); общая для фокуса и строгого режима (lumi-strict.sys.mjs)
+export function matchHost(host, sites) {
   const h = host.toLowerCase().replace(/^www\./, "");
-  return blockFor().sites.find(d => h == d || h.endsWith("." + d)) ?? null;
-};
+  return sites.find(d => h == d || h.endsWith("." + d)) ?? null;
+}
+const matchSite = host => matchHost(host, blockFor().sites);
+// идёт ли цикл сейчас: "focus" | "break" (перерыв, в т.ч. длинный) | null (нет цикла или пауза) — для строгого режима
+export function activePhase() {
+  const st = data.state;
+  return !data.loaded || st.phase == "idle" || st.runningSince === null ? null : st.phase == "focus" ? "focus" : "break";
+}
 // адрес сайта блокируется? → { site, until: "чч:мм" | null (секундомер) } или null. Идущий фокус (не пауза); перерыв — только при blockBreaks.
 export function focusBlock(host) {
   const st = data.state, b = blockFor(st);

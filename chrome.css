@@ -1090,3 +1090,50 @@ zen-library {
   & :is(input, #editBMPanel_tagsSelector, menulist) { border-radius: 8px !important; }
   &[lumi-glass] #placesToolbar { border-color: var(--lumi-glass-edge, var(--lumi-line)) !important; }
 }
+
+/* ---------- 17. Инкогнито (приватное окно: lumi-palette ставит [lumi-private] на корень; цвета — серые / затемнённое стекло там же) ---------- */
+#lumi-logo .lumi-incognito {
+  display: block; width: 26px; height: 26px; margin: 0 auto; background: currentColor;
+  mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12 8.5 4h7l2 8M3 12.5h18'/%3E%3Ccircle cx='7.8' cy='18' r='2.6'/%3E%3Ccircle cx='16.2' cy='18' r='2.6'/%3E%3Cpath d='M10.4 17.4h3.2'/%3E%3C/svg%3E");
+}
+
+/* ---------- 18. Эффект загрузок ----------
+ * Строит js/lumi-downloads-fx.uc.js (#lumi-downloads-fx в корне окна; выключатель luminoctis.look.download-fx). Пока идёт загрузка ([run]): от кнопки загрузок
+ * вдоль низа панели адреса и правого края рейки бегут блики. Загрузка кончилась — волна от кнопки по всему окну. Без загрузок оверлей [hidden]: ни одной анимации.
+ * Точка и размеры (--lumi-dlfx-ox/oy/rx/ny/W/H/wd, p = средний прогресс 0..1) ставит скрипт. Только transform/opacity. */
+#lumi-downloads-fx {
+  position: fixed; inset: 0; z-index: 99; overflow: hidden; pointer-events: none; -moz-window-dragging: no-drag;
+  --lumi-dlfx-p: 0.3;
+  &[hidden] { display: none; }
+  &:not([run]) :is(.lumi-dlfx-track, .lumi-dlfx-hl) { display: none; }
+  & .lumi-dlfx-track { position: absolute; background: var(--lumi-accent); opacity: calc(0.18 + 0.4 * var(--lumi-dlfx-p)); }
+  & .lumi-dlfx-track.h { left: var(--lumi-dlfx-rx); width: calc(100% - var(--lumi-dlfx-rx)); top: var(--lumi-dlfx-ny); height: 1px; }
+  & .lumi-dlfx-track.v { left: var(--lumi-dlfx-rx); top: var(--lumi-dlfx-ny); height: calc(100% - var(--lumi-dlfx-ny)); width: 1px; }
+  & .lumi-dlfx-hl {
+    position: absolute; --len: 140px;
+    animation: 2.2s ease-in-out infinite both;
+    &.h { top: calc(var(--lumi-dlfx-ny) - 1px); height: 3px; border-radius: 2px; width: var(--len); box-shadow: 0 0 10px var(--lumi-accent); }
+    &.h.l { left: calc(var(--lumi-dlfx-ox) - var(--len)); background: linear-gradient(90deg, transparent, var(--lumi-accent)); animation-name: lumi-dlfx-left; }
+    &.h.r { left: var(--lumi-dlfx-ox); background: linear-gradient(90deg, var(--lumi-accent), transparent); animation-name: lumi-dlfx-right; }
+    &.v { left: calc(var(--lumi-dlfx-rx) - 1px); top: var(--lumi-dlfx-ny); width: 3px; height: var(--len); border-radius: 2px;
+          background: linear-gradient(180deg, transparent, var(--lumi-accent)); box-shadow: 0 0 10px var(--lumi-accent); animation-name: lumi-dlfx-down; animation-duration: 2.8s; }
+    &.src { left: calc(var(--lumi-dlfx-ox) - 18px); top: calc(var(--lumi-dlfx-oy) - 18px); width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--lumi-accent); animation-name: lumi-dlfx-src; animation-duration: 1.8s; animation-timing-function: ease-out; }
+  }
+  & .lumi-dlfx-wave {
+    position: absolute; width: var(--lumi-dlfx-wd); height: var(--lumi-dlfx-wd);
+    left: calc(var(--lumi-dlfx-ox) - var(--lumi-dlfx-wd) / 2); top: calc(var(--lumi-dlfx-oy) - var(--lumi-dlfx-wd) / 2);
+    border-radius: 50%; animation: lumi-dlfx-wave 1s cubic-bezier(0.25, 0.45, 0.45, 1) both;
+    background: radial-gradient(circle closest-side, transparent 0, transparent 84%,
+      color-mix(in srgb, var(--lumi-accent) 16%, transparent) 91%, color-mix(in srgb, var(--lumi-accent) 70%, transparent) 98.5%, transparent 100%);
+  }
+  & .lumi-dlfx-wave + .lumi-dlfx-wave { opacity: 0.6; }
+}
+@keyframes lumi-dlfx-left { from { transform: translateX(0); opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } to { transform: translateX(calc(var(--lumi-dlfx-rx) - var(--lumi-dlfx-ox))); opacity: 0; } }
+@keyframes lumi-dlfx-right { from { transform: translateX(0); opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } to { transform: translateX(calc(var(--lumi-dlfx-W) - var(--lumi-dlfx-ox))); opacity: 0; } }
+@keyframes lumi-dlfx-down { from { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } to { transform: translateY(calc(var(--lumi-dlfx-H) - var(--lumi-dlfx-ny))); opacity: 0; } }
+@keyframes lumi-dlfx-src { from { transform: scale(0.4); opacity: 0.9; } to { transform: scale(1.7); opacity: 0; } }
+@keyframes lumi-dlfx-wave { from { transform: scale(0.04); opacity: 1; } to { transform: scale(1); opacity: 0; } }
+@media (prefers-reduced-motion: reduce) {
+  #lumi-downloads-fx :is(.lumi-dlfx-hl, .lumi-dlfx-wave) { display: none; }
+  #downloads-button[lumi-dlfx-done] { background: color-mix(in srgb, var(--lumi-accent) 35%, transparent) !important; border-radius: 8px; }
+}

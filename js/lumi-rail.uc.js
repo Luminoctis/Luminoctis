@@ -105,7 +105,9 @@
     rail.setAttribute("aria-label", "Боковая панель Luminoctis");
 
     // Клик — Luminoctis Home: открыть / вернуться (js/lumi-home.uc.js; подсветку lumi-home-open ставит он же)
-    const logo = labeled(h("button", "", { id: "lumi-logo", textContent: "L" }), "Luminoctis Home");
+    const incognito = PrivateBrowsingUtils.isWindowPrivate(window); // в приватном окне вместо «L» — маска (chrome.css, «Инкогнито»)
+    const logo = labeled(h("button", "", { id: "lumi-logo", textContent: incognito ? "" : "L" }), incognito ? "Luminoctis Home — инкогнито" : "Luminoctis Home");
+    if (incognito) logo.append(h("span", "lumi-incognito"));
     logo.addEventListener("click", () => window.lumiHome?.toggle());
 
     const pins = h("div", "", { id: "lumi-pins" });

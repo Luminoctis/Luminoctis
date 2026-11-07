@@ -85,9 +85,14 @@ const COMPACT = "luminoctis.compact.transparency";
 const int = ([pref, def], max) => Math.min(max, Math.max(0, Services.prefs.getIntPref(pref, def)));
 const WIN = LOOK + "window", KIND = LOOK + "blur-kind", HOME_MODE = "luminoctis.home.wallpaper.mode", MICA = "widget.windows.mica.toplevel-backdrop";
 const pr = Services.prefs;
-export const windowMode = () => { const m = pr.getStringPref(WIN, ""); return m == "transparent" || m == "wallpaper" ? m : "opaque"; };
+const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+export const isPrivate = w => { try { return !!w && PrivateBrowsingUtils.isWindowPrivate(w); } catch { return false; } };
+// w — окно: в приватном «Обои» всегда как «Непрозрачный» (обои в инкогнито цветовые); без окна — настройка как есть
+export const windowMode = w => {
+  const m = pr.getStringPref(WIN, "");
+  return m == "transparent" || (m == "wallpaper" && !isPrivate(w)) ? m : "opaque";
+};
 export const blurKind = () => { const k = pr.getStringPref(KIND, "acrylic"); return ["none", "blur", "mica"].includes(k) ? k : "acrylic"; };
-const isGlass = () => windowMode() != "opaque";
 // разовая миграция (2026-10-30): «Размыть то, что за окном» → blur-kind=blur (если окно прозрачное), Mica в старом переключателе → blur-kind=mica
 if (!pr.getBoolPref(LOOK + "modes-migrated", false)) {
   pr.setBoolPref(LOOK + "modes-migrated", true);
@@ -108,17 +113,26 @@ sync();
 // чем выше слой, тем плотнее: текст на поверхностях и выбранном остаётся читаемым
 const LIFT = { bg0: 0, bg1: 0, surface: 15, raised: 25 };
 const glassDocs = new WeakSet(); // окна и панель настроек; Home и заглушка фокуса — страницы во вкладке, остаются непрозрачными
+// инкогнито: непрозрачный/обои — те же цвета в оттенках серого; прозрачный — цвета темы, стекло темнее
+const gray = h => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16)), y = Math.round(0.299 * r + 0.587 * g + 0.114 * b).toString(16).padStart(2, "0");
+  return "#" + y + y + y;
+};
 const paint = doc => {
-  const c = colors(), o = override(), root = doc.documentElement;
+  const c = colors(), o = override(), root = doc.documentElement, w = doc.defaultView, priv = isPrivate(w);
   if (HEX.test(o)) c.accent = o;
-  const glass = glassDocs.has(doc) && isGlass(), solid = 100 - int(SEE, 90);
+  const mode = windowMode(w), glass = glassDocs.has(doc) && mode != "opaque";
+  let solid = 100 - int(SEE, 90);
+  if (priv && mode != "transparent") for (const t of TOKENS) c[t] = gray(c[t]); // и страницы (Home) тоже
+  else if (priv && glass) { solid = Math.min(100, solid + 25); for (const t in LIFT) c[t] = `color-mix(in srgb, ${c[t]} 55%, #000)`; }
   for (const t of TOKENS) root.style.setProperty(`--lumi-${t}`,
     glass && t in LIFT ? `color-mix(in srgb, ${c[t]} ${Math.min(100, solid + LIFT[t])}%, transparent)` : c[t]);
   const cs = glass ? 100 - Math.min(90, Math.max(0, Services.prefs.getIntPref(COMPACT, 45))) : 100; // в непрозрачном режиме — сплошные
   for (const [v, t] of [["compact-bg", "bg0"], ["compact-bg1", "bg1"]]) root.style.setProperty(`--lumi-${v}`, cs == 100 ? c[t] : `color-mix(in srgb, ${c[t]} ${cs}%, transparent)`);
   root.style.setProperty("--lumi-solid", c.bg0); // непрозрачный bg0: текст на акценте, подложка сайтов
   root.toggleAttribute("lumi-glass", glass);
-  root.toggleAttribute("lumi-wallpaper", glass && windowMode() == "wallpaper");
+  root.toggleAttribute("lumi-wallpaper", glass && mode == "wallpaper");
+  root.toggleAttribute("lumi-private", priv);
 };
 let queued = null; // «Сбросить палитру» меняет много настроек — перекрашиваем один раз
 const repaint = () => queued ||= Promise.resolve().then(() => { queued = null; docs.forEach(paint); });

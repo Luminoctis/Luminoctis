@@ -53,7 +53,7 @@
   }
   // режим окна «Обои» (luminoctis.look.window): обои Home — под интерфейсом на всех вкладках; кадр рисует страница Home, поэтому она должна жить
   // (в фоне): не выгружаем её и поднимаем при старте / включении режима
-  const wallMode = () => windowMode() == "wallpaper";
+  const wallMode = () => windowMode(window) == "wallpaper";
   const ensure = () => { if (wallMode() && !find()) create(true); };
 
   function open() {

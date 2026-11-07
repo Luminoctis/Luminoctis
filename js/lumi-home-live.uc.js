@@ -57,14 +57,14 @@
   };
   function applyAccent() {
     if (!api()) return;
-    const kind = wantKind(through || site || windowMode() == "transparent"), state = STATES[kind]?.state ?? 0;
+    const kind = wantKind(through || site || windowMode(window) == "transparent"), state = STATES[kind]?.state ?? 0;
     if (state != accentSet) accent(kind);
   }
 
   // ---------- окно браузера: насквозь / обычное ----------
   let through = null, site = false;
   const HT = "luminoctis.look.homeTransparency", WPMODE = "luminoctis.home.wallpaper.mode";
-  const wantDesktop = () => Services.prefs.getStringPref(WPMODE, "wallpaper") == "transparent" || (windowMode() == "transparent" && Services.prefs.getIntPref(HT, 0) > 0);
+  const wantDesktop = () => Services.prefs.getStringPref(WPMODE, "wallpaper") == "transparent" || (windowMode(window) == "transparent" && Services.prefs.getIntPref(HT, 0) > 0);
   // Home «видна»: выбрана она сама или выбран закреп-окошко (lumi-rail.uc.js showPin) — Home остаётся под ним, режим насквозь не выключаем
   // from — вкладка, с которой только что ушли (TabSelect): в этот момент у закрепа ещё нет класса окошка, а у Home — deck-selected (их ставит рейка позже),
   // без подсказки режим «насквозь» на кадр гас и больше не включался
@@ -98,7 +98,7 @@
     wall.style.setProperty("--lumi-home-x", r.left + "px");
     wall.style.setProperty("--lumi-home-y", r.top + "px");
   }
-  const siteWant = () => Services.prefs.getBoolPref(TRANSPARENT, false) && windowMode() == "opaque" && mica.matches &&
+  const siteWant = () => Services.prefs.getBoolPref(TRANSPARENT, false) && windowMode(window) == "opaque" && mica.matches &&
     window.windowState != window.STATE_MINIMIZED && !!api() && !selTab()?.hasAttribute("zen-essential") &&
     !document.getElementById(selTab()?.linkedPanel)?.classList.contains("lumi-pin-window");
   function update(from) {

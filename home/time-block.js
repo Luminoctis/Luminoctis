@@ -6,10 +6,12 @@ const q = new URLSearchParams(location.search);
 const url = q.get("url") ?? "", site = q.get("site") ?? "", until = q.get("until");
 let target = null;
 try { target = new URL(url); } catch {}
+const strict = q.get("kind") == "strict";
 const brk = q.get("phase") && q.get("phase") != "focus";
-document.getElementById("title").textContent = brk ? `Перерыв — сайт закрыт${until ? ` до ${until}` : ""}` : until ? `Фокус — вернись после ${until}` : "Фокус — вернись после него";
-document.getElementById("site").textContent = `${site} заблокирован, пока идёт ${brk ? "цикл" : "фокус"}`;
-document.getElementById("open").addEventListener("click", () => {
+document.getElementById("title").textContent = strict ? "Строгий режим" : brk ? `Перерыв — сайт закрыт${until ? ` до ${until}` : ""}` : until ? `Фокус — вернись после ${until}` : "Фокус — вернись после него";
+document.getElementById("site").textContent = strict ? `${site} закрыт списком «${q.get("list") || "без названия"}»${until ? ` до ${until}` : ", пока идёт фокус"}` : `${site} заблокирован, пока идёт ${brk ? "цикл" : "фокус"}`;
+if (strict) document.getElementById("open").remove(); // строгость: обхода нет
+else document.getElementById("open").addEventListener("click", () => {
   if (!target || !/^https?:$/.test(target.protocol)) return;
   engine.allowSite(target.hostname);
   location.replace(target.href);

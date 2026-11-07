@@ -6,7 +6,7 @@ $ver = ([IO.File]::ReadAllText((Join-Path $Root 'theme.json')) | ConvertFrom-Jso
 $stage = Join-Path ([IO.Path]::GetTempPath()) "luminoctis-build-$ver"
 Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $stage, $OutDir -Force | Out-Null
-foreach ($n in 'install.cmd', 'installer', 'js', 'settings', 'home', 'vendor', 'chrome.css', 'preferences.json', 'theme.json', 'README.md', 'LICENSE') {
+foreach ($n in 'install.cmd', 'installer', 'js', 'settings', 'home', 'sounds', 'vendor', 'chrome.css', 'preferences.json', 'theme.json', 'README.md', 'LICENSE') {
   $p = Join-Path $Root $n
   if (Test-Path $p) { Copy-Item $p $stage -Recurse }
 }

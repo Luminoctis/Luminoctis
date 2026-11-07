@@ -38,6 +38,12 @@
       ],
       "name": "lumi-compact"
     },
+    "js/lumi-downloads-fx.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-downloads-fx"
+    },
     "js/lumi-focus.uc.js": {
       "include": [
         "chrome://browser/content/browser.xhtml"
@@ -62,6 +68,12 @@
       ],
       "name": "lumi-hovercard"
     },
+    "js/lumi-keys.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-keys"
+    },
     "js/lumi-keys.sys.mjs": {
       "name": "lumi-keys"
     },
@@ -82,6 +94,15 @@
         "chrome://browser/content/browser.xhtml"
       ],
       "name": "lumi-rail"
+    },
+    "js/lumi-strict.sys.mjs": {
+      "name": "lumi-strict"
+    },
+    "js/lumi-sounds.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-sounds"
     },
     "js/lumi-tabstrip.uc.js": {
       "include": [

@@ -295,6 +295,7 @@ Remove-Item $res -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory -Force $res | Out-Null
 Copy-Item (Join-Path $root 'settings') (Join-Path $res 'settings') -Recurse
 Copy-Item (Join-Path $root 'home') (Join-Path $res 'home') -Recurse
+Copy-Item (Join-Path $root 'sounds') (Join-Path $res 'sounds') -Recurse
 
 $lum = Join-Path $chrome 'luminoctis'
 New-Item -ItemType Directory -Force $lum | Out-Null

@@ -21,6 +21,8 @@
     <button role="tab" data-tab="sidebar">Рейка</button>
     <button role="tab" data-tab="home">Home</button>
     <button role="tab" data-tab="wallpaper">Обои</button>
+    <button role="tab" data-tab="strict">Строгий режим</button>
+    <button role="tab" data-tab="sounds">Звуки</button>
     <button role="tab" data-tab="control">Управление</button>
     <button role="tab" data-tab="about">О моде</button>
   </nav>
@@ -33,6 +35,7 @@
     <div id="presets" class="list"></div>
     <button id="theme-create" class="dashed">+ Создать тему</button>
     <label class="row" title="Цвет акцента берётся из текущих обоев Home; выключите — вернётся цвет палитры"><div class="text"><b>Цвет акцента из обоев</b><span>Берётся из текущих обоев Home</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
+    <label class="row" title="Пока идёт загрузка — светящиеся линии от кнопки загрузок; когда кончилась — волна по окну"><div class="text"><b>Эффект загрузок</b><span>Линии во время загрузки и волна в конце</span></div><input type="checkbox" data-pref="luminoctis.look.download-fx" data-default="true"></label>
 
     <!-- режим окна и всё про прозрачность — здесь; строки по режиму показывает settings.css по body[data-mode] (opaque | transparent | wallpaper) -->
     <h2>Окно <span class="hint">· сайты не меняются</span></h2>
@@ -311,6 +314,44 @@
     </div>
   </section>
 
+  <!-- ===== Строгий режим: списки сайтов по расписанию (js/lumi-strict.sys.mjs; список рисует settings.js) ===== -->
+  <section id="strict" role="tabpanel">
+    <p class="hint">Закрывает выбранные сайты заглушкой без кнопки «Всё равно открыть». Списков и расписаний можно сделать сколько угодно. Блок по пресетам LumiTime — в его настройках.</p>
+    <label class="row"><div class="text"><b>Строгий режим</b><span>Общий выключатель всех списков</span></div><input type="checkbox" data-pref="luminoctis.strict.enabled"></label>
+    <h2>Списки <span class="hint">· изменения сохраняются сразу</span></h2>
+    <div id="strict-lists"></div>
+    <button id="strict-add" class="dashed">+ Список</button>
+  </section>
+
+  <!-- ===== Звуки (js/lumi-sounds.uc.js, sounds/) ===== -->
+  <section id="sounds" role="tabpanel">
+    <p class="hint">Короткие звуки интерфейса (набор CC0 от Kenney). На любое действие можно поставить свой файл: .ogg, .mp3 или .wav.</p>
+    <label class="row"><div class="text"><b>Звуки</b><span>Общий выключатель</span></div><input type="checkbox" data-pref="luminoctis.sounds.enabled"></label>
+    <div class="row stack"><label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.sounds.volume" data-default="50"><output></output></label></div>
+    <h2>Действия</h2>
+    <div class="row snd" data-sound="type"><div class="text"><b>Печать</b><span>Разные «клавиши», в полях и на сайтах</span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.type.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="tab-open"><div class="text"><b>Открытие вкладки</b><span></span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.tab-open.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="tab-close"><div class="text"><b>Закрытие вкладки</b><span></span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.tab-close.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="tab-switch"><div class="text"><b>Переключение вкладки</b><span></span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.tab-switch.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="hover"><div class="text"><b>Наведение</b><span>На вкладку полосы и закреп, очень тихо</span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.hover.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="click"><div class="text"><b>Клик по рейке и закрепам</b><span></span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.click.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="download"><div class="text"><b>Конец загрузки</b><span>Играет и когда браузер не в фокусе</span></div>
+      <span class="snd-file"></span><button class="snd-btn snd-play" title="Прослушать">▶</button><button class="snd-btn snd-pick">Свой файл…</button><button class="snd-btn snd-reset" title="Вернуть стандартный звук">↺</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.download.enabled" data-default="true"></div>
+  </section>
+
   <!-- ===== Управление: меню, кнопки, клавиши и мышь ===== -->
   <section id="control" role="tabpanel">
     <h2>Меню «⋯» <span class="hint">· слева от шестерёнки; какие пункты видны</span></h2>
@@ -333,6 +374,18 @@
       <button class="small reset" title="Вернуть по умолчанию">↺</button>
       <span class="ok">работает</span>
     </div>
+    <div class="row key-row" data-key="tabLeft">
+      <button class="bind"></button>
+      <div class="text"><b>Вкладка слева</b><span>Выбрать соседнюю вкладку полосы слева</span></div>
+      <button class="small reset" title="Вернуть по умолчанию">↺</button>
+    </div>
+    <div class="row key-row" data-key="tabRight">
+      <button class="bind"></button>
+      <div class="text"><b>Вкладка справа</b><span>Выбрать соседнюю вкладку полосы справа</span></div>
+      <button class="small reset" title="Вернуть по умолчанию">↺</button>
+    </div>
+    <div class="row"><div class="text"><b>Alt + 1…9, 0</b><span>Закрепы рейки сверху вниз (не переназначается)</span></div></div>
+    <label class="row"><div class="text"><b>По кругу</b><span>С края полосы переходить на вкладку с другого конца</span></div><input type="checkbox" data-pref="luminoctis.keys.wrap"></label>
   </section>
 
   <!-- ===== О моде: версия, обновления, ссылка ===== -->

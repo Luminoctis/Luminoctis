@@ -4,7 +4,10 @@
 // ==/UserScript==
 
 // Набор звуков (папка sounds/, CC0 Kenney) или свой файл на действие (luminoctis.sounds.<действие>.file). Варианты чередуются, высота слегка гуляет.
-// Тестовый крючок: window.lumiSounds.log — последние события {action, src, rate, volume, played}.
+// Играем через Web Audio: один AudioContext на окно, файлы декодированы заранее (HTMLAudioElement стартовал ~100 мс и глотал звуки по 10–20 мс).
+// Chrome-документ не подпадает под запрет автозапуска — достаточно resume(). Контекст создаётся, только когда звуки включены.
+// Тестовый крючок: window.lumiSounds.log — последние события {action, src, rate, volume, played, ended}:
+// played — звук реально запущен (контекст running, start() вызван), ended — графом отыгран до конца.
 (() => {
   const { pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   const { BrowserWindowTracker } = ChromeUtils.importESModule("resource:///modules/BrowserWindowTracker.sys.mjs");
@@ -17,9 +20,14 @@
     hover: [4, 0.35, 0], click: [3, 0.8, 60], download: [3, 1, 300],
   };
   const t0 = Date.now();
-  const voices = new Map(); // src -> [Audio, Audio, Audio] (по кругу: быстрые повторы не обрывают друг друга)
   const lastAt = {}, lastIdx = {};
   const log = [];
+  let count = 0; // всего событий (журнал обрезается до 50)
+  let ctx = null;
+  const bufs = new Map(); // src -> AudioBuffer | null (null: файл не читается/не декодируется)
+  const loading = new Map(); // src -> Promise
+
+  const setSources = action => Array.from({ length: ACTIONS[action][0] }, (_, i) => pageUrl(`sounds/${action}-${i + 1}.ogg`));
 
   function sources(action) {
     const file = prefs.getStringPref(P + action + ".file", "");
@@ -27,20 +35,31 @@
       try {
         const f = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile);
         f.initWithPath(file);
-        if (f.exists()) return [Services.io.newFileURI(f).spec];
+        if (f.exists()) {
+          const src = Services.io.newFileURI(f).spec;
+          if (bufs.get(src) !== null) return [src]; // свой файл не декодировался — играет набор
+        }
       } catch {}
     }
-    return Array.from({ length: ACTIONS[action][0] }, (_, i) => pageUrl(`sounds/${action}-${i + 1}.ogg`));
+    return setSources(action);
   }
 
-  function voice(src) {
-    let v = voices.get(src);
-    if (!v) {
-      v = Array.from({ length: 3 }, () => Object.assign(new Audio(src), { preload: "auto", preservesPitch: false }));
-      v.i = 0;
-      voices.set(src, v);
+  function load(src) {
+    if (!loading.has(src) && !bufs.has(src)) {
+      loading.set(src, fetch(src).then(r => r.arrayBuffer()).then(d => ctx.decodeAudioData(d))
+        .then(b => bufs.set(src, b), () => bufs.set(src, null)).finally(() => loading.delete(src)));
     }
-    return v[v.i++ % v.length];
+    return loading.get(src);
+  }
+  const preload = action => Promise.all(sources(action).map(load));
+
+  function ensure() {
+    if (!ctx) {
+      ctx = new AudioContext();
+      Object.keys(ACTIONS).forEach(preload);
+    }
+    if (ctx.state !== "running") ctx.resume().catch(() => {});
+    return ctx;
   }
 
   function play(action, { force = false, ignoreFocus = false } = {}) {
@@ -58,22 +77,48 @@
     const rate = 0.9 + Math.random() * 0.2;
     // download — в одном окне (последнем активном), даже если браузер не в фокусе; остальное — только в активном окне
     const mine = ignoreFocus ? BrowserWindowTracker.getTopWindow() === window : document.hasFocus();
-    const entry = { action, src: list[i], rate, volume, played: false };
+    const entry = { action, src: list[i], rate, volume, played: false, ended: false };
     log.push(entry);
+    count++;
     if (log.length > 50) log.shift();
     if (!mine || !volume) return;
     try {
-      const a = voice(list[i]);
-      a.volume = volume;
-      a.playbackRate = rate;
-      a.currentTime = 0;
-      a.play().catch(() => {});
-      entry.played = true;
+      ensure();
+      const go = () => {
+        const buf = bufs.get(entry.src);
+        if (!buf) return;
+        const s = ctx.createBufferSource(), g = ctx.createGain();
+        s.buffer = buf;
+        s.playbackRate.value = rate;
+        g.gain.value = volume;
+        s.connect(g).connect(ctx.destination);
+        s.onended = () => { entry.ended = true; };
+        s.start();
+        entry.played = true;
+      };
+      const run = () => ctx.state === "running" ? go() : ctx.resume().then(go, () => {});
+      // файл ещё не декодирован: событие пропускаем (иначе звук запоздает), кроме «▶» в настройках — его ждём
+      if (bufs.has(entry.src)) run(); else if (force) load(entry.src).then(run);
+      // «▶» при выключенных звуках: потом снова отпустить устройство
+      if (force && !prefs.getBoolPref(P + "enabled", false)) setTimeout(() => { if (!prefs.getBoolPref(P + "enabled", false)) ctx?.suspend(); }, 3000);
     } catch {}
   }
 
-  // выбранный/сброшенный файл — забыть старые Audio
-  prefs.addObserver(P, { observe: () => voices.clear() });
+  // выбран/сброшен свой файл — декодировать заново; выключили звуки — отпустить аудиоустройство
+  const prefObserver = {
+    observe(_s, _t, name) {
+      if (name === P + "enabled") {
+        if (prefs.getBoolPref(P + "enabled", false)) ensure(); else ctx?.suspend();
+      } else if (ctx && name.endsWith(".file")) {
+        for (const k of bufs.keys()) if (k.startsWith("file:")) bufs.delete(k);
+        const action = name.slice(P.length, -5);
+        if (ACTIONS[action]) preload(action);
+      }
+    },
+  };
+  prefs.addObserver(P, prefObserver);
+  window.addEventListener("unload", () => { prefs.removeObserver(P, prefObserver); ctx?.close(); }, { once: true });
+  if (prefs.getBoolPref(P + "enabled", false)) ensure();
 
   const PRINT = /^(?: |Backspace|Enter)$/;
   window.addEventListener("keydown", e => {
@@ -103,5 +148,5 @@
     window.addEventListener("unload", () => list.removeView(view), { once: true });
   });
 
-  window.lumiSounds = { play, log, ACTIONS, sources };
+  window.lumiSounds = { play, log, get count() { return count; }, ACTIONS, sources, get ctx() { return ctx; }, get decoded() { return bufs; } };
 })();

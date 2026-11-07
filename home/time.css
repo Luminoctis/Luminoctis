@@ -103,6 +103,17 @@ body[lumi-mini] {
   & button { font-size: 12px; &[aria-pressed="true"] { background: color-mix(in srgb, var(--lumi-accent) 25%, var(--lumi-raised)); color: var(--lumi-fg); } }
 }
 
+/* большой режим (?full=1, скрытая вкладка): столбца таймера нет — таймер это мини-окно рейки слева, панель стыкуется к его правому краю
+ * (--lt-mini-r/-y/-h ставит time.js из реальной рамки), верх и низ те же, вид рамки тот же; панель всегда открыта, × не нужен */
+body[lumi-full] {
+  & #lumi-time { display: none; }
+  & #lumi-time-panel { top: var(--lt-mini-y, 12px); bottom: auto; height: var(--lt-mini-h, calc(100vh - 24px)); left: calc(var(--lt-mini-r, 352px) + 6px); right: 12px;
+    translate: 0 0; opacity: 1; transition: none;
+    background: var(--lumi-surface, #1f2335); backdrop-filter: blur(18px); border-radius: var(--lumi-radius, 16px);
+    border-color: color-mix(in srgb, var(--lumi-accent) 55%, transparent); box-shadow: 0 24px 60px rgb(0 0 0 / .5); }
+  & .lt-close { display: none; }
+}
+
 /* ---------- панели: выезжают слева, столбец таймера остаётся ---------- */
 #lumi-time-panel {
   position: fixed; z-index: 4; top: 14px; bottom: 14px; left: 14px; right: calc(var(--lumi-time-w, 320px) + 28px);

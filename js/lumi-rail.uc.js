@@ -842,6 +842,7 @@
   const TIME_RAIL = "luminoctis.time.rail"; // плитка на рейке (по умолчанию вкл; «Убрать таймер» выключает)
   const TIME_URL = pageUrl("home/time.html");
   let mini = null; // { backdrop, frame, iframe, closing }
+  let miniTile = null; // плитка таймера: openTime по ней открывает мини-окно
   const TIME_FULL = "lumi-time-full";
   const isFull = tab => !!tab?.hasAttribute(TIME_FULL);
   let full = null, opening = false; // скрытая вкладка LumiTime целиком; opening — идёт её создание (метка ставится на TabOpen, до полосы вкладок)
@@ -874,14 +875,16 @@
   function openTime(panel) {
     if (full && !full.closing) {
       gBrowser.selectedTab = full;
+      if (!mini && miniTile) openMini(miniTile); // большой режим = мини-окно + панель справа от него
       const page = full.linkedBrowser.contentWindow?.lumiTime;
       if (panel && page) { if (page.panelName() != panel) page.openPanel(panel); }
-      else if (panel) full.linkedBrowser.loadURI(Services.io.newURI(`${TIME_URL}?panel=${panel}`), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); // страница ещё грузится
+      else if (panel) full.linkedBrowser.loadURI(Services.io.newURI(`${TIME_URL}?full=1&panel=${panel}`), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); // страница ещё грузится
       return;
     }
     opening = true;
-    try { gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + (panel ? `?panel=${panel}` : ""), { skipAnimation: true }); } finally { opening = false; }
+    try { gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + "?full=1" + (panel ? `&panel=${panel}` : ""), { skipAnimation: true }); } finally { opening = false; }
     SessionStore.setCustomTabValue(full, TIME_FULL, "1");
+    if (!mini && miniTile) openMini(miniTile);
   }
   // над своей вкладкой (chrome-страница) затемнение пропускает клики и не темнит; над сайтом подложка нужна (Firefox не размывает чужой процесс)
   function syncMini() {
@@ -889,6 +892,7 @@
     const sel = gBrowser.selectedTab;
     mini.backdrop.toggleAttribute("lumi-passive", isFull(sel));
     mini.frame.toggleAttribute("lumi-over-site", !isFull(sel) && !sel?.hasAttribute("lumi-home"));
+    if (isFull(sel)) sel.linkedBrowser.contentWindow?.lumiTime?.place?.(); // панель большого режима стыкуется к рамке
   }
   function openMini(tile) {
     if (mini) return;
@@ -924,6 +928,7 @@
       m.frame.remove();
       m.tile.removeAttribute("open");
       mini = null;
+      if (full) setTimeout(closeFull); // большой режим без мини-окна не существует (не сразу: см. TabSelect)
     };
     if (!smooth || calm()) return done();
     m.closing = true;
@@ -942,6 +947,7 @@
     ring.append(svg("circle", { class: "lumi-time-track", cx: 17, cy: 17, r: 14 }), arc);
     tile.append(ring, h("span", "lumi-time-icon"), num);
     tile.setAttribute("phase", "idle");
+    miniTile = tile;
     tile.addEventListener("click", () => (mini ? closeMini(true) : openMini(tile)));
 
     const names = { focus: "Фокус", break: "Перерыв", "long-break": "Длинный перерыв" };

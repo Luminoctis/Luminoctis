@@ -9,8 +9,9 @@ const root = document.getElementById("lumi-time");
 
 // Режимы: ?mini=1 — тот же главный вид в мини-окне рейки (js/lumi-rail.uc.js; в chrome-рамке «Открыть целиком», внизу кнопки панелей — они открывают большой LumiTime),
 // без него — вся страница LumiTime в скрытой вкладке lumi-time-full (?panel=stats|journal|settings|day — какая панель открыта; по умолчанию Статистика).
-const q = new URLSearchParams(location.search), mini = q.has("mini");
+const q = new URLSearchParams(location.search), mini = q.has("mini"), full = q.has("full");
 document.body.toggleAttribute("lumi-mini", mini);
+document.body.toggleAttribute("lumi-full", full); // большой режим: столбца нет, панель стыкуется к мини-окну рейки (place), всегда открыта
 await E.init();
 
 let els = {}, buttonsKey = "";
@@ -221,4 +222,15 @@ window.addEventListener("unload", () => { off(); closeAdd(); clearInterval(timer
 build();
 run();
 if (!mini) openPanel(["settings", "stats", "journal", "day"].includes(q.get("panel")) ? q.get("panel") : "stats");
-window.lumiTime = { E, build, update, openPanel, closePanel, panelName }; // для проверок
+// большой режим: панель встаёт справа от мини-окна рейки (#lumi-time-frame в окне браузера) — позицию берём из него, offset* не зависит от анимации появления
+function place() {
+  const fr = window.browsingContext?.topChromeWindow?.document.getElementById("lumi-time-frame"), br = window.browsingContext?.embedderElement;
+  if (!full || !fr?.offsetParent || !br) return;
+  const p = fr.offsetParent.getBoundingClientRect(), b = br.getBoundingClientRect(), st = document.documentElement.style;
+  st.setProperty("--lt-mini-r", `${p.left + fr.offsetLeft + fr.offsetWidth - b.left}px`);
+  st.setProperty("--lt-mini-y", `${p.top + fr.offsetTop - b.top}px`);
+  st.setProperty("--lt-mini-h", `${fr.offsetHeight}px`);
+}
+window.addEventListener("resize", place);
+place();
+window.lumiTime = { E, build, update, openPanel, closePanel, panelName, place }; // для проверок

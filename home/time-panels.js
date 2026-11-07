@@ -82,7 +82,7 @@ function ensure() {
 export const panelName = () => current;
 export function openPanel(name) {
   ensure();
-  if (current == name) return closePanel();
+  if (current == name) return document.body.hasAttribute("lumi-full") ? undefined : closePanel(); // в большом режиме панель всегда открыта: повтор клика ничего не делает
   current = name;
   panel.querySelector("h2").textContent = TITLES[name];
   panel.setAttribute("aria-label", TITLES[name]);
@@ -95,7 +95,7 @@ export function openPanel(name) {
   document.dispatchEvent(new CustomEvent("lumi-time-panel", { detail: name }));
 }
 export function closePanel() {
-  if (!current) return;
+  if (!current || document.body.hasAttribute("lumi-full")) return;
   current = null; view = null;
   panel.inert = true;
   document.body.removeAttribute("lumi-time-panel");

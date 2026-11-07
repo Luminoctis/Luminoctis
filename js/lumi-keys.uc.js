@@ -26,7 +26,7 @@
     if (event.ctrlKey && event.altKey && event.shiftKey && !event.metaKey && event.code == "KeyD") (window.lumiDebug?.open(), handled = true); // окно отладки
     else if (keys.matches("tabLeft", event)) (step(-1), handled = true);
     else if (keys.matches("tabRight", event)) (step(1), handled = true);
-    else if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey && /^(Digit|Numpad)\d$/.test(event.code)) {
+    else if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey && /^Digit\d$/.test(event.code)) { // Alt+цифровой блок — Alt-коды Windows, не трогаем
       const n = +event.code.slice(-1);
       handled = true;
       document.querySelectorAll("#lumi-pins .lumi-pin")[(n || 10) - 1]?.click();

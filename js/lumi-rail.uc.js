@@ -529,6 +529,7 @@
       <menupopup id="lumi-pin-menu">
         <menuitem id="lumi-pin-menu-unload" label="Выгрузить"/>
         <menuitem id="lumi-pin-menu-keep" type="checkbox" label="Всегда загружен"/>
+        <menuitem id="lumi-pin-menu-quiet" type="checkbox" label="Уведомления"/>
         <menuitem id="lumi-pin-menu-unpin" label="Открепить"/>
       </menupopup>`).firstElementChild;
     document.getElementById("mainPopupSet").append(menu);
@@ -536,6 +537,7 @@
     menu.querySelector("#lumi-pin-menu-unload").addEventListener("command", () => unloadPin(menuTab));
     menu.querySelector("#lumi-pin-menu-unpin").addEventListener("command", () => unpin(menuTab));
     menu.querySelector("#lumi-pin-menu-keep").addEventListener("command", () => setKept(menuTab, !isKept(menuTab)));
+    menu.querySelector("#lumi-pin-menu-quiet").addEventListener("command", () => setQuiet(menuTab, !isQuiet(menuTab)));
     unloadShortcut(box, event => event.target.closest?.(".lumi-pin")?.tab);
     box.addEventListener("contextmenu", event => {
       const tab = event.target.closest(".lumi-pin")?.tab;
@@ -545,6 +547,8 @@
       menu.querySelector("#lumi-pin-menu-unload").disabled = tab.hasAttribute("pending");
       const keep = menu.querySelector("#lumi-pin-menu-keep"); // checked="false" XUL тоже рисует галочкой — снимать атрибут
       isKept(tab) ? keep.setAttribute("checked", "true") : keep.removeAttribute("checked");
+      const notify = menu.querySelector("#lumi-pin-menu-quiet");
+      isQuiet(tab) ? notify.removeAttribute("checked") : notify.setAttribute("checked", "true");
       menu.openPopupAtScreen(event.screenX, event.screenY, true, event);
     });
 
@@ -694,9 +698,21 @@
     const btn = pinButtons.get(tab);
     if (btn) updateBadge(btn, tab);
   }
+  // Плеер (YouTube Music и т.п.) меняет заголовок на каждый трек — точку не ставим, пока вкладка играет и ещё 2 минуты после звука.
+  const SOUND_GRACE = 2 * 60000, soundAt = new WeakMap(), soundTitle = new WeakSet();
+  window.addEventListener("TabAttrModified", event => event.detail?.changed?.includes("soundplaying") && soundAt.set(event.target, Date.now()));
+  const recentSound = tab => {
+    if (tab.hasAttribute("soundplaying")) soundAt.set(tab, Date.now());
+    return Date.now() - (soundAt.get(tab) ?? 0) < SOUND_GRACE;
+  };
   function updateBadge(btn, tab) {
-    const fake = badgeDebug.get(tab);
-    const n = fake ? fake.n | 0 : +(/\((\d+)\)/.exec(tab.label || "")?.[1] ?? 0), dot = !n && (fake ? !!fake.dot : tab.hasAttribute("titlechanged"));
+    const fake = badgeDebug.get(tab), quiet = !fake && isQuiet(tab);
+    let n = fake ? fake.n | 0 : quiet ? 0 : +(/\((\d+)\)/.exec(tab.label || "")?.[1] ?? 0), dot = false;
+    if (fake) dot = !n && !!fake.dot;
+    else if (!quiet && !n && tab.hasAttribute("titlechanged")) {
+      if (recentSound(tab)) soundTitle.add(tab); // заголовок сменился под звук — это не сообщение, даже когда грейс кончится
+      dot = !soundTitle.has(tab);
+    } else if (!tab.hasAttribute("titlechanged")) soundTitle.delete(tab);
     const open = btn.hasAttribute("selected"), prev = badgeSeen.get(tab);
     badgeSeen.set(tab, { n, dot });
     btn.lastChild.textContent = !open && n ? (n > 99 ? "99+" : n) : "";
@@ -724,6 +740,17 @@
     Services.prefs.setStringPref(KEEP, JSON.stringify(list));
     applyKeep(tab);
     if (on && tab.hasAttribute("pending")) gBrowser.reloadTab(tab); // загрузить сразу, в фоне
+  }
+  // «Уведомления» (пункт меню закрепа): выключенные — в pref luminoctis.pins.quiet (те же ключи), у них нет ни числа, ни точки
+  const QUIET = "luminoctis.pins.quiet";
+  const quietList = () => { try { return JSON.parse(Services.prefs.getStringPref(QUIET, "[]")) || []; } catch { return []; } };
+  function isQuiet(tab) { return isPin(tab) && keysOf(tab).some(k => quietList().includes(k)); }
+  function setQuiet(tab, quiet) {
+    const own = keysOf(tab), list = quietList().filter(k => !own.includes(k));
+    if (quiet) list.push(own[0]);
+    Services.prefs.setStringPref(QUIET, JSON.stringify(list));
+    const btn = pinButtons.get(tab);
+    if (btn) updateBadge(btn, tab);
   }
   const discardOrig = gBrowser.discardBrowser;
   gBrowser.discardBrowser = function (tab, force) {

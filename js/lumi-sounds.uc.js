@@ -3,7 +3,8 @@
 // @description    Звуки браузера: печать, открытие/закрытие/переключение вкладок, наведение, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
 // ==/UserScript==
 
-// Набор звуков (папка sounds/, CC0 Kenney) или свой файл на действие (luminoctis.sounds.<действие>.file). Варианты чередуются, высота слегка гуляет.
+// Пак звуков (luminoctis.sounds.pack: default = sounds/ (CC0 Kenney), gx = sounds/gx/ (синтез)) или свой файл на действие (luminoctis.sounds.<действие>.file).
+// Один файл на действие, при каждом проигрывании высота и громкость чуть гуляют (как в Opera GX).
 // Играем через Web Audio: один AudioContext на окно, файлы декодированы заранее (HTMLAudioElement стартовал ~100 мс и глотал звуки по 10–20 мс).
 // Chrome-документ не подпадает под запрет автозапуска — достаточно resume(). Контекст создаётся, только когда звуки включены.
 // Тестовый крючок: window.lumiSounds.log — последние события {action, src, rate, volume, played, ended}:
@@ -14,20 +15,20 @@
   const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
   const P = "luminoctis.sounds.";
   const prefs = Services.prefs;
-  // действие -> [число вариантов, множитель громкости, минимальный интервал мс]
+  // действие -> [множитель громкости, минимальный интервал мс, разброс высоты (доля), разброс громкости (доля)]
   const ACTIONS = {
-    type: [8, 0.6, 40], "tab-open": [3, 1, 80], "tab-close": [3, 1, 80], "tab-switch": [3, 0.7, 80],
-    hover: [4, 0.35, 0], click: [3, 0.8, 60], download: [3, 1, 300],
+    type: [0.6, 40, 0.03, 0.1], "tab-open": [1, 80, 0.01, 0.03], "tab-close": [1, 80, 0.01, 0.03], "tab-switch": [0.7, 80, 0.01, 0.03],
+    hover: [0.35, 0, 0.03, 0.1], click: [0.8, 60, 0.01, 0.03], download: [1, 300, 0, 0],
   };
   const t0 = Date.now();
-  const lastAt = {}, lastIdx = {};
+  const lastAt = {};
   const log = [];
   let count = 0; // всего событий (журнал обрезается до 50)
   let ctx = null;
   const bufs = new Map(); // src -> AudioBuffer | null (null: файл не читается/не декодируется)
   const loading = new Map(); // src -> Promise
 
-  const setSources = action => Array.from({ length: ACTIONS[action][0] }, (_, i) => pageUrl(`sounds/${action}-${i + 1}.ogg`));
+  const setSources = action => [pageUrl(`sounds/${prefs.getStringPref(P + "pack", "default") === "gx" ? "gx/" : ""}${action}.ogg`)];
 
   function sources(action) {
     const file = prefs.getStringPref(P + action + ".file", "");
@@ -67,17 +68,15 @@
     if (!cfg || !prefs.getBoolPref(P + "enabled", false) && !force) return;
     if (!prefs.getBoolPref(P + action + ".enabled", true) && !force) return;
     const now = performance.now();
-    if (now - (lastAt[action] ?? -1e9) < cfg[2]) return;
+    if (now - (lastAt[action] ?? -1e9) < cfg[1]) return;
     lastAt[action] = now;
     const list = sources(action);
-    let i = Math.floor(Math.random() * list.length);
-    if (list.length > 1 && i === lastIdx[action]) i = (i + 1) % list.length; // подряд одинаковый не играем
-    lastIdx[action] = i;
-    const volume = Math.min(1, Math.max(0, prefs.getIntPref(P + "volume", 50) / 100 * cfg[1]));
-    const rate = 0.9 + Math.random() * 0.2;
+    const jitter = j => 1 + (Math.random() * 2 - 1) * j;
+    const volume = Math.min(1, Math.max(0, prefs.getIntPref(P + "volume", 50) / 100 * cfg[0] * jitter(cfg[3])));
+    const rate = jitter(cfg[2]);
     // download — в одном окне (последнем активном), даже если браузер не в фокусе; остальное — только в активном окне
-    const mine = ignoreFocus ? BrowserWindowTracker.getTopWindow() === window : document.hasFocus();
-    const entry = { action, src: list[i], rate, volume, played: false, ended: false };
+    const mine = ignoreFocus ? (BrowserWindowTracker.getTopWindow() ?? BrowserWindowTracker.orderedWindows[0]) === window : document.hasFocus();
+    const entry = { action, src: list[0], rate, volume, played: false, ended: false };
     log.push(entry);
     count++;
     if (log.length > 50) log.shift();
@@ -109,6 +108,9 @@
     observe(_s, _t, name) {
       if (name === P + "enabled") {
         if (prefs.getBoolPref(P + "enabled", false)) ensure(); else ctx?.suspend();
+      } else if (ctx && name === P + "pack") {
+        for (const k of bufs.keys()) if (!k.startsWith("file:")) bufs.delete(k); // смена пака — применить сразу
+        Object.keys(ACTIONS).forEach(preload);
       } else if (ctx && name.endsWith(".file")) {
         for (const k of bufs.keys()) if (k.startsWith("file:")) bufs.delete(k);
         const action = name.slice(P.length, -5);

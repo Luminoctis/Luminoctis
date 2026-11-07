@@ -2,4 +2,7 @@ Sounds in this folder are taken from two sound packs by Kenney (Kenney Vleugels,
   - "UI Audio"         https://kenney.nl/assets/ui-audio
   - "Interface Sounds" https://kenney.nl/assets/interface-sounds
 License: Creative Commons Zero (CC0 1.0 Universal), https://creativecommons.org/publicdomain/zero/1.0/
-Files are used unchanged, only renamed. No attribution is required; credit is given as a courtesy.
+Files in this folder (not gx/) are used unchanged, only renamed. No attribution is required; credit is given as a courtesy.
+
+Folder gx/ ("GX" pack): sounds synthesized for Luminoctis with ffmpeg (script: dev/make-gx-sounds.sh), not taken from any third party.
+They are released under the same license as the Luminoctis mod (MPL-2.0).

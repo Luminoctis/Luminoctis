@@ -38,6 +38,15 @@
       ],
       "name": "lumi-compact"
     },
+    "js/lumi-debug.sys.mjs": {
+      "name": "lumi-debug"
+    },
+    "js/lumi-debug.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-debug"
+    },
     "js/lumi-downloads-fx.uc.js": {
       "include": [
         "chrome://browser/content/browser.xhtml"

@@ -23,7 +23,8 @@
   window.addEventListener("keydown", event => {
     if (event.isComposing || event.repeat && !event.altKey) return;
     let handled = false;
-    if (keys.matches("tabLeft", event)) (step(-1), handled = true);
+    if (event.ctrlKey && event.altKey && event.shiftKey && !event.metaKey && event.code == "KeyD") (window.lumiDebug?.open(), handled = true); // окно отладки
+    else if (keys.matches("tabLeft", event)) (step(-1), handled = true);
     else if (keys.matches("tabRight", event)) (step(1), handled = true);
     else if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey && /^(Digit|Numpad)\d$/.test(event.code)) {
       const n = +event.code.slice(-1);

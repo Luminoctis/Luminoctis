@@ -859,6 +859,7 @@ upd.installedVersion().then(v => {
     fp.defaultString = "luminoctis-settings.json"; fp.defaultExtension = "json";
     fp.open(r => { if (r == Ci.nsIFilePicker.returnOK || r == Ci.nsIFilePicker.returnReplace) done(fp.file.path); });
   };
+  $("#open-debug").addEventListener("click", () => win.lumiDebug?.open());
   $("#backup-save").addEventListener("click", () => pick(true, p => backup.saveTo(p).catch(e => status("Ошибка: " + e.message))));
   $("#backup-load").addEventListener("click", () => pick(false, p => backup.loadFrom(p)));
 }

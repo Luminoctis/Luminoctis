@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Luminoctis: отладка</title>
+<link rel="stylesheet" href="settings.css">
+<style>
+  body { padding: 14px; gap: 10px; }
+  #params { display: flex; gap: 8px; align-items: center; flex-shrink: 0; }
+  #params label { display: flex; gap: 6px; align-items: center; color: var(--lumi-muted); }
+  #params label:first-child { flex: 1; min-width: 0; }
+  #params select { flex: 1; min-width: 0; width: 0; }
+  #params input { width: 56px; }
+  .arow { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 6px 10px; border-radius: 8px; background: var(--lumi-raised); }
+  .arow .text { display: flex; flex-direction: column; min-width: 0; }
+  .arow .text b { color: var(--lumi-fg); font-weight: 500; }
+  .arow .text span { color: var(--lumi-dim); font-size: 11px; }
+  .arow button { height: 26px; padding: 0 12px; flex-shrink: 0; }
+  main div.group { display: flex; flex-direction: column; gap: 4px; }
+</style>
+</head>
+<body>
+<!-- Окно отладки: список действий берётся из window.lumiDebug.actions последнего активного окна браузера (js/lumi-debug.uc.js). -->
+<header><h1>Luminoctis: отладка</h1></header>
+<div id="params">
+  <label>Закреп <select id="pin"></select></label>
+  <label>Число <input id="num" type="number" min="0" max="999" value="3"></label>
+</div>
+<main id="list"></main>
+<footer><button id="reset" class="primary">Сбросить всё</button></footer>
+<script type="module" src="debug.js"></script>
+</body>
+</html>

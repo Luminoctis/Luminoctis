@@ -67,7 +67,7 @@
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
     openTime, // LumiTime целиком — вкладкой (панель: settings|stats|journal|day)
     pins: pinTabs, addPin, pinTab, movePin, unpin, showPin, hidePin, migratePins, unloadIdleTabs, isKept, setKept,
-    unload, unloadShortcut, gap, clearGap, shiftOf, calm, setIcon, DOT, pinStartURL,
+    unload, unloadShortcut, gap, clearGap, shiftOf, calm, setIcon, DOT, pinStartURL, debugBadge,
     get dragPin() { return dragPin; }, // закреп, который сейчас тащат с рейки (полоса вкладок принимает его бросок)
   };
 
@@ -688,8 +688,15 @@
   // Первое число в круглых скобках — «(3) Discord», «Inbox (12) — почта». Нет числа, но заголовок сменился, пока закреп не был выбран
   // (родной атрибут titlechanged, Firefox снимает его при выборе) — точка. Закреп открыт — значка нет. Рост числа / появление точки — пульсация.
   const badgeSeen = new WeakMap(); // вкладка -> { n, dot } на прошлой отрисовке
+  const badgeDebug = new WeakMap(); // окно отладки (lumi-debug.uc.js): вкладка -> { n, dot } вместо настоящих; null в debugBadge снимает
+  function debugBadge(tab, spec) {
+    spec ? badgeDebug.set(tab, spec) : badgeDebug.delete(tab);
+    const btn = pinButtons.get(tab);
+    if (btn) updateBadge(btn, tab);
+  }
   function updateBadge(btn, tab) {
-    const n = +(/\((\d+)\)/.exec(tab.label || "")?.[1] ?? 0), dot = !n && tab.hasAttribute("titlechanged");
+    const fake = badgeDebug.get(tab);
+    const n = fake ? fake.n | 0 : +(/\((\d+)\)/.exec(tab.label || "")?.[1] ?? 0), dot = !n && (fake ? !!fake.dot : tab.hasAttribute("titlechanged"));
     const open = btn.hasAttribute("selected"), prev = badgeSeen.get(tab);
     badgeSeen.set(tab, { n, dot });
     btn.lastChild.textContent = !open && n ? (n > 99 ? "99+" : n) : "";

@@ -1060,7 +1060,8 @@
 
     const tile = h("div", "lumi-player" + (playing ? " playing" : ""));
     // клик по самой плитке (обложка, название) открывает вкладку с этим медиа; пространство переключается, как у карточки Zen (switchTabIfNeeded)
-    const open = () => tile.tab ? gZenWorkspaces.switchTabIfNeeded(tile.tab) : press(".zen-media-focus-button")();
+    // закреп (Essentials) — сразу на всё окно, как «Открыть во вкладке» (openPinAsTab: showPin+expandNow без кадра окошка)
+    const open = () => isPin(tile.tab) ? openPinAsTab(tile.tab) : tile.tab ? gZenWorkspaces.switchTabIfNeeded(tile.tab) : press(".zen-media-focus-button")();
     const cover = labeled(h("button", "lumi-player-cover"), title || "Плеер");
     cover.addEventListener("click", open);
     if (icon && icon != "none") cover.style.backgroundImage = icon;

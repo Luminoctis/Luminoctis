@@ -13,9 +13,8 @@
   UC_API.Windows.waitWindowLoading(window).then(async () => {
     const div = cls => Object.assign(document.createElement("div"), { className: cls });
     const fx = Object.assign(div(""), { id: "lumi-downloads-fx", hidden: true });
-    const hl = [["h l", 0], ["h l", -0.9], ["h r", 0], ["h r", -0.9], ["v", 0], ["v", -1.2], ["src", 0], ["src", -0.8]]
-      .map(([c, delay]) => Object.assign(div(`lumi-dlfx-hl ${c}`), { style: `animation-delay: ${delay}s` }));
-    fx.append(div("lumi-dlfx-track h"), div("lumi-dlfx-track v"), ...hl);
+    const lane = c => { const l = div(`lumi-dlfx-lane ${c}`); l.append(div("lumi-dlfx-hl")); return l; };
+    fx.append(div("lumi-dlfx-track h"), div("lumi-dlfx-track v"), lane("h l"), lane("h r"), lane("v"), div("lumi-dlfx-src"));
     document.documentElement.append(fx);
 
     const active = new Set(); // идущие загрузки этого окна

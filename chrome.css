@@ -371,9 +371,11 @@
   #lumi-pin-grip::after { transition: none; }
 }
 
-/* Мини-окно таймера LumiTime (js/lumi-rail.uc.js, openMini): рамка и затемнение — как у мини-окна закрепа (общие правила выше), внутри — home/time.html?mini=1 */
+/* Мини-окно таймера LumiTime (js/lumi-rail.uc.js, openMini): рамка и затемнение — как у мини-окна закрепа (общие правила выше), внутри — home/time.html?mini=1.
+ * Над скрытой вкладкой LumiTime целиком ([lumi-passive]) затемнения нет и клики проходят к большой странице. */
+#lumi-time-backdrop[lumi-passive] { background: none; pointer-events: none; animation: none; }
 #lumi-time-frame {
-  bottom: auto; width: 340px; height: min(486px, calc(100% - 2 * var(--lumi-pin-y)));
+  bottom: auto; width: 340px; height: min(940px, calc(100% - 2 * var(--lumi-pin-y))); /* почти вдвое выше прежних 486px: внутри весь главный вид LumiTime, лишнее прокручивается */
   display: flex; flex-direction: column; overflow: hidden;
   & iframe { flex: 1; min-height: 0; width: 100%; border: 0; display: block; background: transparent; }
   & .lumi-pin-head { flex-shrink: 0; }
@@ -432,6 +434,7 @@
   border-width: 1px; border-color: var(--lumi-accent); border-radius: 12px;
   background-color: var(--lumi-surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(18px); /* только у раскрытой карточки (как у #lumi-time-frame, §6); у свёрнутой плитки фильтра нет — ради GPU. Размывает интерфейс под карточкой, чужой процесс (сайт) не размывается */
   transition-duration: 200ms;
   transition-timing-function: var(--ease-out);
   transition-delay: calc(var(--i, 0) * 35ms);
@@ -1001,8 +1004,8 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 :root[lumi-glass] :is(#lumi-folder-panel, .searchmode-switcher-panel) { --panel-background-color: color-mix(in srgb, var(--lumi-solid) 80%, var(--lumi-surface)) !important; }
 /* Список выбора поисковика в адресной строке (panel.searchmode-switcher-panel, Zen 1.24, без id) — тот же приём: стекло Windows + плотность не ниже ~85% */
 
-/* Home не показываем в списке вкладок Библиотеки Zen (<zen-library>, копии вкладок сохраняют атрибут) */
-zen-library tab[lumi-home] { display: none !important; }
+/* Home и скрытую вкладку LumiTime целиком не показываем в списке вкладок Библиотеки Zen (<zen-library>, копии вкладок сохраняют атрибут) */
+zen-library :is(tab[lumi-home], tab[lumi-time-full]) { display: none !important; }
 
 /* ---------- 15. Обои Luminoctis Home под всем окном (js/lumi-home.uc.js, home/wallpaper.js) ----------
  * Пока выбрана Home, корень — [lumi-home-wall]. Вид зависит от режима окна (раздел 14):
@@ -1109,20 +1112,31 @@ zen-library {
   position: fixed; inset: 0; z-index: 99; overflow: hidden; pointer-events: none; -moz-window-dragging: no-drag;
   --lumi-dlfx-p: 0.3;
   &[hidden] { display: none; }
-  &:not([run]) :is(.lumi-dlfx-track, .lumi-dlfx-hl) { display: none; }
+  &:not([run]) :is(.lumi-dlfx-track, .lumi-dlfx-lane, .lumi-dlfx-hl, .lumi-dlfx-src) { display: none; }
   & .lumi-dlfx-track { position: absolute; background: var(--lumi-accent); opacity: calc(0.18 + 0.4 * var(--lumi-dlfx-p)); }
   & .lumi-dlfx-track.h { left: var(--lumi-dlfx-rx); width: calc(100% - var(--lumi-dlfx-rx)); top: var(--lumi-dlfx-ny); height: 1px; }
   & .lumi-dlfx-track.v { left: var(--lumi-dlfx-rx); top: var(--lumi-dlfx-ny); height: calc(100% - var(--lumi-dlfx-ny)); width: 1px; }
+  /* Бегущие блики — три полосы вместо восьми: полоса-«окно» (lane, overflow:hidden; не выходит за край рейки) и в ней один длинный элемент с повторяющимся градиентом,
+   * который едет на ровно один период (--P) — зацикливание бесшовное. Анимируется только transform; свечение — второй, более широкий и прозрачный слой фона (без box-shadow/filter). */
+  & .lumi-dlfx-lane { position: absolute; overflow: hidden; --P: 640px; --len: 150px; --core: var(--lumi-accent); --glow: color-mix(in srgb, var(--lumi-accent) 28%, transparent); }
+  & .lumi-dlfx-lane.h { top: calc(var(--lumi-dlfx-ny) - 4px); height: 9px; }
+  & .lumi-dlfx-lane.h.l { left: var(--lumi-dlfx-rx); width: calc(var(--lumi-dlfx-ox) - var(--lumi-dlfx-rx)); }
+  & .lumi-dlfx-lane.h.r { left: var(--lumi-dlfx-ox); width: calc(var(--lumi-dlfx-W) - var(--lumi-dlfx-ox)); }
+  & .lumi-dlfx-lane.v { left: var(--lumi-dlfx-rx); width: 6px; top: var(--lumi-dlfx-ny); height: calc(var(--lumi-dlfx-H) - var(--lumi-dlfx-ny)); }
   & .lumi-dlfx-hl {
-    position: absolute; --len: 140px;
-    animation: 2.2s ease-in-out infinite both;
-    &.h { top: calc(var(--lumi-dlfx-ny) - 1px); height: 3px; border-radius: 2px; width: var(--len); box-shadow: 0 0 10px var(--lumi-accent); }
-    &.h.l { left: calc(var(--lumi-dlfx-ox) - var(--len)); background: linear-gradient(90deg, transparent, var(--lumi-accent)); animation-name: lumi-dlfx-left; }
-    &.h.r { left: var(--lumi-dlfx-ox); background: linear-gradient(90deg, var(--lumi-accent), transparent); animation-name: lumi-dlfx-right; }
-    &.v { left: calc(var(--lumi-dlfx-rx) - 1px); top: var(--lumi-dlfx-ny); width: 3px; height: var(--len); border-radius: 2px;
-          background: linear-gradient(180deg, transparent, var(--lumi-accent)); box-shadow: 0 0 10px var(--lumi-accent); animation-name: lumi-dlfx-down; animation-duration: 2.8s; }
-    &.src { left: calc(var(--lumi-dlfx-ox) - 18px); top: calc(var(--lumi-dlfx-oy) - 18px); width: 36px; height: 36px; border-radius: 50%; border: 1.5px solid var(--lumi-accent); animation-name: lumi-dlfx-src; animation-duration: 1.8s; animation-timing-function: ease-out; }
+    position: absolute; will-change: transform; animation: 1.4s steps(42, end) infinite; /* 30 кадров/с: при 60 окно перерисовывается каждый кадр и GPU занят втрое больше, а на тонкой линии разницы не видно */
+    background-repeat: no-repeat;
+    .h > & { top: 0; height: 9px; width: calc(100% + var(--P)); background-size: 100% 3px, 100% 9px; background-position: 0 3px, 0 0; }
+    .v > & { left: 0; width: 6px; height: calc(100% + var(--P)); background-size: 3px 100%, 6px 100%; background-position: 0 0, 0 0; }
+    .h.l > & { left: 0; animation-name: lumi-dlfx-left;
+      background-image: repeating-linear-gradient(270deg, transparent 0 calc(var(--P) - var(--len)), var(--core) var(--P)), repeating-linear-gradient(270deg, transparent 0 calc(var(--P) - var(--len)), var(--glow) var(--P)); }
+    .h.r > & { left: calc(-1 * var(--P)); animation-name: lumi-dlfx-right;
+      background-image: repeating-linear-gradient(90deg, transparent 0 calc(var(--P) - var(--len)), var(--core) var(--P)), repeating-linear-gradient(90deg, transparent 0 calc(var(--P) - var(--len)), var(--glow) var(--P)); }
+    .v > & { top: calc(-1 * var(--P)); animation-name: lumi-dlfx-down;
+      background-image: repeating-linear-gradient(180deg, transparent 0 calc(var(--P) - var(--len)), var(--core) var(--P)), repeating-linear-gradient(180deg, transparent 0 calc(var(--P) - var(--len)), var(--glow) var(--P)); }
   }
+  & .lumi-dlfx-src { position: absolute; left: calc(var(--lumi-dlfx-ox) - 18px); top: calc(var(--lumi-dlfx-oy) - 18px); width: 36px; height: 36px; box-sizing: border-box; border-radius: 50%;
+    border: 1.5px solid var(--lumi-accent); will-change: transform, opacity; animation: lumi-dlfx-src 1.8s steps(54, end) infinite; }
   & .lumi-dlfx-wave {
     position: absolute; width: var(--lumi-dlfx-wd); height: var(--lumi-dlfx-wd);
     left: calc(var(--lumi-dlfx-ox) - var(--lumi-dlfx-wd) / 2); top: calc(var(--lumi-dlfx-oy) - var(--lumi-dlfx-wd) / 2);
@@ -1132,13 +1146,13 @@ zen-library {
   }
   & .lumi-dlfx-wave + .lumi-dlfx-wave { opacity: 0.6; }
 }
-@keyframes lumi-dlfx-left { from { transform: translateX(0); opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } to { transform: translateX(calc(var(--lumi-dlfx-rx) - var(--lumi-dlfx-ox))); opacity: 0; } }
-@keyframes lumi-dlfx-right { from { transform: translateX(0); opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } to { transform: translateX(calc(var(--lumi-dlfx-W) - var(--lumi-dlfx-ox))); opacity: 0; } }
-@keyframes lumi-dlfx-down { from { transform: translateY(0); opacity: 0; } 12% { opacity: 1; } 85% { opacity: 1; } to { transform: translateY(calc(var(--lumi-dlfx-H) - var(--lumi-dlfx-ny))); opacity: 0; } }
+@keyframes lumi-dlfx-left { to { transform: translateX(calc(-1 * var(--P))); } }
+@keyframes lumi-dlfx-right { to { transform: translateX(var(--P)); } }
+@keyframes lumi-dlfx-down { to { transform: translateY(var(--P)); } }
 @keyframes lumi-dlfx-src { from { transform: scale(0.4); opacity: 0.9; } to { transform: scale(1.7); opacity: 0; } }
 @keyframes lumi-dlfx-wave { from { transform: scale(0.04); opacity: 1; } to { transform: scale(1); opacity: 0; } }
 @media (prefers-reduced-motion: reduce) {
-  #lumi-downloads-fx :is(.lumi-dlfx-hl, .lumi-dlfx-wave) { display: none; }
+  #lumi-downloads-fx :is(.lumi-dlfx-lane, .lumi-dlfx-hl, .lumi-dlfx-src, .lumi-dlfx-wave) { display: none; }
   #downloads-button[lumi-dlfx-done] { background: color-mix(in srgb, var(--lumi-accent) 35%, transparent) !important; border-radius: 8px; }
 }
 
@@ -1162,3 +1176,77 @@ zen-library {
   40% { box-shadow: 0 0 0 1px var(--lumi-red), 0 0 16px color-mix(in srgb, var(--lumi-red) 60%, transparent); }
 }
 @media (prefers-reduced-motion: reduce) { .lumi-pin[lumi-ping] { animation: none; } }
+
+/* ---------- 20. Тема GX: срезанные углы и неоновое свечение (js/lumi-palette.sys.mjs ставит [lumi-gx]) ---------- */
+/* Срез ~6px у верхнего левого и нижнего правого углов. clip-path режет внешние тени, поэтому свечение — внутренняя тень (inset).
+ * Не режем то, что выступает наружу или чей клик-зона больше плитки: значки закрепов (.lumi-pin-badge, Glance) — фон закрепа в ::before,
+ * «L» (невидимая зона до угла окна) — маска вместо clip-path, точка контейнера на кнопке пространства — слева внизу. Статично, без анимаций. */
+:root[lumi-gx] {
+  --lumi-radius: 0px;
+  --gx-cut: 6px;
+  --gx-clip: polygon(var(--gx-cut) 0, 100% 0, 100% calc(100% - var(--gx-cut)), calc(100% - var(--gx-cut)) 100%, 0 100%, 0 var(--gx-cut));
+  --gx-clip-big: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px);
+  --gx-glow: inset 0 0 0 1px var(--lumi-accent), inset 0 0 12px color-mix(in srgb, var(--lumi-accent) 55%, transparent);
+  --gx-glow-soft: inset 0 0 10px color-mix(in srgb, var(--lumi-accent) 40%, transparent);
+}
+:root[lumi-gx] #lumi-rail { --lumi-rail-glow: var(--gx-glow); }
+
+/* рейка: плитки */
+:root[lumi-gx] :is(#lumi-spaces-button, #lumi-time-tile, #lumi-rail #zen-workspaces-button toolbarbutton, .lumi-player, .lumi-player-cover) {
+  border-radius: 0 !important; clip-path: var(--gx-clip);
+}
+:root[lumi-gx] #lumi-logo {
+  border-radius: 0;
+  mask: linear-gradient(135deg, transparent 4.2px, #000 4.3px), linear-gradient(-45deg, transparent 4.2px, #000 4.3px); mask-composite: intersect;
+}
+:root[lumi-gx] #lumi-rail #zen-workspaces-button toolbarbutton {
+  &[active="true"] { box-shadow: var(--gx-glow-soft); }
+  &[lumi-container]::after { inset: auto auto 3px 3px !important; }
+}
+/* закрепы: фон и рамка — в ::before (значки-счётчики снаружи не режутся) */
+:root[lumi-gx] .lumi-pin {
+  isolation: isolate; border-radius: 0; background: transparent; border-color: transparent !important;
+  &:hover { box-shadow: none; }
+  &::before {
+    content: ""; position: absolute; inset: -1px; z-index: -1; pointer-events: none; box-sizing: border-box;
+    background: var(--lumi-surface); border: 1px solid transparent; clip-path: var(--gx-clip);
+  }
+  &:hover::before { box-shadow: var(--gx-glow); }
+  &[selected]::before { background: var(--lumi-raised); border-color: var(--lumi-accent); box-shadow: var(--gx-glow-soft); }
+}
+:root[lumi-gx][lumi-glass] .lumi-pin:not([selected])::before { border-color: var(--lumi-line); }
+:root[lumi-gx] #lumi-pin-dropline, :root[lumi-gx] #lumi-tab-dropline { border-radius: 0; }
+
+/* вкладки полосы и «+» (скошенные — своя форма, не трогаем) */
+@media not -moz-pref("luminoctis.tabs.shape", "parallelogram") {
+  :root[lumi-gx] #lumi-tabstrip { --lumi-tab-radius: 0px; }
+  :root[lumi-gx] :is(.lumi-tab, #lumi-newtab-button)::before { clip-path: polygon(5px 0, 100% 0, 100% calc(100% - 5px), calc(100% - 5px) 100%, 0 100%, 0 5px); }
+}
+:root[lumi-gx] .lumi-tab {
+  &[selected]::before { box-shadow: var(--gx-glow); }
+  &:hover:not([selected])::before { box-shadow: var(--gx-glow-soft); }
+}
+:root[lumi-gx] #lumi-newtab-button:hover::before { box-shadow: var(--gx-glow-soft); }
+
+/* панель адреса: закрытое поле; раскрытые результаты — без среза */
+:root[lumi-gx] #urlbar:not([breakout-extend]) .urlbar-background { border-radius: 0 !important; clip-path: var(--gx-clip); }
+:root[lumi-gx] #urlbar[breakout-extend] .urlbar-background { border-radius: 0 !important; }
+:root[lumi-gx] #urlbar:not([breakout-extend]) {
+  &:hover .urlbar-background { box-shadow: var(--gx-glow-soft) !important; }
+  &[focused] .urlbar-background { box-shadow: var(--gx-glow) !important; }
+}
+
+/* мини-окна, карточки, панель настроек */
+:root[lumi-gx] :is(#lumi-pin-frame, #lumi-time-frame) { border-radius: 0; clip-path: var(--gx-clip-big); }
+:root[lumi-gx] #lumi-hovercard { border-radius: 0; clip-path: var(--gx-clip); box-shadow: var(--gx-glow-soft); }
+:root[lumi-gx] #lumi-settings { border-radius: 0; box-shadow: var(--gx-glow-soft), 0 24px 60px rgba(0, 0, 0, 0.5); }
+:root[lumi-gx] #lumi-players[open] .lumi-player { box-shadow: var(--gx-glow-soft); }
+
+/* меню и всплывающие панели */
+:root[lumi-gx] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {
+  --panel-border-radius: 0px !important;
+  --menuitem-border-radius: 0px !important;
+  --arrowpanel-menuitem-border-radius: 0px !important;
+  --panel-box-shadow: inset 0 0 14px color-mix(in srgb, var(--lumi-accent) 25%, transparent) !important;
+  &::part(content) { clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+}

@@ -447,7 +447,7 @@
 
     // выбрали другую вкладку (полоса, Ctrl+Tab, смена пространства…) — окошка больше нет
     window.addEventListener("TabSelect", () => {
-      closeMini(false);
+      if (!gBrowser.selectedTab.hasAttribute("lumi-time-full")) closeMini(false); // скрытая вкладка LumiTime целиком — мини-окно остаётся поверх неё
       // Glance (Alt+клик) поверх закрепа выбирает свою вкладку, но окошко остаётся: закреп — её родитель
       if (shown && gBrowser.selectedTab !== shown.pin && gZenGlanceManager.getTabOrGlanceParent(gBrowser.selectedTab) !== shown.pin) release();
     });
@@ -466,7 +466,7 @@
       const tab = gBrowser.selectedTab;
       if (!isPin(tab) || shown?.pin === tab) return;
       // закреп ушёл из-под окошка (или вкладка стала закрепом): последняя использованная ЗАГРУЖЕННАЯ вкладка, иначе Home (не выгруженный сайт)
-      const to = gBrowser.visibleTabs.filter(t => !isPin(t) && !t.hasAttribute("zen-empty-tab") && !t.hasAttribute("lumi-home") && !t.hasAttribute("pending") && gZenWorkspaces._shouldChangeToTab(t))
+      const to = gBrowser.visibleTabs.filter(t => !isPin(t) && !t.hasAttribute("zen-empty-tab") && !t.hasAttribute("lumi-home") && !t.hasAttribute("lumi-time-full") && !t.hasAttribute("pending") && gZenWorkspaces._shouldChangeToTab(t))
         .reduce((best, t) => (!best || t.lastAccessed > best.lastAccessed ? t : best), null);
       if (to) gBrowser.selectedTab = to;
       else if (window.lumiHome) window.lumiHome.open();
@@ -836,18 +836,59 @@
   // ---------- Таймер LumiTime на рейке: плитка с кольцом + мини-окно ----------
   // Движок (js/lumi-time.sys.mjs) один на всё приложение, время считает из отметок, так что плитка только рисует: перерисовка по событиям
   // движка и тик раз в секунду, пока цикл идёт и плитка видна. Клик — мини-окно (та же страница home/time.html?mini=1 в iframe,
-  // рамка и затемнение — как у мини-окна закрепа, chrome.css §6). «Открыть целиком» — весь LumiTime вкладкой (home/time.html).
+  // рамка и затемнение — как у мини-окна закрепа, chrome.css §6). Весь LumiTime («Открыть целиком» и кнопки панелей внизу мини-окна) — как Home:
+  // скрытая вкладка home/time.html с атрибутом lumi-time-full (не в полосе вкладок, рейке и сессии; Home и полоса её пропускают).
+  // Мини-окно остаётся поверх неё (затемнение не ловит клики); уход на любую другую вкладку закрывает и вкладку, и мини-окно.
   const TIME_RAIL = "luminoctis.time.rail"; // плитка на рейке (по умолчанию вкл; «Убрать таймер» выключает)
   const TIME_URL = pageUrl("home/time.html");
   let mini = null; // { backdrop, frame, iframe, closing }
+  const TIME_FULL = "lumi-time-full";
+  const isFull = tab => !!tab?.hasAttribute(TIME_FULL);
+  let full = null, opening = false; // скрытая вкладка LumiTime целиком; opening — идёт её создание (метка ставится на TabOpen, до полосы вкладок)
+  window.addEventListener("TabOpen", event => {
+    if (!opening) return;
+    full = event.target;
+    full.setAttribute(TIME_FULL, "");
+    full.lumiPrev = gBrowser.selectedTab; // вкладка, с которой пришли (на TabOpen она ещё выбрана): по ней Home понимает, «откуда» (lumi-home.uc.js, base)
+  }, true);
+  function closeFull() {
+    const tab = full;
+    full = null;
+    if (tab && !tab.closing) gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }); // без следа в «недавно закрытых»
+  }
+  // выбрали не LumiTime-целиком — вкладка и мини-окно уходят вместе; выбрали её — мини-окно перенастраивается
+  window.addEventListener("TabSelect", event => {
+    if (isFull(event.target)) return syncMini();
+    closeMini(false);
+    // не сразу: если уходим потому, что саму вкладку закрывают (Ctrl+W), TabSelect приходит раньше TabClose — повторное закрытие ломает removeTab
+    setTimeout(() => { if (!isFull(gBrowser.selectedTab)) closeFull(); });
+  });
+  window.addEventListener("TabClose", event => { if (event.target === full) { full = null; closeMini(false); } }); // Ctrl+W на ней
+  window.addEventListener("unload", () => { try { closeFull(); } catch {} }, { once: true }); // в сессию на выходе не попадает (best effort)
+  // сессия успела записать её до unload — после перезапуска не возвращаем обычной вкладкой
+  window.addEventListener("SSTabRestoring", event => {
+    const tab = event.target;
+    if (SessionStore.getCustomTabValue(tab, TIME_FULL) == "1") setTimeout(() => !tab.closing && gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }));
+  });
+  // панель: settings|stats|journal|day (по умолчанию — Статистика). Вкладка есть — выбираем её и переключаем панель страницей (без пересоздания)
   function openTime(panel) {
-    const same = tab => tab.linkedBrowser?.currentURI.spec.split(/[?#]/)[0] == TIME_URL;
-    const tab = gBrowser.tabs.find(same);
-    if (tab && !panel) gBrowser.selectedTab = tab;
-    else {
-      if (tab) gBrowser.removeTab(tab);
-      gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + (panel ? `?panel=${panel}` : ""));
+    if (full && !full.closing) {
+      gBrowser.selectedTab = full;
+      const page = full.linkedBrowser.contentWindow?.lumiTime;
+      if (panel && page) { if (page.panelName() != panel) page.openPanel(panel); }
+      else if (panel) full.linkedBrowser.loadURI(Services.io.newURI(`${TIME_URL}?panel=${panel}`), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); // страница ещё грузится
+      return;
     }
+    opening = true;
+    try { gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + (panel ? `?panel=${panel}` : ""), { skipAnimation: true }); } finally { opening = false; }
+    SessionStore.setCustomTabValue(full, TIME_FULL, "1");
+  }
+  // над своей вкладкой (chrome-страница) затемнение пропускает клики и не темнит; над сайтом подложка нужна (Firefox не размывает чужой процесс)
+  function syncMini() {
+    if (!mini) return;
+    const sel = gBrowser.selectedTab;
+    mini.backdrop.toggleAttribute("lumi-passive", isFull(sel));
+    mini.frame.toggleAttribute("lumi-over-site", !isFull(sel) && !sel?.hasAttribute("lumi-home"));
   }
   function openMini(tile) {
     if (mini) return;
@@ -855,11 +896,10 @@
     const backdrop = h("div", "", { id: "lumi-time-backdrop" }), frame = h("div", "", { id: "lumi-time-frame" });
     frame.setAttribute("role", "dialog");
     frame.setAttribute("aria-label", "Таймер LumiTime");
-    if (!gBrowser.selectedTab?.hasAttribute("lumi-home")) frame.setAttribute("lumi-over-site", ""); // не Home: под рамкой чужой процесс без размытия — нужна подложка (chrome.css)
-    const full = h("button", "lumi-time-full", { textContent: "Открыть целиком" });
-    full.addEventListener("click", () => { closeMini(false); openTime(); });
+    const fullBtn = h("button", "lumi-time-full", { textContent: "Открыть целиком" });
+    fullBtn.addEventListener("click", () => openTime());
     const head = h("div", "lumi-pin-head");
-    head.append(h("span", "lumi-pin-title", { textContent: "LumiTime" }), full);
+    head.append(h("span", "lumi-pin-title", { textContent: "LumiTime" }), fullBtn);
     // страница создаётся на каждое открытие и убирается при закрытии: пока окна нет, она не тикает
     const iframe = h("iframe", "", { src: TIME_URL + "?mini=1" });
     frame.append(head, iframe);
@@ -869,6 +909,7 @@
     iframe.addEventListener("load", () => iframe.contentWindow.addEventListener("keydown", esc));
     tabbox().append(backdrop, frame);
     mini = { backdrop, frame, iframe, esc, tile };
+    syncMini();
     tile.setAttribute("open", "");
     iframe.focus();
   }

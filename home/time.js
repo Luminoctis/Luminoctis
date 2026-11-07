@@ -7,8 +7,8 @@ import { E, h, s, clockOf, goalsBlock, openPanel, closePanel, panelName, refresh
 ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
 const root = document.getElementById("lumi-time");
 
-// Режимы: ?mini=1 — компактный таймер для мини-окна рейки (js/lumi-rail.uc.js; в chrome-рамке у него «Открыть целиком»),
-// без него — вся страница LumiTime в своей вкладке (?panel=stats|journal|settings|day — какая панель открыта; по умолчанию Статистика).
+// Режимы: ?mini=1 — тот же главный вид в мини-окне рейки (js/lumi-rail.uc.js; в chrome-рамке «Открыть целиком», внизу кнопки панелей — они открывают большой LumiTime),
+// без него — вся страница LumiTime в скрытой вкладке lumi-time-full (?panel=stats|journal|settings|day — какая панель открыта; по умолчанию Статистика).
 const q = new URLSearchParams(location.search), mini = q.has("mini");
 document.body.toggleAttribute("lumi-mini", mini);
 await E.init();
@@ -81,7 +81,8 @@ function build() {
     els.goals = h("div"),
     els.status = h("div", { class: "lt-status" }),
     h("nav", { class: "lt-nav" }, [["settings", "Настройки"], ["stats", "Статистика"], ["journal", "Журнал"], ["day", "День"]].map(([p, t]) =>
-      h("button", { "data-panel": p, text: t, "aria-pressed": String(panelName() == p), on: { click: () => openPanel(p) } }))),
+      h("button", { "data-panel": p, text: t, "aria-pressed": String(panelName() == p),
+      on: { click: () => (mini ? window.browsingContext.topChromeWindow.luminoctis.openTime(p) : openPanel(p)) } }))), // в мини-окне панель открывает большой LumiTime (скрытая вкладка)
   );
   buttonsKey = "";
   update();

@@ -29,6 +29,9 @@
 
   const isEmpty = tab => !!tab?.hasAttribute("zen-empty-tab"); // серая пустая вкладка Zen: выбрана в пространстве без вкладок
   const isHome = tab => !!tab?.hasAttribute(KEY);
+  // скрытая вкладка LumiTime целиком (lumi-rail.uc.js, openTime) — как Home, не в полосе; «откуда» пришли — её lumiPrev
+  const isFull = tab => !!tab?.hasAttribute("lumi-time-full");
+  const base = tab => (isFull(tab) ? tab.lumiPrev : tab);
   const urlOf = tab => tab.linkedBrowser?.currentURI?.spec;
   const fresh = new WeakSet(); // только что созданные create(): адрес ещё не дошёл до вкладки и сессии
   const entryUrl = tab => { try { const s = JSON.parse(SessionStore.getTabState(tab)); return s.entries?.[s.index - 1]?.url; } catch { return null; } };
@@ -64,7 +67,8 @@
   const ensure = () => { if (wallMode() && !find()) create(true); };
 
   function open() {
-    if (!isHome(gBrowser.selectedTab) && !isEmpty(gBrowser.selectedTab)) prev = gBrowser.selectedTab; // новая Home выбирается ещё до метки — TabSelect её не узнает
+    const from = base(gBrowser.selectedTab);
+    if (from && !isHome(from) && !isEmpty(from)) prev = from; // новая Home выбирается ещё до метки — TabSelect её не узнает
     const home = find() ?? create();
     const ws = gZenWorkspaces.activeWorkspace;
     if (ws && home.getAttribute("zen-workspace-id") != ws) gZenWorkspaces.moveTabToWorkspace(home, ws);
@@ -162,11 +166,11 @@
     // Home никогда не «замена» закрытой/выгруженной вкладки (Zen выбирает её сам) — туда попадают только по «L»
     const shouldChange = gZenWorkspaces._shouldChangeToTab;
     gZenWorkspaces._shouldChangeToTab = function (tab) {
-      return shouldChange.call(this, tab) && !isHome(tab);
+      return shouldChange.call(this, tab) && !isHome(tab) && !isFull(tab);
     };
     // Ctrl+Tab не листает Home (она вызывается только «L»)
     const tl = Object.getOwnPropertyDescriptor(ctrlTab, "tabList");
-    if (tl?.get && tl.configurable) Object.defineProperty(ctrlTab, "tabList", { configurable: true, get() { return tl.get.call(this).filter(t => !isHome(t)); } });
+    if (tl?.get && tl.configurable) Object.defineProperty(ctrlTab, "tabList", { configurable: true, get() { return tl.get.call(this).filter(t => !isHome(t) && !isFull(t)); } });
     const HTML = "http://www.w3.org/1999/xhtml", wall = document.createElementNS(HTML, "div");
     wall.id = "lumi-home-wall";
     wall.append(document.createElementNS(HTML, "canvas"));
@@ -174,7 +178,8 @@
     if (bg) bg.after(wall); else document.getElementById("browser")?.prepend(wall);
     const sync = from => lit(isHome(gBrowser.selectedTab), from);
     window.addEventListener("TabSelect", event => {
-      if (isHome(event.target) && !isHome(event.detail?.previousTab) && !isEmpty(event.detail?.previousTab)) prev = event.detail?.previousTab ?? null;
+      const was = base(event.detail?.previousTab);
+      if (isHome(event.target) && !isHome(was) && !isEmpty(was)) prev = was ?? null;
       sync(event.detail?.previousTab);
       requestAnimationFrame(() => sync()); // класс окошка закрепа ставится после TabSelect
     });

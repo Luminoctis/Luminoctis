@@ -45,11 +45,11 @@ body.lt-page {
   background: var(--lumi-bg0); color: var(--lumi-fg); font: 13px Inter, system-ui, sans-serif; color-scheme: dark;
 }
 #lumi-time { width: calc(320px - 14px); height: calc(100vh - 28px); }
-/* мини-окно рейки (?mini=1): рамку и фон даёт chrome — тут только кольцо, ±1 мин, режим, тема и кнопки цикла */
+/* мини-окно рейки (?mini=1): рамку и фон даёт chrome — внутри тот же главный вид, что у страницы целиком (без открытой панели), в ширину рамки; кнопки внизу открывают панели большого LumiTime */
 body[lumi-mini] {
   background: transparent; display: block;
   & #lumi-time { width: auto; height: 100vh; margin: 0; padding: 12px 16px; border: none; border-radius: 0; box-shadow: none; background: transparent; }
-  & :is(.lt-head, .lt-lengths, .lt-count, .lt-today, .lt-status, .lt-nav, #lumi-time > div:not([class])) { display: none; }
+  & .lt-head .lt-title { display: none; } /* заголовок «LumiTime» уже в шапке рамки */
   & .lt-ring { width: min(100%, 200px); }
 }
 

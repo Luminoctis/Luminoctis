@@ -84,7 +84,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
 
   // Essentials — это закрепы в рейке (js/lumi-rail.uc.js), в полосе их нет
   const dying = new WeakSet(); // вкладки, у которых уже прошёл TabClose: в списке ещё есть, в полосе — уже нет
-  // Home (js/lumi-home.uc.js) открывается «L» на рейке, в полосе её нет
+  // Home (js/lumi-home.uc.js) открывается «L» на рейке, в полосе её нет; так же скрыта вкладка LumiTime целиком (lumi-time-full, js/lumi-rail.uc.js)
   // Папки Zen (zen-folder, gZenFolders) — не вкладки: вместо вложенных вкладок в полосе одна «фишка» с выпадающим списком (ниже).
   // Корневая папка вкладки — самая верхняя zen-folder среди её групп (split-view-группа и подпапки тоже группы).
   const folderOf = tab => {
@@ -92,7 +92,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     for (let g = tab.group; g; g = g.group) if (g.tagName == "zen-folder") root = g;
     return root;
   };
-  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("zen-empty-tab") && !tab.hasAttribute("zen-glance-tab") && !dying.has(tab) && !folderOf(tab));
+  const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("lumi-time-full") && !tab.hasAttribute("zen-empty-tab") && !tab.hasAttribute("zen-glance-tab") && !dying.has(tab) && !folderOf(tab));
   // Вкладки полосы и папки пространства в порядке документа: фишка стоит там, где в списке Zen стоит папка
   const stripEntries = () => {
     const entries = stripTabs();

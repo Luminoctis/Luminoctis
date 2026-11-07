@@ -25,6 +25,8 @@ export const PRESETS = {
   "nord": p("Nord", "#2e3440 #3b4252 #434c5e #4c566a #eceff4 #d8dee9 #616e88 #88c0d0 #81a1c1 #88c0d0 #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a #b48ead #b48ead"),
   "gruvbox-dark": p("Gruvbox Dark", "#1d2021 #282828 #32302f #3c3836 #ebdbb2 #bdae93 #928374 #fe8019 #83a598 #8ec07c #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934 #d3869b #b16286"),
   "rose-pine": p("Rosé Pine", "#191724 #1f1d2e #26233a #403d52 #e0def4 #908caa #6e6a86 #ebbcba #9ccfd8 #c4a7e7 #31748f #95b1ac #f6c177 #f6c177 #eb6f92 #ebbcba #c4a7e7"),
+  // GX: неоновый красно-розовый акцент; ещё и форма (срезанные углы, свечение) — chrome.css раздел 20 по [lumi-gx]
+  "gx": p("GX", "#0b0a0f #121017 #1a1720 #261f2e #f3eef6 #b8aec2 #6b6275 #fa1e4e #6c8cff #45d4ff #2ee6c5 #3ef08a #ffd23f #ff7a3d #ff2e55 #ff3d9a #b45cff"),
   "one-dark": p("One Dark", "#21252b #282c34 #2c323c #3e4452 #abb2bf #828997 #5c6370 #61afef #61afef #56b6c2 #56b6c2 #98c379 #e5c07b #d19a66 #e06c75 #c678dd #c678dd"),
 };
 const PREF = "luminoctis.palette", HEX = /^#[0-9a-f]{6}$/;
@@ -133,6 +135,7 @@ const paint = doc => {
   root.toggleAttribute("lumi-glass", glass);
   root.toggleAttribute("lumi-wallpaper", glass && mode == "wallpaper");
   root.toggleAttribute("lumi-private", priv);
+  root.toggleAttribute("lumi-gx", presetId() == "gx"); // форма и свечение темы GX (только встроенная; копия-«своя» — одни цвета)
 };
 let queued = null; // «Сбросить палитру» меняет много настроек — перекрашиваем один раз
 const repaint = () => queued ||= Promise.resolve().then(() => { queued = null; docs.forEach(paint); });

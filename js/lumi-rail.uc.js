@@ -112,11 +112,11 @@
     const players = h("div", "", { id: "lumi-players" });
     rail.append(
       logo,
+      initTimer(), // плитка таймера LumiTime — сразу под «L»; кнопку Библиотеки initWorkspaces вставит между ними (logo.after)
       h("div", "lumi-sep"),
       h("div", "lumi-sep"),
       pins,
       h("div", "lumi-spacer"),
-      initTimer(), // плитка таймера LumiTime — отдельной группой между пустым местом и плеерами
       players
     );
     document.getElementById("navigator-toolbox").before(rail);
@@ -756,6 +756,7 @@
     const backdrop = h("div", "", { id: "lumi-time-backdrop" }), frame = h("div", "", { id: "lumi-time-frame" });
     frame.setAttribute("role", "dialog");
     frame.setAttribute("aria-label", "Таймер LumiTime");
+    if (!gBrowser.selectedTab?.hasAttribute("lumi-home")) frame.setAttribute("lumi-over-site", ""); // не Home: под рамкой чужой процесс без размытия — нужна подложка (chrome.css)
     const full = h("button", "lumi-time-full", { textContent: "Открыть целиком" });
     full.addEventListener("click", () => { closeMini(false); openTime(); });
     const head = h("div", "lumi-pin-head");

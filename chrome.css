@@ -377,6 +377,9 @@
   display: flex; flex-direction: column; overflow: hidden;
   & iframe { flex: 1; min-height: 0; width: 100%; border: 0; display: block; background: transparent; }
   & .lumi-pin-head { flex-shrink: 0; }
+  /* под рамкой размытие: Firefox размывает только интерфейс (Home — chrome-страница). Над обычным сайтом (другой процесс) он не размыт, поэтому js ставит [lumi-over-site] и под цветом палитры идёт непрозрачная подложка --lumi-solid, как у #lumi-pin-frame в стекле */
+  backdrop-filter: blur(18px);
+  &[lumi-over-site] { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid); backdrop-filter: none; }
   & .lumi-time-full {
     appearance: none; height: 28px; padding: 0 10px; border: none; border-radius: 8px; background: none;
     font: inherit; font-size: 12px; color: var(--lumi-muted);
@@ -458,16 +461,16 @@
 /* Родная стопка карточек Zen не показывается — её роль играет рейка */
 #zen-media-controls-toolbar { display: none !important; }
 
-/* Плитка таймера LumiTime (между пустым местом и плеерами): без цикла — тихий значок часов; во время цикла — кольцо в цвет фазы
+/* Плитка таймера LumiTime (сразу под «L» и кнопкой Библиотеки): без цикла — тихий значок часов; во время цикла — кольцо в цвет фазы
  * (фокус — акцент, перерыв — бирюзовый, пауза — серый) и оставшиеся минуты. Без анимаций: кольцо двигает js раз в секунду. */
 #lumi-time-tile {
   position: relative; width: 34px; height: 34px; box-sizing: border-box; flex-shrink: 0; padding: 0;
   display: flex; align-items: center; justify-content: center;
-  border: 1px solid transparent; border-radius: 10px; background: var(--lumi-surface); color: var(--lumi-fg);
+  border: 1px solid transparent; border-radius: 10px; background: transparent; color: var(--lumi-fg); /* как соседние кнопки рейки: фон только при наведении */
   font: 600 11px/1 Inter, system-ui, sans-serif; font-variant-numeric: tabular-nums;
   transition: box-shadow 0.2s;
   &[hidden] { display: none; }
-  &:hover { box-shadow: var(--lumi-rail-glow); }
+  &:hover { background: var(--lumi-surface); box-shadow: var(--lumi-rail-glow); }
   &:focus-visible { outline: 2px solid var(--lumi-accent); }
   &[open] { border-color: var(--lumi-accent); background: var(--lumi-raised); }
   & svg { position: absolute; inset: 0; width: 100%; height: 100%; rotate: -90deg; pointer-events: none; }

@@ -68,8 +68,10 @@
   // Home «видна»: выбрана она сама или выбран закреп-окошко (lumi-rail.uc.js showPin) — Home остаётся под ним, режим насквозь не выключаем
   // from — вкладка, с которой только что ушли (TabSelect): в этот момент у закрепа ещё нет класса окошка, а у Home — deck-selected (их ставит рейка позже),
   // без подсказки режим «насквозь» на кадр гас и больше не включался
+  // Glance (Alt+клик из Home или из закрепа-окошка): выбрана его вкладка, считаем по родителю
+  const selTab = () => { const t = gBrowser.selectedTab; return window.gZenGlanceManager?.getTabOrGlanceParent?.(t) ?? t; };
   const homeTab = from => {
-    const sel = gBrowser.selectedTab;
+    const sel = selTab();
     if (sel?.hasAttribute("lumi-home")) return sel;
     if (from?.hasAttribute("lumi-home") && !from.closing && sel?.hasAttribute("zen-essential")) return from;
     if (!document.getElementById(sel?.linkedPanel)?.classList.contains("lumi-pin-window")) return null;
@@ -97,8 +99,8 @@
     wall.style.setProperty("--lumi-home-y", r.top + "px");
   }
   const siteWant = () => Services.prefs.getBoolPref(TRANSPARENT, false) && windowMode() == "opaque" && mica.matches &&
-    window.windowState != window.STATE_MINIMIZED && !!api() && !gBrowser.selectedTab?.hasAttribute("zen-essential") &&
-    !document.getElementById(gBrowser.selectedTab?.linkedPanel)?.classList.contains("lumi-pin-window");
+    window.windowState != window.STATE_MINIMIZED && !!api() && !selTab()?.hasAttribute("zen-essential") &&
+    !document.getElementById(selTab()?.linkedPanel)?.classList.contains("lumi-pin-window");
   function update(from) {
     const tab = homeTab(from);
     setThrough(tab && wantDesktop() && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);

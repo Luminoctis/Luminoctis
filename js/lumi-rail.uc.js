@@ -470,6 +470,12 @@
       else if (gZenWorkspaces._emptyTab) gBrowser.selectedTab = gZenWorkspaces._emptyTab;
     };
     for (const type of ["TabSelect", "TabAddedToEssentials"]) window.addEventListener(type, () => setTimeout(leavePin));
+    // Вопрос «покинуть страницу?» (beforeunload) при закрытии окна/вкладки открывается внутри вкладки закрепа. Firefox сам выбирает такую вкладку,
+    // но leavePin сразу уводил выбор с закрепа, и вопрос оставался в невидимой панели (окно «зависало»). Показываем закреп окошком раньше Firefox (capture).
+    window.addEventListener("DOMWillOpenModalDialog", event => {
+      const tab = event.isTrusted && event.detail?.inPermitUnload && gBrowser.getTabForBrowser(event.originalTarget);
+      if (tab && isPin(tab) && !tab.selected && !tab.closing) showPin(tab);
+    }, true);
     // Ctrl+W и «Закрыть вкладку» не закрывают закреп, а прячут (Zen иначе сбросил бы его адрес и выгрузил)
     document.getElementById("mainCommandSet").addEventListener("command", event => {
       if (event.target.id != "cmd_close" || !isPin(gBrowser.selectedTab)) return;

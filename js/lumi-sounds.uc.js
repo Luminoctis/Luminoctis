@@ -72,7 +72,8 @@
     lastAt[action] = now;
     const list = sources(action);
     const jitter = j => 1 + (Math.random() * 2 - 1) * j;
-    const volume = Math.min(1, Math.max(0, prefs.getIntPref(P + "volume", 50) / 100 * cfg[0] * jitter(cfg[3])));
+    // ×0.1: при той же отметке ползунка в 10 раз тише (просьба пользователя после 0.5.5)
+    const volume = Math.min(1, Math.max(0, prefs.getIntPref(P + "volume", 50) / 100 * 0.1 * cfg[0] * jitter(cfg[3])));
     const rate = jitter(cfg[2]);
     // download — в одном окне (последнем активном), даже если браузер не в фокусе; остальное — только в активном окне
     const mine = ignoreFocus ? (BrowserWindowTracker.getTopWindow() ?? BrowserWindowTracker.orderedWindows[0]) === window : document.hasFocus();

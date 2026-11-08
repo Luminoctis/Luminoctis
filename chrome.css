@@ -1182,7 +1182,7 @@ zen-library {
 /* ---------- 20. Тема GX: срезанные углы и неоновое свечение (js/lumi-palette.sys.mjs ставит [lumi-gx]) ---------- */
 /* Срез ~6px у верхнего левого и нижнего правого углов. clip-path режет внешние тени, поэтому свечение — внутренняя тень (inset).
  * Не режем то, что выступает наружу или чей клик-зона больше плитки: значки закрепов (.lumi-pin-badge, Glance) — фон закрепа в ::before,
- * «L» (невидимая зона до угла окна) — маска вместо clip-path, точка контейнера на кнопке пространства — слева внизу. Статично, без анимаций. */
+ * «L» (невидимая зона до угла окна) — плитка в ::before, точка контейнера на кнопке пространства — слева внизу. Статично, без анимаций. */
 :root[lumi-gx] {
   --lumi-radius: 0px;
   --gx-cut: 6px;
@@ -1197,10 +1197,20 @@ zen-library {
 :root[lumi-gx] :is(#lumi-spaces-button, #lumi-time-tile, #lumi-rail #zen-workspaces-button toolbarbutton, .lumi-player, .lumi-player-cover) {
   border-radius: 0 !important; clip-path: var(--gx-clip);
 }
+/* «L»: сама кнопка не маскируется и не режется (зона клика до угла окна не зависит от темы) — плитка со срезом и свечением в ::before позади содержимого;
+ * точка задач (в обычной теме тоже ::before) здесь — слой radial-gradient в фоне плитки */
 :root[lumi-gx] #lumi-logo {
-  border-radius: 0;
-  mask: linear-gradient(135deg, transparent 4.2px, #000 4.3px), linear-gradient(-45deg, transparent 4.2px, #000 4.3px); mask-composite: intersect;
+  border-radius: 0; background: transparent; box-shadow: none; isolation: isolate;
+  &::before {
+    content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    width: auto; height: auto; border-radius: 0; clip-path: var(--gx-clip);
+    background: var(--lumi-raised);
+  }
+  &[lumi-tasks]::before { background: radial-gradient(circle at calc(100% - 8px) 8px, var(--lumi-yellow) 4px, transparent 4.5px), var(--lumi-raised); }
+  &[lumi-tasks="late"]::before { background: radial-gradient(circle at calc(100% - 8px) 8px, var(--lumi-red) 4px, transparent 4.5px), var(--lumi-raised); }
+  &:hover::before, &[lumi-home-open]::before { box-shadow: var(--gx-glow); }
 }
+:root[lumi-gx][lumi-private] #lumi-logo[lumi-tasks]::before { display: block; background: var(--lumi-raised); }
 :root[lumi-gx] #lumi-rail #zen-workspaces-button toolbarbutton {
   &[active="true"] { box-shadow: var(--gx-glow-soft); }
   &[lumi-container]::after { inset: auto auto 3px 3px !important; }

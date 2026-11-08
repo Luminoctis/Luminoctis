@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: редкий глитч
-// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатель luminoctis.look.tab-glitch. window.lumiGlitch.run() — запустить сразу.
+// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатели luminoctis.look.tab-glitch и luminoctis.look.startup-glitch (один глитч при запуске браузера). window.lumiGlitch.run() — запустить сразу.
 // ==/UserScript==
 
 // Оверлей #lumi-glitch и атрибут lumi-glitch на корне живут только на время глитча (chrome.css, «Редкий глитч»); в покое их нет совсем.
@@ -37,6 +37,21 @@
       if (!Services.prefs.getBoolPref(PREF, true) || Date.now() - t0 < 5000 || performance.now() - openedAt < 200) return;
       if (window.lumiGlitch.rand() < window.lumiGlitch.chance && !reduced()) run();
     });
-    window.lumiGlitch = { chance: 1 / 100, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
+    // Стартовый глитч: раз за запуск Zen, в первом окне. Флаг — в default-ветке prefs (в профиль не пишется, живёт на процесс).
+    const DONE = "luminoctis.internal.startup-glitch-done", START = "luminoctis.look.startup-glitch";
+    const startup = async ({ force = false } = {}) => {
+      const def = Services.prefs.getDefaultBranch("");
+      if (!force) {
+        if (Services.prefs.getBoolPref(DONE, false)) return;
+        def.setBoolPref(DONE, true);
+      }
+      if (!Services.prefs.getBoolPref(START, true)) return;
+      // дать glitch.ogg разобраться, но не дольше 600 мс, чтобы звук не опоздал
+      if (Services.prefs.getBoolPref("luminoctis.sounds.glitch.enabled", true)) await Promise.race([window.lumiSounds?.ready("glitch"), new Promise(r => setTimeout(r, 600))]);
+      if (reduced()) window.lumiSounds?.play("glitch"); else run();
+    };
+    window.lumiGlitch = { startup, chance: 1 / 100, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
+    // окно уже нарисовано: кадр после загрузки (не на белом окне)
+    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(startup, 100)));
   });
 })();

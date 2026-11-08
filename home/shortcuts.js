@@ -270,7 +270,7 @@ function startDrag(e) {
   drag.ghost = g;
   if (layout() == "split" && !root.hasAttribute("flat")) { // раскладка колонок на момент начала: строки с запасом +1 место в каждой колонке, под-колонок столько же
     const v = k => +root.style.getPropertyValue(k) || 1, n = sd => tilesOf(root).filter(x => x.dataset.col == sd).length, cl = v("--sc-cl"), cr = v("--sc-cr");
-    drag.fix = { cl, cr, rows: Math.max(v("--sc-rows"), Math.ceil((n("l") + 1) / cl), Math.ceil((n("r") + 1) / cr)) };
+    drag.fix = { cl, cr, rl: Math.max(v("--sc-rl"), Math.ceil((n("l") + 1) / cl)), rr: Math.max(v("--sc-rr"), Math.ceil((n("r") + 1) / cr)) }; // строки каждой колонки свои
   }
   t.classList.add("sc-hole");
   document.body.classList.add("sc-dragging");
@@ -426,14 +426,16 @@ function mark() { // split: каждая плитка в своей колонк
     sides[side].push(c);
   }
   root.style.removeProperty("--sc-th"); // строки одинаковой высоты (по самой высокой плитке)
-  const h = tileH(), gap = parseFloat(getComputedStyle(root).rowGap) || 0, F = document.getElementById("lumi-first").clientHeight, mx = Math.max(sides.l.length, sides.r.length, 1);
+  const h = tileH(), gap = parseFloat(getComputedStyle(root).rowGap) || 0, F = document.getElementById("lumi-first").clientHeight, R = fitRows(h || 1, gap);
   const fx = drag?.fix; // во время перетаскивания строки и число под-колонок заморожены (drag.fix): пунктир не перестраивает сетку
-  const rows = fx?.rows ?? Math.ceil(mx / Math.ceil(mx / fitRows(h || 1, gap))), cn = k => Math.max(1, Math.ceil(k / rows)), cl = fx?.cl ?? cn(sides.l.length), cr = fx?.cr ?? cn(sides.r.length);
-  sides.l.forEach((t, i) => { t.style.gridColumn = Math.floor(i / rows) + 1; t.style.gridRow = i % rows + 1; });
-  sides.r.forEach((t, i) => { t.style.gridColumn = cl + 1 + cr - Math.floor(i / rows); t.style.gridRow = i % rows + 1; }); // первая под-колонка у края, следующие — к центру
-  const y = k => Math.max(0, (F - (k * h + Math.max(0, k - 1) * gap)) / 2), ul = Math.min(sides.l.length, rows), ur = Math.min(sides.r.length, rows); // каждая колонка центрируется сама
+  const rc = k => Math.ceil(Math.max(k, 1) / Math.ceil(Math.max(k, 1) / R)), rl = fx?.rl ?? rc(sides.l.length), rr = fx?.rr ?? rc(sides.r.length), rows = Math.max(rl, rr), cn = (k, r) => Math.max(1, Math.ceil(k / r)), cl = fx?.cl ?? cn(sides.l.length, rl), cr = fx?.cr ?? cn(sides.r.length, rr); // каждая колонка переносится независимо
+  sides.l.forEach((t, i) => { t.style.gridColumn = Math.floor(i / rl) + 1; t.style.gridRow = i % rl + 1; });
+  sides.r.forEach((t, i) => { t.style.gridColumn = cl + 1 + cr - Math.floor(i / rr); t.style.gridRow = i % rr + 1; }); // первая под-колонка у края, следующие — к центру
+  const y = k => Math.max(0, (F - (k * h + Math.max(0, k - 1) * gap)) / 2), ul = Math.min(sides.l.length, rl), ur = Math.min(sides.r.length, rr); // каждая колонка центрируется сама
   if (h) root.style.setProperty("--sc-th", h + "px");
   root.style.setProperty("--sc-rows", rows);
+  root.style.setProperty("--sc-rl", rl);
+  root.style.setProperty("--sc-rr", rr);
   root.style.setProperty("--sc-cl", cl);
   root.style.setProperty("--sc-cr", cr);
   root.style.setProperty("--sc-l", Math.max(ul, 1));

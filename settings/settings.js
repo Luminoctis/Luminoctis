@@ -779,7 +779,7 @@ $("#update-apply").addEventListener("click", async event => {
   try { await upd.apply(); updStatus("Перезапускаю Zen…"); }
   catch (e) { updStatus("Ошибка: " + e.message); event.target.disabled = false; }
 });
-$("#about-github").addEventListener("click", event => { // ссылка — вкладкой браузера, а не внутри панели
+for (const a of document.querySelectorAll("#about a.row.link")) a.addEventListener("click", event => { // ссылка — вкладкой браузера, а не внутри панели
   event.preventDefault();
   win.openTrustedLinkIn(event.currentTarget.href, "tab");
 });

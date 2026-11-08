@@ -314,7 +314,7 @@ function rowHead(r) { // шапка ряда: цветная точка, наз�
   const h = el("div", "lumi-row-head"), name = el("span", "lumi-row-name" + (r.name ? "" : " empty"), r.name || "Без названия");
   h.draggable = true;
   name.title = "Двойной клик — переименовать. Шапку можно перетащить, чтобы переставить ряд";
-  h.append(el("span", "lumi-row-dot"), name, ibtn("more", "lumi-row-more", "Меню ряда"));
+  h.append(el("span", "lumi-row-dot"), name, ibtn("plus", "lumi-add-sheet", "Новый лист в этом ряду"), ibtn("more", "lumi-row-more", "Меню ряда"));
   return h;
 }
 function sheetIcon(v) { // эмодзи — текстом, значок Zen (chrome://…svg) — маской, чтобы красился в цвет текста
@@ -322,25 +322,12 @@ function sheetIcon(v) { // эмодзи — текстом, значок Zen (ch
   if (/^(chrome|resource|data|https?):/.test(v)) { s.classList.add("img"); s.style.setProperty("--ic", "url(" + JSON.stringify(v) + ")"); } else s.textContent = v;
   return s;
 }
-// «+» листа виден, пока курсор в 100px от него или над его рядом ([near] на кнопке); раз в кадр
-let nearE = null, nearRaf = 0;
-function nearTick() {
-  nearRaf = 0;
-  const p = nearE, over = p?.target.closest?.(".lumi-row");
-  for (const b of box.querySelectorAll(".lumi-add-sheet")) {
-    const r = b.getBoundingClientRect();
-    b.toggleAttribute("near", !!p && (b.closest(".lumi-row") == over || Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100));
-  }
-}
-const nearSoon = () => { nearRaf ||= requestAnimationFrame(nearTick); };
-document.addEventListener("pointermove", e => { nearE = e; nearSoon(); });
-document.addEventListener("mouseout", e => { if (!e.relatedTarget) { nearE = null; nearSoon(); } }); // курсор ушёл из окна
 function rowEl(r) {
   const row = el("div", "lumi-row"), scroll = el("div", "lumi-row-scroll");
   row._r = r;
   row.classList.toggle("fill", r.fill);
   row.style.setProperty("--rc", r.color ? md.COLORS[r.color] : "transparent");
-  scroll.append(...r.sheets.map(m => sheetEl(byMeta.get(m), r)), ibtn("plus", "lumi-add-sheet", "Новый лист в этом ряду", "лист"));
+  scroll.append(...r.sheets.map(m => sheetEl(byMeta.get(m), r)));
   row.append(rowHead(r), scroll);
   return row;
 }
@@ -350,7 +337,6 @@ function render() {
   box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", "Новый ряд", "ряд"));
   for (const s of box.querySelectorAll(".lumi-sheet")) { const c = s.querySelector(".lumi-cards"); if (c) c.scrollTop = keep.get(s._b) ?? 0; }
   for (const r of box.querySelectorAll(".lumi-row")) r.querySelector(".lumi-row-scroll").scrollLeft = left.get(r._r) ?? 0;
-  if (nearE) nearSoon();
 }
 const rowNode = r => [...box.querySelectorAll(".lumi-row")].find(n => n._r == r);
 const sheetNode = b => [...box.querySelectorAll(".lumi-sheet")].find(s => s._b == b);
@@ -890,7 +876,7 @@ function sheetTarget(e) {
   const row = e.target.closest?.(".lumi-row");
   if (!row) return null;
   const scroll = row.querySelector(".lumi-row-scroll"), x = e.clientX - scroll.getBoundingClientRect().left + scroll.scrollLeft;
-  const items = [...scroll.children].filter(n => n.matches(".lumi-sheet, .lumi-add-sheet")), secs = items.filter(n => n.matches(".lumi-sheet"));
+  const items = [...scroll.children].filter(n => n.matches(".lumi-sheet")), secs = items;
   const nxt = secs.find(n => n != drag.node && x < n.offsetLeft + n.offsetWidth / 2) ?? null;
   return { row, scroll, items, nxt, r: row._r, k: nxt ? secs.indexOf(nxt) : secs.length }; // k считается с самим перетаскиваемым листом
 }
@@ -925,13 +911,13 @@ function showDrag(t) { // сдвиги соседей и метка места �
   } else {
     const W = drag.w, node = drag.node;
     if (moving) {
-      for (const n of [...node.parentNode.children]) if (n.matches(".lumi-sheet, .lumi-add-sheet") && after(node, n)) map.set(n, -W);
-      for (const n of t.items) if (n != node && (t.nxt ? n == t.nxt || after(t.nxt, n) : n.matches(".lumi-add-sheet"))) map.set(n, dy(n) + W);
+      for (const n of [...node.parentNode.children]) if (n.matches(".lumi-sheet") && after(node, n)) map.set(n, -W);
+      for (const n of t.items) if (n != node && t.nxt && (n == t.nxt || after(t.nxt, n))) map.set(n, dy(n) + W);
     }
     shiftTo(map, "x");
     let left;
     if (t.nxt) left = t.nxt.offsetLeft + dy(t.nxt) - (moving ? W : 9);
-    else { const e = t.items.findLast(n => n != node && n.matches(".lumi-sheet")); left = e ? e.offsetLeft + e.offsetWidth + dy(e) + (moving ? 14 : 5) : 20; }
+    else { const e = t.items.findLast(n => n != node); left = e ? e.offsetLeft + e.offsetWidth + dy(e) + (moving ? 14 : 5) : 20; }
     showSlot(t.scroll, { left: left + "px", right: "auto", top: "12px", width: moving ? W - 14 + "px" : "3px", height: node.offsetHeight + "px" }, !moving);
   }
 }

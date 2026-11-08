@@ -19,6 +19,7 @@
   const ACTIONS = {
     type: [0.6, 40, 0.03, 0.1], "tab-open": [1, 80, 0.01, 0.03], "tab-close": [1, 80, 0.01, 0.03], "tab-switch": [0.7, 80, 0.01, 0.03],
     hover: [0.35, 0, 0.03, 0.1], click: [0.8, 60, 0.01, 0.03], download: [1, 300, 0, 0],
+    glitch: [0.8, 0, 0, 0],
   };
   const t0 = Date.now();
   const lastAt = {};
@@ -133,7 +134,8 @@
   let openedAt = 0;
   gBrowser.tabContainer.addEventListener("TabOpen", () => { if (settled()) (openedAt = performance.now(), play("tab-open")); });
   gBrowser.tabContainer.addEventListener("TabClose", () => { if (settled()) play("tab-close"); });
-  gBrowser.tabContainer.addEventListener("TabSelect", () => { if (settled() && performance.now() - openedAt > 200) play("tab-switch"); });
+  // глитч (lumi-glitch) решает в своём TabSelect, порядок обработчиков не гарантирован — проверяем после них; при глитче играет только glitch
+  gBrowser.tabContainer.addEventListener("TabSelect", () => { if (settled() && performance.now() - openedAt > 200) setTimeout(() => { if (!window.lumiGlitch?.active) play("tab-switch"); }, 0); });
 
   const HOVER = ".lumi-tab, .lumi-pin";
   document.addEventListener("mouseover", e => {

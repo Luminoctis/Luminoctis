@@ -1292,9 +1292,9 @@ zen-library {
   }
   > .lumi-glitch-band {
     position: absolute; left: 0; right: 0; height: 7%; top: 22%;
-    background: color-mix(in srgb, #00e5ff 14%, transparent); mix-blend-mode: screen;
+    background: color-mix(in srgb, var(--lumi-accent) 22%, transparent); mix-blend-mode: screen;
     animation: lumi-glitch-band var(--lumi-glitch-ms, 150ms) steps(1, end) both;
-    &.b2 { height: 3%; top: 63%; background: color-mix(in srgb, #ff0a3c 18%, transparent); animation-name: lumi-glitch-band2; }
+    &.b2 { height: 3%; top: 63%; background: color-mix(in srgb, var(--lumi-pink) 22%, transparent); animation-name: lumi-glitch-band2; }
   }
 }
 @keyframes lumi-glitch-noise {

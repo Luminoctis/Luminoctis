@@ -23,6 +23,7 @@
     const run = (ms = MS) => {
       if (busy) return;
       busy = true;
+      window.lumiSounds?.play("glitch");
       const fx = Object.assign(document.createElement("div"), { id: "lumi-glitch" });
       fx.append(filters(), ...["lumi-glitch-noise", "lumi-glitch-band", "lumi-glitch-band b2"].map(c => Object.assign(document.createElement("i"), { className: c })));
       root.style.setProperty("--lumi-glitch-ms", `${ms}ms`);
@@ -36,6 +37,6 @@
       if (!Services.prefs.getBoolPref(PREF, true) || Date.now() - t0 < 5000 || performance.now() - openedAt < 200) return;
       if (window.lumiGlitch.rand() < CHANCE && !reduced()) run();
     });
-    window.lumiGlitch = { run, stop, rand: () => Math.random() }; // rand — подмена в проверке
+    window.lumiGlitch = { run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
   });
 })();

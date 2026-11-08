@@ -10,6 +10,7 @@ foreach ($n in 'install.cmd', 'installer', 'js', 'settings', 'home', 'sounds', '
   $p = Join-Path $Root $n
   if (Test-Path $p) { Copy-Item $p $stage -Recurse }
 }
+Remove-Item (Join-Path $stage 'sounds\src') -Recurse -Force -ErrorAction SilentlyContinue # исходники звуков (wav) в архив не идут
 $zip = Join-Path $OutDir "Luminoctis-$ver.zip"
 Remove-Item $zip -Force -ErrorAction SilentlyContinue
 Add-Type -AssemblyName System.IO.Compression.FileSystem

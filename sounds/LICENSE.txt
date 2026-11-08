@@ -6,3 +6,6 @@ Files in this folder (not gx/) are used unchanged, only renamed. No attribution 
 
 Folder gx/ ("GX" pack): sounds synthesized for Luminoctis with ffmpeg (script: dev/make-gx-sounds.sh), not taken from any third party.
 They are released under the same license as the Luminoctis mod (MPL-2.0).
+
+glitch.ogg (also gx/glitch.ogg): "glitch-11.wav" by Bonion_, Freesound https://freesound.org/s/548180/, CC0 1.0. Converted to ogg and normalized in volume only.
+The original wav is kept in the repository as src/548180__bonion__glitch-11.wav; it is not shipped by the installer or the release archive.

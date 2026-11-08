@@ -88,6 +88,7 @@
     { group: "Окна", id: "win-private", label: "Приватное окно", hint: "Открыть новое приватное окно", run: () => OpenBrowserWindow({ private: true }) },
     { group: "Окна", id: "compact-on", label: "Compact mode: вкл", hint: "Рейка, полоса и адрес прячутся; «Сбросить всё» вернёт настройки", run: () => COMPACT.forEach(p => dbg.setBoolPref(p, true)) },
     { group: "Окна", id: "compact-off", label: "Compact mode: выкл", hint: "Всё на месте", run: () => COMPACT.forEach(p => dbg.setBoolPref(p, false)) },
+    { group: "Вкладки", id: "tab-glitch", label: "Глитч вкладки", hint: "Показывает редкий глитч смены вкладки сразу", run: () => window.lumiGlitch.run() },
     { group: "Вкладки", id: "tab-gray", label: "Выгруженная вкладка", hint: "Новая вкладка в фоне, серая, пока не выбрана", run: () => gBrowser.addTab("https://example.org/", { triggeringPrincipal: SYSTEM, createLazyBrowser: true }) },
   ];
 

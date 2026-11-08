@@ -53,6 +53,12 @@
       ],
       "name": "lumi-downloads-fx"
     },
+    "js/lumi-glitch.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-glitch"
+    },
     "js/lumi-focus.uc.js": {
       "include": [
         "chrome://browser/content/browser.xhtml"

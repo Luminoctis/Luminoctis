@@ -235,11 +235,13 @@ const inRect = (r, e) => e.clientX >= r.left && e.clientX <= r.right && e.client
 const tilesOf = c => [...c.children].filter(x => x.classList.contains("lumi-tile"));
 const lowMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 function flip(fn) { // соседи плавно разъезжаются: мерим до и после перестановки
-  const els = [...document.querySelectorAll(".lumi-tile:not(.sc-ghost)")], was = els.map(e => e.getBoundingClientRect());
+  const els = [...document.querySelectorAll(".lumi-tile:not(.sc-ghost)")], was = els.map(e => e.getBoundingClientRect()), cols = els.map(e => e.dataset.col);
   fn();
   mark();
+  plusAt(); // «+» вне потока едет за концом колонки вместе с пунктиром
   if (lowMotion()) return;
   els.forEach((e, i) => {
+    if (e.dataset.col != cols[i]) return; // сменил колонку (пунктир) — без пролёта через экран
     const r = e.getBoundingClientRect(), dx = was[i].left - r.left, dy = was[i].top - r.top;
     if (dx || dy) e.animate({ translate: [`${dx}px ${dy}px`, "0 0"] }, { duration: 150, easing: "ease-out" });
   });
@@ -266,6 +268,10 @@ function startDrag(e) {
   g.style.height = r.height + "px";
   document.body.append(g);
   drag.ghost = g;
+  if (layout() == "split" && !root.hasAttribute("flat")) { // раскладка колонок на момент начала: строки с запасом +1 место в каждой колонке, под-колонок столько же
+    const v = k => +root.style.getPropertyValue(k) || 1, n = sd => tilesOf(root).filter(x => x.dataset.col == sd).length, cl = v("--sc-cl"), cr = v("--sc-cr");
+    drag.fix = { cl, cr, rows: Math.max(v("--sc-rows"), Math.ceil((n("l") + 1) / cl), Math.ceil((n("r") + 1) / cr)) };
+  }
   t.classList.add("sc-hole");
   document.body.classList.add("sc-dragging");
   closeMenu();
@@ -421,7 +427,8 @@ function mark() { // split: каждая плитка в своей колонк
   }
   root.style.removeProperty("--sc-th"); // строки одинаковой высоты (по самой высокой плитке)
   const h = tileH(), gap = parseFloat(getComputedStyle(root).rowGap) || 0, F = document.getElementById("lumi-first").clientHeight, mx = Math.max(sides.l.length, sides.r.length, 1);
-  const rows = Math.ceil(mx / Math.ceil(mx / fitRows(h || 1, gap))), cn = k => Math.max(1, Math.ceil(k / rows)), cl = cn(sides.l.length), cr = cn(sides.r.length);
+  const fx = drag?.fix; // во время перетаскивания строки и число под-колонок заморожены (drag.fix): пунктир не перестраивает сетку
+  const rows = fx?.rows ?? Math.ceil(mx / Math.ceil(mx / fitRows(h || 1, gap))), cn = k => Math.max(1, Math.ceil(k / rows)), cl = fx?.cl ?? cn(sides.l.length), cr = fx?.cr ?? cn(sides.r.length);
   sides.l.forEach((t, i) => { t.style.gridColumn = Math.floor(i / rows) + 1; t.style.gridRow = i % rows + 1; });
   sides.r.forEach((t, i) => { t.style.gridColumn = cl + 1 + cr - Math.floor(i / rows); t.style.gridRow = i % rows + 1; }); // первая под-колонка у края, следующие — к центру
   const y = k => Math.max(0, (F - (k * h + Math.max(0, k - 1) * gap)) / 2), ul = Math.min(sides.l.length, rows), ur = Math.min(sides.r.length, rows); // каждая колонка центрируется сама

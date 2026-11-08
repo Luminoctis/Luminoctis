@@ -146,5 +146,5 @@
     window.addEventListener("unload", () => list.removeView(view), { once: true });
   });
 
-  window.lumiSounds = { play, log, get count() { return count; }, ACTIONS, sources, get ctx() { return ctx; }, get decoded() { return bufs; } };
+  window.lumiSounds = { play, ready: action => ctx ? preload(action) : Promise.resolve(), log, get count() { return count; }, ACTIONS, sources, get ctx() { return ctx; }, get decoded() { return bufs; } };
 })();

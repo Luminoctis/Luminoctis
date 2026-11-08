@@ -6,17 +6,24 @@ const $ = sel => document.querySelector(sel);
 const top = () => BrowserWindowTracker.orderedWindows.find(w => !w.closed && w.lumiDebug); // getTopWindow() в Zen возвращает null
 const el = (tag, cls, ...kids) => { const e = document.createElement(tag); if (cls) e.className = cls; e.append(...kids); return e; };
 
+// <select> в отдельном chrome-окне не открывает список, поэтому выбор — ряд кнопок-сегментов
+let pinIdx = 0;
+const seg = (id, values, cur, pick) => {
+  const box = el("div", "seg"), mark = v => { for (const b of box.children) b.classList.toggle("on", b.dataset.v == v); };
+  box.id = id;
+  for (const v of values) { const b = el("button", "", v.label ?? v); b.dataset.v = v.value ?? v; b.addEventListener("click", () => { mark(b.dataset.v); pick(+b.dataset.v); }); box.append(b); }
+  mark(cur);
+  return box;
+};
 function renderPins() {
-  const win = top(), sel = $("#pin"), old = sel.value;
-  sel.replaceChildren(...(win?.luminoctis?.pins?.() ?? []).map((tab, i) => Object.assign(document.createElement("option"), { value: i, textContent: tab.label || "закреп " + (i + 1) })));
-  if (old && sel.querySelector(`option[value="${old}"]`)) sel.value = old;
+  const n = top()?.luminoctis?.pins?.().length ?? 0;
+  if (pinIdx >= n) pinIdx = 0;
+  $("#pin").replaceChildren(...Array.from({ length: n }, (_, i) => i).map(i => Object.assign(el("button", "", i + 1), { onclick: () => { pinIdx = i; renderPins(); } })));
+  $("#pin").children[pinIdx]?.classList.add("on");
 }
 function chanceRow(win) {
-  const sel = el("select", "", ...[1, 2, 5, 10, 50, 200].map(n => Object.assign(el("option"), { value: n, textContent: n })));
-  sel.id = "glitch-chance";
-  sel.value = win.lumiDebug.glitchChance;
-  sel.addEventListener("change", () => top()?.lumiDebug?.setGlitchChance(+sel.value));
-  return el("div", "arow", el("div", "text", el("b", "", "Шанс глитча: 1 из N"), el("span", "", "Временно, до перезапуска браузера. 1 = глитч на каждой смене вкладки")), sel);
+  const s = seg("glitch-chance", [1, 2, 5, 10, 50, 200], win.lumiDebug.glitchChance, n => top()?.lumiDebug?.setGlitchChance(n));
+  return el("div", "arow", el("div", "text", el("b", "", "Шанс глитча: 1 из N"), el("span", "", "Временно, до перезапуска браузера. 1 = глитч на каждой смене вкладки")), s);
 }
 function render() {
   const win = top(), actions = win?.lumiDebug?.actions;
@@ -31,7 +38,7 @@ function render() {
     }
     const btn = el("button", "", "▶");
     btn.dataset.id = a.id;
-    btn.addEventListener("click", () => top()?.lumiDebug?.run(a.id, { pin: +$("#pin").value || 0, n: +$("#num").value || 0 }));
+    btn.addEventListener("click", () => top()?.lumiDebug?.run(a.id, { pin: pinIdx, n: +$("#num").value || 0 }));
     groups.get(a.group).append(el("div", "arow", el("div", "text", el("b", "", a.label), el("span", "", a.hint ?? "")), btn));
     if (a.id == "tab-glitch") groups.get(a.group).append(chanceRow(win));
   }

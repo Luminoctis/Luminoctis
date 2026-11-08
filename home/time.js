@@ -2,6 +2,7 @@
 // «Сегодня», цели, кнопки панелей (home/time-panels.js). Логика и данные — в движке js/lumi-time.sys.mjs (идёт и без этой страницы);
 // страница только рисует: перерисовка по событиям движка, тик раз в секунду — пока вкладка видна.
 import { JS } from "./paths.js";
+import * as store from "./store.js";
 import { E, h, s, clockOf, goalsBlock, openPanel, closePanel, panelName, refreshPanel } from "./time-panels.js";
 
 ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
@@ -13,6 +14,33 @@ const q = new URLSearchParams(location.search), mini = q.has("mini"), full = q.h
 document.body.toggleAttribute("lumi-mini", mini);
 document.body.toggleAttribute("lumi-full", full); // большой режим: столбца нет, панель стыкуется к мини-окну рейки (place), всегда открыта
 await E.init();
+
+// Большой режим: за панелями тот же кадр, что на Home (текущие обои из wallpapers/state.json, затемнение «Затемнение» из настроек обоев), а не сплошной bg0 страницы
+// и не затемнение рейки (#lumi-time-backdrop[lumi-passive]). Обоев нет (видео, NSFW, инкогнито, режим «Прозрачный») — страница прозрачна, как окно под ней.
+// Как у Home: слой = прямоугольник всего окна, сдвинутый на место вкладки (cover считается от окна). Только читает state.json — не листает обои и окно не трогает.
+async function backdrop() {
+  const win = window.browsingContext.topChromeWindow, P = "luminoctis.home.wallpaper.", prefs = Services.prefs;
+  if (prefs.getStringPref(P + "mode", "wallpaper") == "transparent" || win.PrivateBrowsingUtils?.isWindowPrivate(win)) return;
+  const item = (await store.readJSON("wallpapers/state.json", {})).current;
+  if (!item || item.kind == "video" || item.nsfw) return;
+  const src = item.file ? PathUtils.toFileURI(item.file) : URL.createObjectURL(await (await fetch(item.url, { credentials: "omit" })).blob());
+  const { windowMode } = ChromeUtils.importESModule(JS("lumi-palette.sys.mjs"));
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b), dim = clamp(prefs.getIntPref(P + "dim", 25), 0, 90) / 100;
+  const alpha = windowMode(win) == "transparent" ? 1 - clamp(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0, 90) / 100 : 1;
+  const el = Object.assign(document.createElement("div"), { id: "lt-backdrop" });
+  el.style.background = `linear-gradient(rgba(0,0,0,${dim}), rgba(0,0,0,${dim})), url("${src}") center / cover`;
+  el.style.opacity = alpha;
+  const place = () => {
+    const b = window.browsingContext.embedderElement, r = b?.getBoundingClientRect(), k = win.devicePixelRatio / devicePixelRatio;
+    if (r) Object.assign(el.style, { left: -r.x * k + "px", top: -r.y * k + "px", width: win.innerWidth * k + "px", height: win.innerHeight * k + "px" });
+  };
+  place();
+  document.body.prepend(el);
+  addEventListener("resize", place);
+  win.addEventListener("resize", place);
+  addEventListener("unload", () => win.removeEventListener("resize", place), { once: true });
+}
+if (full) backdrop().catch(e => console.warn("LumiTime: фон не показан", e));
 
 let els = {}, buttonsKey = "";
 const D = () => E.data;

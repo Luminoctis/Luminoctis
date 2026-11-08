@@ -106,6 +106,8 @@ body[lumi-mini] {
 /* большой режим (?full=1, скрытая вкладка): столбца таймера нет — таймер это мини-окно рейки слева, панель стыкуется к его правому краю
  * (--lt-mini-r/-y/-h ставит time.js из реальной рамки), верх и низ те же, вид рамки тот же; панель всегда открыта, × не нужен */
 body[lumi-full] {
+  background: transparent; /* без сплошной заливки bg0: за панелями — обои Home (#lt-backdrop, time.js) или окно */
+  & #lt-backdrop { position: fixed; z-index: 0; pointer-events: none; }
   & #lumi-time { display: none; }
   & #lumi-time-panel { top: var(--lt-mini-y, 12px); bottom: auto; height: var(--lt-mini-h, calc(100vh - 24px)); left: calc(var(--lt-mini-r, 352px) + 6px); right: 12px;
     translate: 0 0; opacity: 1; transition: none;

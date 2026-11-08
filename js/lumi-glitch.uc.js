@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: редкий глитч
-// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатели luminoctis.look.tab-glitch и luminoctis.look.startup-glitch (один глитч при запуске браузера, без звука, ~400 мс, когда интерфейс Zen уже показан). window.lumiGlitch.run() — запустить сразу.
+// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатели luminoctis.look.tab-glitch и luminoctis.look.startup-glitch (один глитч при запуске браузера, со звуком, ~300 мс (два всплеска), когда интерфейс Zen уже показан). window.lumiGlitch.run() — запустить сразу.
 // ==/UserScript==
 
 // Оверлей #lumi-glitch и атрибут lumi-glitch на корне живут только на время глитча (chrome.css, «Редкий глитч»); в покое их нет совсем.
@@ -39,7 +39,7 @@
       if (!Services.prefs.getBoolPref(PREF, true) || Date.now() - t0 < 5000 || performance.now() - openedAt < 200) return;
       if (window.lumiGlitch.rand() < window.lumiGlitch.chance && !reduced()) run();
     });
-    // Стартовый глитч: раз за запуск Zen, в первом окне, без звука. Флаг — в default-ветке prefs (в профиль не пишется, живёт на процесс).
+    // Стартовый глитч: раз за запуск Zen, в первом окне, со звуком (если он включён). Флаг — в default-ветке prefs (в профиль не пишется, живёт на процесс).
     // Раньше шёл, пока интерфейс ещё невидим: Zen держит всё на opacity 0 (:root[zen-before-loaded]) до конца восстановления сессии (gZenStartup.promiseInitialized).
     const DONE = "luminoctis.internal.startup-glitch-done", START = "luminoctis.look.startup-glitch";
     const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -56,7 +56,7 @@
       await sleep(400); // запас: плавное появление Zen и полоса обновления (0,35 с) заканчиваются
       if (document.hidden || reduced()) return;
       window.lumiGlitch.startupAt = Date.now();
-      run(400, { silent: true });
+      run(300);
     };
     window.lumiGlitch = { startup, startupAt: 0, chance: 1 / 100, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
     startup();

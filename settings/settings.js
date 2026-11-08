@@ -623,6 +623,7 @@ renderPalette();
 {
   const { Clock } = await import("../home/clock.js");
   for (const b of document.querySelectorAll(".clock-styles [data-value]")) new Clock(b.querySelector(".clock-prev"), b.dataset.value); // живые превью
+  for (const p of document.querySelectorAll(".sc-prev")) p.append(...["Почта", "Видео", "Карты", "Игры"].map(t => el("span", { className: "sc-pv" }, el("i"), el("b", { textContent: t })))); // превью стилей ярлыков (settings.css)
   // числа: ползунки (рядом <output>) и списки
   for (const input of document.querySelectorAll("[data-int-pref]")) {
     const pref = input.dataset.intPref, out = input.nextElementSibling?.matches("output") ? input.nextElementSibling : null;

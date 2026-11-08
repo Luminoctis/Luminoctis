@@ -72,3 +72,33 @@
   & button { height: 28px; padding: 0 12px; border: 0; border-radius: 8px; cursor: pointer; font: 13px Inter, system-ui, sans-serif; color: var(--lumi-solid, #16161e); background: var(--lumi-accent, #7aa2f7); }
   & button:hover, & button:focus-visible { filter: brightness(1.12); outline: none; } }
 @media (prefers-reduced-motion: reduce) { .lumi-add, .lumi-tile, .sc-fold-back, .sc-fold-box { transition-duration: .01s; } }
+
+/* Пресеты ярлыков: body[lumi-sc-preset] (pref luminoctis.home.shortcuts.preset). glass — без правил, вид прежний.
+   Правила только для ряда на странице и «поднятой» плитки (.sc-ghost); окошко папки остаётся в виде «стекло». */
+body[lumi-sc-preset="minimal"] {
+  & #lumi-shortcuts { gap: 6px; }
+  & #lumi-shortcuts > .lumi-tile { position: relative; width: 56px; padding: 10px 0; background: transparent;
+    &:hover .sc-ico, &:focus-visible .sc-ico { scale: 1.15; } }
+  & #lumi-shortcuts > .lumi-tile .lumi-tile-title { position: absolute; top: 100%; left: 50%; translate: -50% 0; z-index: 2; width: max-content; max-width: 140px; padding: 2px 8px;
+    border-radius: 8px; pointer-events: none; opacity: 0; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); }
+  & #lumi-shortcuts > .lumi-tile:is(:hover, :focus-visible) .lumi-tile-title { opacity: 1; }
+  & .sc-ghost { width: 56px; padding: 10px 0; } & .sc-ghost .lumi-tile-title { display: none; }
+  & .lumi-add { width: 36px; height: 36px; align-self: center; }
+}
+body[lumi-sc-preset="dock"] {
+  & #lumi-shortcuts { width: fit-content; max-width: min(760px, 100%); gap: 4px; padding: 8px 12px; border-radius: 22px; /* единственный backdrop-filter — на полосе, не на плитках */
+    background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(18px);
+    border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 35%, transparent); box-shadow: 0 8px 24px rgb(0 0 0 / .25); &:empty { display: none; } }
+  & #lumi-shortcuts > .lumi-tile { width: 44px; padding: 6px 0; background: transparent; }
+  & #lumi-shortcuts > .lumi-tile .sc-ico { transition: scale .12s; transform-origin: 50% 100%; }
+  & #lumi-shortcuts > .lumi-tile:is(:hover, :focus-visible) .sc-ico { scale: 1.5; }
+  & :is(#lumi-shortcuts > .lumi-tile, .sc-ghost) .lumi-tile-title { display: none; }
+  & .sc-ghost { width: 44px; padding: 6px 0; }
+  & .lumi-add { width: 36px; height: 36px; align-self: center; }
+}
+body[lumi-sc-preset="cards"] {
+  & #lumi-shortcuts > .lumi-tile, & .sc-ghost { box-sizing: border-box; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 12px 14px; font-size: 13px; }
+  & #lumi-shortcuts > .lumi-tile { width: calc((100% - 30px) / 4); min-width: 150px; }
+  & :is(#lumi-shortcuts > .lumi-tile, .sc-ghost) .lumi-tile-title { flex: 1; min-width: 0; text-align: left; }
+}
+@media (prefers-reduced-motion: reduce) { body[lumi-sc-preset="dock"] #lumi-shortcuts > .lumi-tile .sc-ico { transition-duration: .01s; } }

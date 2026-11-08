@@ -6,7 +6,7 @@
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const root = document.getElementById("lumi-shortcuts");
-const PREF = "luminoctis.home.shortcuts.folder", MAX = 24, DWELL = 450, B = PlacesUtils.bookmarks;
+const PREF = "luminoctis.home.shortcuts.folder", PRESET = "luminoctis.home.shortcuts.preset", MAX = 24, DWELL = 450, B = PlacesUtils.bookmarks;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -367,9 +367,14 @@ const later = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
 const events = ["bookmark-added", "bookmark-removed", "bookmark-moved", "bookmark-title-changed", "bookmark-url-changed"];
 PlacesUtils.observers.addListener(events, later);
 Services.prefs.addObserver(PREF, later);
+// пресет вида (glass | minimal | dock | cards): атрибут на body, CSS в shortcuts.css; перерисовка не нужна
+const applyPreset = () => document.body.setAttribute("lumi-sc-preset", Services.prefs.getStringPref(PRESET, "glass"));
+Services.prefs.addObserver(PRESET, applyPreset);
+applyPreset();
 window.addEventListener("unload", () => {
   PlacesUtils.observers.removeListener(events, later);
   Services.prefs.removeObserver(PREF, later);
+  Services.prefs.removeObserver(PRESET, applyPreset);
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); });
 window.lumiShortcuts = { render, folder, get tiles() { return [...root.querySelectorAll(".lumi-tile")]; }, get boxTiles() { return [...document.querySelectorAll(".sc-grid .lumi-tile")]; }, openBox, closeBox, get dragging() { return !!drag?.on; } };

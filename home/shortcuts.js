@@ -6,7 +6,7 @@
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const root = document.getElementById("lumi-shortcuts");
-const PREF = "luminoctis.home.shortcuts.folder", PRESET = "luminoctis.home.shortcuts.preset", MAX = 24, DWELL = 450, B = PlacesUtils.bookmarks;
+const PREF = "luminoctis.home.shortcuts.folder", PRESET = "luminoctis.home.shortcuts.preset", LAYOUT = "luminoctis.home.shortcuts.layout", MAX = 24, DWELL = 450, B = PlacesUtils.bookmarks;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -73,6 +73,7 @@ async function render(force) { // force — DOM менялся руками (п�
   plus.setAttribute("aria-label", "Добавить ярлык");
   if (!top.length) root.replaceChildren(el("p", "lumi-shortcuts-hint", "Здесь будут ваши ярлыки: добавьте закладки в выбранную папку или выберите другую в Настройки → Home → Ярлыки."), plus);
   else root.replaceChildren(...top.map(tileOf), ...(top.length < MAX ? [plus] : []));
+  place();
   renderBox();
 }
 
@@ -220,6 +221,7 @@ const lowMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 function flip(fn) { // соседи плавно разъезжаются: мерим до и после перестановки
   const els = [...document.querySelectorAll(".lumi-tile:not(.sc-ghost), .lumi-add")], was = els.map(e => e.getBoundingClientRect());
   fn();
+  mark();
   if (lowMotion()) return;
   els.forEach((e, i) => {
     const r = e.getBoundingClientRect(), dx = was[i].left - r.left, dy = was[i].top - r.top;
@@ -270,7 +272,7 @@ function moveDrag(e) {
   const centre = best == 0 && fx > .3 && fx < .7 && fy > .1 && fy < .9;
   if (centre && cont == root && !isDir(d.node) && T.parentElement == root) return arm(T); // задержка в центре — группировка
   disarm();
-  const before = e.clientY < r.top ? true : e.clientY > r.bottom ? false : fx < .5, ref = before ? T : T.nextSibling;
+  const before = cont == root && vertical() ? fy < .5 : e.clientY < r.top ? true : e.clientY > r.bottom ? false : fx < .5, ref = before ? T : T.nextSibling;
   if (ref !== hole && ref !== hole.nextSibling) flip(() => cont.insertBefore(hole, ref));
 }
 async function endDrag(cancel) {
@@ -368,13 +370,56 @@ const events = ["bookmark-added", "bookmark-removed", "bookmark-moved", "bookmar
 PlacesUtils.observers.addListener(events, later);
 Services.prefs.addObserver(PREF, later);
 // пресет вида (glass | minimal | dock | cards): атрибут на body, CSS в shortcuts.css; перерисовка не нужна
+// расположение (below | bottom | left | right | split): атрибут на body, CSS в shortcuts.css. Колонки — сетка с --sc-rows строк; не помещаются
+// или задели бы часы/поиск/край экрана — [flat] на #lumi-shortcuts = вид «под поиском» (place())
+const LAYOUTS = ["below", "bottom", "left", "right", "split"], COLS = ["left", "right", "split"];
+const layout = () => document.body.getAttribute("lumi-sc-layout");
+const vertical = () => !root.hasAttribute("flat") && COLS.includes(layout());
+function mark() { // split: правая колонка начинается с первой строки; в левой ceil(n/2) ярлыков, в правой остальные и «+»
+  if (layout() != "split") return;
+  const t = tilesOf(root), L = Math.ceil(t.length / 2);
+  root.style.setProperty("--sc-rows", Math.max(L, t.length - L + 1));
+  root.style.setProperty("--sc-l", L);
+  t.forEach((x, i) => x.style.gridRow = i == L ? "1" : "");
+}
+function crowded() { // ярлык вылез за первый экран или задел часы/поиск
+  const f = document.getElementById("lumi-first").getBoundingClientRect(), pad = 12;
+  const avoid = ["lumi-clock", "lumi-search"].map(id => document.getElementById(id).getBoundingClientRect()).filter(r => r.width && r.height);
+  return [...root.children].some(c => { const r = c.getBoundingClientRect();
+    return r.top < f.top || r.bottom > f.bottom || r.left < f.left || r.right > f.right
+      || avoid.some(a => r.left < a.right + pad && r.right > a.left - pad && r.top < a.bottom + pad && r.bottom > a.top - pad); });
+}
+function place() {
+  if (drag?.on) return;
+  const lay = layout(), tiles = tilesOf(root), n = tiles.length;
+  root.removeAttribute("flat");
+  tiles.forEach(t => t.style.gridRow = "");
+  if (COLS.includes(lay) && n) {
+    if (lay == "split") mark();
+    else { // строк в колонке: сколько влезает по высоте, поровну между колонками
+      const cs = getComputedStyle(root), gap = parseFloat(cs.rowGap) || 0, pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
+      const h = Math.max(...tiles.map(t => t.getBoundingClientRect().height)), items = root.children.length;
+      const fit = Math.max(1, Math.floor((document.getElementById("lumi-first").clientHeight - 48 - pad + gap) / (h + gap)));
+      root.style.setProperty("--sc-rows", Math.ceil(items / Math.ceil(items / fit)));
+    }
+  }
+  if (lay != "below" && (!n || crowded())) root.setAttribute("flat", "");
+}
+const applyLayout = () => { const v = Services.prefs.getStringPref(LAYOUT, "below"); document.body.setAttribute("lumi-sc-layout", LAYOUTS.includes(v) ? v : "below"); place(); };
+Services.prefs.addObserver(LAYOUT, applyLayout);
+applyLayout();
+const ro = new ResizeObserver(() => place()); // окно, часы или поиск изменили размер
+for (const id of ["lumi-first", "lumi-clock", "lumi-search"]) ro.observe(document.getElementById(id));
 const applyPreset = () => document.body.setAttribute("lumi-sc-preset", Services.prefs.getStringPref(PRESET, "glass"));
-Services.prefs.addObserver(PRESET, applyPreset);
+const onPreset = () => { applyPreset(); place(); };
+Services.prefs.addObserver(PRESET, onPreset);
 applyPreset();
 window.addEventListener("unload", () => {
   PlacesUtils.observers.removeListener(events, later);
   Services.prefs.removeObserver(PREF, later);
-  Services.prefs.removeObserver(PRESET, applyPreset);
+  Services.prefs.removeObserver(PRESET, onPreset);
+  Services.prefs.removeObserver(LAYOUT, applyLayout);
+  ro.disconnect();
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); });
 window.lumiShortcuts = { render, folder, get tiles() { return [...root.querySelectorAll(".lumi-tile")]; }, get boxTiles() { return [...document.querySelectorAll(".sc-grid .lumi-tile")]; }, openBox, closeBox, get dragging() { return !!drag?.on; } };

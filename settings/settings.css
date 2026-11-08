@@ -217,7 +217,7 @@ kbd {
 .item.drop-after { box-shadow: 0 2px 0 var(--lumi-accent); }
 
 /* Home: часы и обои — превью стилей часов (home/clock.css), источники, ползунки */
-.clock-styles, .sc-styles { display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+.clock-styles, .sc-styles, .sc-layouts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
   & button { height: 74px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px;
     border-radius: 10px; border: 1px solid transparent; background: var(--lumi-bg1); color: var(--lumi-muted); font-size: 11.5px; overflow: hidden;
     &.on { border-color: var(--lumi-accent); color: var(--lumi-fg); } &:hover:not(.on) { border-color: var(--line); } }
@@ -298,3 +298,16 @@ a.row.link { color: inherit; text-decoration: none; &:hover { background: color-
   & .sc-pv { width: 24px; padding: 2px 0; background: none; & b { display: none; } & i { width: 14px; height: 14px; } } }
 .sc-prev[data-p="dock"] .sc-pv:nth-child(2) i { scale: 1.4; transform-origin: 50% 100%; }
 .sc-prev[data-p="cards"] { padding: 0 12px; & .sc-pv { flex-direction: row; width: calc(50% - 2px); box-sizing: border-box; padding: 4px 5px; gap: 4px; justify-content: flex-start; } }
+/* Home: превью расположения ярлыков — экранчик с часами, поиском и четырьмя точками-ярлыками */
+.sc-layouts { grid-template-columns: repeat(3, 1fr); & button { height: 84px; } }
+.lay-prev { position: relative; width: 64px; height: 40px; border-radius: 5px; background: color-mix(in srgb, var(--lumi-fg) 8%, transparent); border: 1px solid color-mix(in srgb, var(--lumi-fg) 18%, transparent); pointer-events: none;
+  & i, & u { position: absolute; display: block; }
+  & i.lp-c { left: 50%; top: 8px; width: 16px; height: 4px; translate: -50% 0; border-radius: 2px; background: var(--lumi-muted); }
+  & i.lp-s { left: 50%; top: 16px; width: 30px; height: 4px; translate: -50% 0; border-radius: 2px; background: color-mix(in srgb, var(--lumi-fg) 30%, transparent); }
+  & u { display: flex; gap: 2px; text-decoration: none; }
+  & s { width: 5px; height: 5px; border-radius: 2px; background: var(--lumi-accent); } }
+.lay-prev[data-l="below"] u { left: 50%; top: 24px; translate: -50% 0; }
+.lay-prev[data-l="bottom"] u { left: 50%; bottom: 3px; translate: -50% 0; }
+.lay-prev[data-l="left"] u, .lay-prev[data-l="right"] u { top: 50%; translate: 0 -50%; flex-direction: column; }
+.lay-prev[data-l="left"] u { left: 4px; } .lay-prev[data-l="right"] u { right: 4px; }
+.lay-prev[data-l="split"] u { display: grid; grid-auto-flow: column; grid-template-rows: 1fr 1fr; justify-content: space-between; left: 4px; right: 4px; top: 50%; translate: 0 -50%; }

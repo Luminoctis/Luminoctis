@@ -22,7 +22,7 @@ function renderPins() {
   $("#pin").children[pinIdx]?.classList.add("on");
 }
 function chanceRow(win) {
-  const s = seg("glitch-chance", [1, 2, 5, 10, 50, 200], win.lumiDebug.glitchChance, n => top()?.lumiDebug?.setGlitchChance(n));
+  const s = seg("glitch-chance", [1, 2, 5, 10, 50, 100], win.lumiDebug.glitchChance, n => top()?.lumiDebug?.setGlitchChance(n));
   return el("div", "arow", el("div", "text", el("b", "", "Шанс глитча: 1 из N"), el("span", "", "Временно, до перезапуска браузера. 1 = глитч на каждой смене вкладки")), s);
 }
 function render() {

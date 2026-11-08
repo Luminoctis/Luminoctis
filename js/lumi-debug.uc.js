@@ -93,10 +93,10 @@
   ];
 
   const { BrowserWindowTracker } = ChromeUtils.importESModule("resource:///modules/BrowserWindowTracker.sys.mjs");
-  // шанс глитча — во всех окнах сразу; не pref, после перезапуска снова 1/200
+  // шанс глитча — во всех окнах сразу; не pref, после перезапуска снова 1/100
   const setGlitchChance = n => { for (const w of BrowserWindowTracker.orderedWindows) if (w.lumiGlitch) w.lumiGlitch.chance = 1 / n; };
   function cleanup() {
-    setGlitchChance(200);
+    setGlitchChance(100);
     if (fx()) download(false);
     stopLoad();
     for (const t of [...badged]) setBadge(t, null);

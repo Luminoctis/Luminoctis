@@ -913,26 +913,9 @@ upd.installedVersion().then(v => {
   render();
 }
 
-// ---------- «Звуки»: ▶ прослушать, «Свой файл…», ↺ стандартный (js/lumi-sounds.uc.js играет и читает pref .file) ----------
-for (const row of document.querySelectorAll("#sounds .snd")) {
-  const id = row.dataset.sound, pref = `luminoctis.sounds.${id}.file`, label = row.querySelector(".snd-file");
-  const show = () => {
-    const f = Services.prefs.getStringPref(pref, "");
-    label.textContent = f.split(/[\\/]/).pop();
-    label.title = f;
-    row.querySelector(".snd-reset").disabled = !f;
-  };
-  show();
-  Services.prefs.addObserver(pref, show);
-  window.addEventListener("unload", () => Services.prefs.removeObserver(pref, show), { once: true });
-  row.querySelector(".snd-play").addEventListener("click", () => win.lumiSounds?.play(id, { force: true, ignoreFocus: true }));
-  row.querySelector(".snd-reset").addEventListener("click", () => Services.prefs.clearUserPref(pref));
-  row.querySelector(".snd-pick").addEventListener("click", () => {
-    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    fp.init(window.browsingContext, "Свой звук", Ci.nsIFilePicker.modeOpen);
-    fp.appendFilter("Звуки (*.ogg, *.mp3, *.wav)", "*.ogg; *.mp3; *.wav");
-    fp.open(r => { if (r == Ci.nsIFilePicker.returnOK) { Services.prefs.setStringPref(pref, fp.file.path); win.lumiSounds?.play(id, { force: true, ignoreFocus: true }); } });
-  });
+// ---------- «Звуки»: ▶ прослушать (строки .snd в «Звуки» и «Звук глитча» в «Вид») ----------
+for (const row of document.querySelectorAll(".snd")) {
+  row.querySelector(".snd-play").addEventListener("click", () => win.lumiSounds?.play(row.dataset.sound, { force: true, ignoreFocus: true }));
 }
 
 // ---------- «Сбросить вкладку»: в конце каждого раздела, кроме «О моде» ----------

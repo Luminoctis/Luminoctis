@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: редкий глитч
-// @description    Раз в ~200 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатель luminoctis.look.tab-glitch. window.lumiGlitch.run() — запустить сразу.
+// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатель luminoctis.look.tab-glitch. window.lumiGlitch.run() — запустить сразу.
 // ==/UserScript==
 
 // Оверлей #lumi-glitch и атрибут lumi-glitch на корне живут только на время глитча (chrome.css, «Редкий глитч»); в покое их нет совсем.
@@ -37,6 +37,6 @@
       if (!Services.prefs.getBoolPref(PREF, true) || Date.now() - t0 < 5000 || performance.now() - openedAt < 200) return;
       if (window.lumiGlitch.rand() < window.lumiGlitch.chance && !reduced()) run();
     });
-    window.lumiGlitch = { chance: 1 / 200, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
+    window.lumiGlitch = { chance: 1 / 100, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
   });
 })();

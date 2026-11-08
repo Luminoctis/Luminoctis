@@ -12,9 +12,14 @@
 .lumi-add {
   align-self: stretch; width: 56px; border: 1px dashed color-mix(in srgb, var(--lumi-dim, #565f89) 60%, transparent); border-radius: 14px; cursor: pointer;
   font: 24px/1 Inter, system-ui, sans-serif; color: var(--lumi-muted, #a9b1d6); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent);
-  transition: background .15s, color .15s, border-color .15s;
+  transition: background .15s, color .15s, border-color .15s, opacity .15s; opacity: 0; /* виден, когда курсор рядом (shortcuts.js: [near] на ряду); место занимает всегда */
   &:hover, &:focus-visible { color: var(--lumi-accent, #7aa2f7); border-color: var(--lumi-accent, #7aa2f7); outline: none; background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
 }
+#lumi-shortcuts[near] .lumi-add, #lumi-shortcuts:has(.lumi-shortcuts-hint) .lumi-add, body.sc-dragging .lumi-add, .lumi-add:focus-visible { opacity: 1; }
+/* «Стекло» — компактные плитки (остальные стили задают свои размеры сами; радиус и отступы у них прежние) */
+body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) :is(.lumi-tile, .lumi-add) { border-radius: 12px; }
+body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) .lumi-tile { width: 64px; gap: 6px; padding: 8px 6px 7px; }
+body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) #lumi-first > #lumi-shortcuts:not([flat]) > .lumi-add { align-self: stretch; height: auto; }
 .lumi-add-back { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgb(0 0 0 / .35); }
 .lumi-add-box {
   box-sizing: border-box; width: min(340px, calc(100vw - 32px)); padding: 18px; display: flex; flex-direction: column; gap: 12px; border-radius: 16px;

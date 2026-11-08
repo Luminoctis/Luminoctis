@@ -237,6 +237,9 @@ span.lumi-fold { display: none; } /* у пункта без подпунктов
   &:hover { border-color: color-mix(in srgb, var(--lumi-accent, #7aa2f7) 60%, transparent) !important; color: var(--lumi-fg, #c0caf5); }
 }
 .lumi-add-row { margin-top: 2px; }
+/* «+» листа: скрыт (место занимает), пока курсор не рядом; виден при фокусе клавиатурой, в пустом ряду и при перетаскивании */
+.lumi-row .lumi-add-sheet { opacity: 0; transition: background-color .15s, color .15s, opacity .15s; }
+.lumi-row .lumi-add-sheet:is([near], :focus-visible), .lumi-row-scroll > .lumi-add-sheet:first-child, .lumi-boards:has(.lumi-hole) .lumi-add-sheet { opacity: 1; }
 .lumi-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 10px; border-radius: 12px; font-size: 14px;
   background: color-mix(in srgb, var(--lumi-red, #f7768e) 18%, transparent);
   & span { flex-basis: 100%; }
@@ -280,6 +283,6 @@ section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .lumi-row, .lumi-sheet, .lumi-sheet::after, .lumi-card, .lumi-card::before, .lumi-row-more, .lumi-sheet-tools, .lumi-card-tools, .lumi-sheet-grip::after, .lumi-sheet-grip-b::after, .lumi-sheet-grip-c::after,
-  .lumi-slot, .lumi-fold .lumi-ico, .lumi-swatch, .lumi-sheet input[type="checkbox"], .lumi-cb::after { transition: none; }
+  .lumi-slot, .lumi-row .lumi-add-sheet, .lumi-fold .lumi-ico, .lumi-swatch, .lumi-sheet input[type="checkbox"], .lumi-cb::after { transition: none; }
   .lumi-sheet input[type="checkbox"].pop { animation: none; }
 }

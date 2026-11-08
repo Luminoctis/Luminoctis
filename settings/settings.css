@@ -289,7 +289,7 @@ a.row.link { color: inherit; text-decoration: none; &:hover { background: color-
 /* Home: превью стилей ярлыков (настоящие правила — home/shortcuts.css) */
 .sc-styles button { height: 92px; }
 .sc-prev { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px; width: 100%; padding: 0 8px; box-sizing: border-box; pointer-events: none; }
-.sc-pv { display: flex; flex-direction: column; align-items: center; gap: 3px; width: 32px; padding: 5px 0 4px; border-radius: 7px; background: color-mix(in srgb, var(--lumi-fg) 9%, transparent);
+.sc-pv { display: flex; flex-direction: column; align-items: center; gap: 2px; width: 28px; padding: 3px 0 3px; border-radius: 6px; background: color-mix(in srgb, var(--lumi-fg) 9%, transparent);
   & i { width: 12px; height: 12px; border-radius: 4px; background: var(--lumi-accent); }
   &:nth-child(2) i { background: var(--lumi-green); } &:nth-child(3) i { background: var(--lumi-orange, #ff9e64); } &:nth-child(4) i { background: var(--lumi-red); }
   & b { font: 500 7px/1 Inter, system-ui, sans-serif; color: var(--lumi-muted); } }

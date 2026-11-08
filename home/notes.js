@@ -322,6 +322,19 @@ function sheetIcon(v) { // эмодзи — текстом, значок Zen (ch
   if (/^(chrome|resource|data|https?):/.test(v)) { s.classList.add("img"); s.style.setProperty("--ic", "url(" + JSON.stringify(v) + ")"); } else s.textContent = v;
   return s;
 }
+// «+» листа виден, пока курсор в 100px от него или над его рядом ([near] на кнопке); раз в кадр
+let nearE = null, nearRaf = 0;
+function nearTick() {
+  nearRaf = 0;
+  const p = nearE, over = p?.target.closest?.(".lumi-row");
+  for (const b of box.querySelectorAll(".lumi-add-sheet")) {
+    const r = b.getBoundingClientRect();
+    b.toggleAttribute("near", !!p && (b.closest(".lumi-row") == over || Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100));
+  }
+}
+const nearSoon = () => { nearRaf ||= requestAnimationFrame(nearTick); };
+document.addEventListener("pointermove", e => { nearE = e; nearSoon(); });
+document.addEventListener("mouseout", e => { if (!e.relatedTarget) { nearE = null; nearSoon(); } }); // курсор ушёл из окна
 function rowEl(r) {
   const row = el("div", "lumi-row"), scroll = el("div", "lumi-row-scroll");
   row._r = r;
@@ -337,6 +350,7 @@ function render() {
   box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", "Новый ряд", "ряд"));
   for (const s of box.querySelectorAll(".lumi-sheet")) { const c = s.querySelector(".lumi-cards"); if (c) c.scrollTop = keep.get(s._b) ?? 0; }
   for (const r of box.querySelectorAll(".lumi-row")) r.querySelector(".lumi-row-scroll").scrollLeft = left.get(r._r) ?? 0;
+  if (nearE) nearSoon();
 }
 const rowNode = r => [...box.querySelectorAll(".lumi-row")].find(n => n._r == r);
 const sheetNode = b => [...box.querySelectorAll(".lumi-sheet")].find(s => s._b == b);

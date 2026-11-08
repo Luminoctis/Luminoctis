@@ -422,5 +422,13 @@ window.addEventListener("unload", () => {
   ro.disconnect();
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); });
+// «+» виден, пока курсор в 100px от него или над рядом ([near] на #lumi-shortcuts); раз в кадр
+let nearE = null, nearRaf = 0;
+document.addEventListener("pointermove", e => { nearE = e; nearRaf ||= requestAnimationFrame(() => {
+  nearRaf = 0;
+  const r = root.querySelector(".lumi-add")?.getBoundingClientRect(), p = nearE;
+  root.toggleAttribute("near", !!(p && r && (p.target.closest?.("#lumi-shortcuts") || Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100)));
+}); });
+document.addEventListener("mouseout", e => { if (!e.relatedTarget) { nearE = null; root.removeAttribute("near"); } }); // курсор ушёл из окна
 window.lumiShortcuts = { render, folder, get tiles() { return [...root.querySelectorAll(".lumi-tile")]; }, get boxTiles() { return [...document.querySelectorAll(".sc-grid .lumi-tile")]; }, openBox, closeBox, get dragging() { return !!drag?.on; } };
 render();

@@ -22,7 +22,7 @@
   const SETTINGS_URL = pageUrl("settings/settings.html");
   let settings;
   const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches; // «уменьшить анимацию» — общая для рейки и полосы
-  // [lumi-settings-open] на корне: сайт, адресная строка и полоса вкладок размыты под панелью (chrome.css, раздел 10)
+  // [lumi-settings-open] на корне — метка «панель открыта» (стилей на неё сейчас нет: размытие под панелью — backdrop-filter у #lumi-settings, chrome.css §14)
   const syncSettingsFlag = () => document.documentElement.toggleAttribute("lumi-settings-open", !!settings && !settings.hidden);
   // Заглушка вместо пустой/дефолтной/битой иконки сайта (вкладка ещё грузится, у сайта нет значка): аккуратная точка цвета текста.
   // В img ставится прозрачный пиксель, а саму точку рисует CSS (img[lumi-dot], chrome.css раздел 6) — context-fill у data:-картинок не работает.

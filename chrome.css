@@ -820,9 +820,6 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   :root[inDOMFullscreen="true"] & { display: none; }
 }
 @media (prefers-reduced-motion: reduce) { #lumi-settings { transition: none; } }
-/* Пока панель открыта (js ставит корню [lumi-settings-open]), всё вокруг неё размыто: сайт, адресная строка, полоса вкладок.
- * Рейка резкая — ею можно пользоваться. filter размывает и сайт (<browser> другого процесса) — в отличие от backdrop-filter. Сама панель — вне размытых слоёв */
-:root[lumi-settings-open]:not([inDOMFullscreen="true"]) :is(#tabbrowser-tabpanels, #zen-appcontent-navbar-wrapper, #lumi-tabstrip) { filter: blur(5px); }
 
 /* ---------- 12. Compacting: рейка и полоса вкладок прячутся за край окна и выезжают у края ----------
  * Настройки luminoctis.compact.sidebar / luminoctis.compact.tabstrip (панель настроек → «Внешний вид»). Сайт занимает освободившееся место.
@@ -972,7 +969,8 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
   /* панель настроек — настоящее стекло: свою заливку рисует страница (surface с ползунком прозрачности), рамка прозрачная, а сайт под ней вырезан
    * маской (дырка по живому прямоугольнику панели; js: settings/settings.js, блок «стекло») — сквозь панель видно то же, что за окном */
-  & #lumi-settings { background: transparent; }
+  /* размыто только то, что лежит под самой панелью (backdrop-filter по её рамке): окно вокруг и сайт справа резкие. Раньше filter: blur на всей области сайта, адресной строке и полосе вкладок размывал и пустое место справа */
+  & #lumi-settings { background: transparent; backdrop-filter: blur(12px); }
   /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
   /* тот же вырез — у мини-окна закрепа: js/lumi-rail.uc.js (updateHole) вырезает по рамке окошка панель ПРЕЖНЕЙ вкладки под ним (не всю область: внутри неё
    * лежит и панель самого закрепа), вместо подложки --lumi-solid у #lumi-pin-frame. Переменные выреза — инлайн на самой панели, у настроек — на #tabbrowser-tabpanels */

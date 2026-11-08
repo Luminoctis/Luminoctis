@@ -1,6 +1,7 @@
 // Поиск на первом экране Home (#lumi-search): поисковик по умолчанию (Services.search), подсказки движка (SearchSuggestionController)
 // и совпадения из истории/закладок (moz_places по frecency). Адрес/домен открывается сразу. Результат — в новой выбранной вкладке, Home остаётся.
 // Клавиши: ↑/↓ по подсказкам, Enter, Esc (закрыть список, повторно — снять фокус).
+// Ctrl+V с картинкой в буфере — сразу поиск по ней в Google Lens (POST multipart на lens.google.com/v3/upload, поле encoded_image), в новой вкладке.
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const root = document.getElementById("lumi-search");
@@ -22,7 +23,13 @@ let engine = null, controller = null, seq = 0, timer = 0, items = [], sel = -1;
 async function init() {
   await SS.init();
   engine = await SS.getDefault();
-  input.placeholder = `Искать в ${engine.name} или ввести адрес`;
+  setHint();
+}
+let hintTimer = 0;
+function setHint(msg, ms) { // подсказка в поле: msg на ms миллисекунд, иначе обычная
+  clearTimeout(hintTimer);
+  input.placeholder = msg || (engine ? `Искать в ${engine.name} или ввести адрес` : "");
+  if (msg && ms) hintTimer = setTimeout(setHint, ms);
 }
 const ready = init().catch(e => console.error("Luminoctis поиск:", e));
 const engineObs = { observe: () => init().catch(() => {}) };
@@ -49,6 +56,38 @@ const goText = async text => { // Enter без выбранной подсказ
   const t = text.trim();
   if (t) await go(looksLikeUrl(t) ? { url: urlFor(t) } : { term: t });
 };
+
+// поиск по картинке: тело multipart собирает FormData (Response отдаёт байты и Content-Type с boundary), в поток — без потери байтов
+const MAX_IMG = 20 * 1024 * 1024;
+async function lensRequest(file) {
+  const bmp = await createImageBitmap(file); // не картинка — исключение
+  const fd = new FormData();
+  fd.append("encoded_image", file, "image");
+  fd.append("processed_image_dimensions", `${bmp.width},${bmp.height}`);
+  bmp.close();
+  const r = new Response(fd), buf = await r.arrayBuffer();
+  const bin = Cc["@mozilla.org/io/arraybuffer-input-stream;1"].createInstance(Ci.nsIArrayBufferInputStream);
+  bin.setData(buf, 0, buf.byteLength);
+  const postData = Cc["@mozilla.org/network/mime-input-stream;1"].createInstance(Ci.nsIMIMEInputStream);
+  postData.addHeader("Content-Type", r.headers.get("content-type"));
+  postData.setData(bin);
+  return { url: `https://lens.google.com/v3/upload?hl=${Services.locale.appLocaleAsBCP47}&re=df&st=${Date.now()}&ep=gisbubb`, postData };
+}
+async function searchImage(file) {
+  if (file.size > MAX_IMG) return setHint("Картинка больше 20 МБ", 3000);
+  setHint("Ищу по картинке…");
+  try {
+    const { url, postData } = await lensRequest(file);
+    win.openTrustedLinkIn(url, "tab", { postData });
+    clearTimeout(timer);
+    input.value = "";
+    close();
+    setHint();
+  } catch (e) {
+    console.error("Luminoctis поиск по картинке:", e);
+    setHint("Не удалось отправить картинку", 3000);
+  }
+}
 
 function close() { list.hidden = true; input.setAttribute("aria-expanded", "false"); sel = -1; seq++; controller?.stop(); }
 function paint() {
@@ -101,6 +140,13 @@ async function suggest() {
   } catch {}
 }
 
+function onPaste(e) {
+  const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
+  if (!file) return; // текст вставляется как обычно
+  e.preventDefault();
+  searchImage(file);
+}
+input.addEventListener("paste", onPaste);
 input.addEventListener("input", () => { clearTimeout(timer); timer = setTimeout(suggest, 120); });
 input.addEventListener("keydown", e => {
   if (e.key == "ArrowDown" || e.key == "ArrowUp") {
@@ -134,5 +180,5 @@ const canFocus = () => {
 };
 document.addEventListener("visibilitychange", () => { if (canFocus()) input.focus(); });
 
-window.lumiSearch = { input, items: () => items, select: i => { sel = i; paint(); }, go, goText, suggest, looksLikeUrl, urlFor, canFocus,
+window.lumiSearch = { onPaste, lensRequest, searchImage, input, items: () => items, select: i => { sel = i; paint(); }, go, goText, suggest, looksLikeUrl, urlFor, canFocus,
   get engine() { return engine; }, ready, list };

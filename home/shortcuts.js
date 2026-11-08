@@ -67,7 +67,9 @@ async function render(force) { // force — DOM менялся руками (п�
     walk(tree, null);
     top = (tree.children ?? []).filter(c => isLink(c) || isDir(c)).slice(0, MAX);
   }
-  const R = rightSet(), split = layout() == "split" && top.length > 0;
+  const split = layout() == "split" && top.length > 0;
+  if (split && !Services.prefs.prefHasUserValue(RIGHT)) saveRight(new Set(top.slice(Math.ceil(top.length / 2)).map(n => n.guid))); // pref ещё не задавали: вторая половина списка — вправо, как при делении пополам
+  const R = rightSet();
   const sig = JSON.stringify([top.map(n => [n.guid, n.title, n.uri, n.kids?.map(k => [k.guid, k.title, k.uri])]), openGuid, split && [...R]]);
   if (!force && sig == lastSig) return; // запоздалые события от своих же правок: ничего не изменилось — не дёргаем
   lastSig = sig;
@@ -233,7 +235,7 @@ const inRect = (r, e) => e.clientX >= r.left && e.clientX <= r.right && e.client
 const tilesOf = c => [...c.children].filter(x => x.classList.contains("lumi-tile"));
 const lowMotion = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
 function flip(fn) { // соседи плавно разъезжаются: мерим до и после перестановки
-  const els = [...document.querySelectorAll(".lumi-tile:not(.sc-ghost), .lumi-add")], was = els.map(e => e.getBoundingClientRect());
+  const els = [...document.querySelectorAll(".lumi-tile:not(.sc-ghost)")], was = els.map(e => e.getBoundingClientRect());
   fn();
   mark();
   if (lowMotion()) return;
@@ -405,29 +407,61 @@ Services.prefs.addObserver(RIGHT, later);
 const LAYOUTS = ["below", "bottom", "left", "right", "split"], COLS = ["left", "right", "split"];
 const layout = () => document.body.getAttribute("lumi-sc-layout");
 const vertical = () => !root.hasAttribute("flat") && COLS.includes(layout());
-function mark() { // split: каждая плитка в своей колонке (data-col l/r по месту в DOM: до первого «+» — левая), строки считаются по колонке отдельно
+const tileH = () => Math.max(0, ...tilesOf(root).map(t => t.getBoundingClientRect().height));
+const fitRows = (h, gap) => Math.max(1, Math.floor((document.getElementById("lumi-first").clientHeight - 48 - 36 - gap + gap) / (h + gap))); // строк в колонке (запас — под «+» снизу)
+function mark() { // split: каждая плитка в своей колонке (data-col l/r по месту в DOM: до первого «+» — левая); колонка при нехватке высоты переносится в под-колонку к центру
   if (layout() != "split") return;
-  const n = { l: 0, r: 0 };
+  const sides = { l: [], r: [] };
   let side = "l";
   for (const c of root.children) {
-    const plus = c.classList.contains("lumi-add");
-    if (!plus && !c.classList.contains("lumi-tile")) continue;
+    if (c.classList.contains("lumi-add")) { c.dataset.col = side; if (c.dataset.side == "l") side = "r"; continue; }
+    if (!c.classList.contains("lumi-tile")) continue;
     c.dataset.col = side;
-    if (!c.hidden) { c.style.gridColumn = side == "l" ? "1" : "2"; c.style.gridRow = ++n[side]; }
-    if (plus && c.dataset.side == "l") side = "r";
+    sides[side].push(c);
   }
-  // каждая колонка центрируется по вертикали сама (сдвиг top в CSS), чтобы одна не двигала другую
-  root.style.removeProperty("--sc-th"); // строки одинаковой высоты (по самой высокой плитке): «+» одной колонки не зависит от плиток другой
-  const h = Math.max(0, ...tilesOf(root).map(t => t.getBoundingClientRect().height)), gap = parseFloat(getComputedStyle(root).rowGap) || 0, F = document.getElementById("lumi-first").clientHeight;
-  const y = k => Math.max(0, (F - (k * h + Math.max(0, k - 1) * gap)) / 2);
+  root.style.removeProperty("--sc-th"); // строки одинаковой высоты (по самой высокой плитке)
+  const h = tileH(), gap = parseFloat(getComputedStyle(root).rowGap) || 0, F = document.getElementById("lumi-first").clientHeight, mx = Math.max(sides.l.length, sides.r.length, 1);
+  const rows = Math.ceil(mx / Math.ceil(mx / fitRows(h || 1, gap))), cn = k => Math.max(1, Math.ceil(k / rows)), cl = cn(sides.l.length), cr = cn(sides.r.length);
+  sides.l.forEach((t, i) => { t.style.gridColumn = Math.floor(i / rows) + 1; t.style.gridRow = i % rows + 1; });
+  sides.r.forEach((t, i) => { t.style.gridColumn = cl + 1 + cr - Math.floor(i / rows); t.style.gridRow = i % rows + 1; }); // первая под-колонка у края, следующие — к центру
+  const y = k => Math.max(0, (F - (k * h + Math.max(0, k - 1) * gap)) / 2), ul = Math.min(sides.l.length, rows), ur = Math.min(sides.r.length, rows); // каждая колонка центрируется сама
   if (h) root.style.setProperty("--sc-th", h + "px");
-  root.style.setProperty("--sc-rows", Math.max(n.l, n.r, 1));
-  root.style.setProperty("--sc-l", Math.max(n.l, 1));
-  root.style.setProperty("--sc-r", Math.max(n.r, 1));
-  root.style.setProperty("--sc-yl", y(n.l) + "px");
-  root.style.setProperty("--sc-yr", y(n.r) + "px");
+  root.style.setProperty("--sc-rows", rows);
+  root.style.setProperty("--sc-cl", cl);
+  root.style.setProperty("--sc-cr", cr);
+  root.style.setProperty("--sc-l", Math.max(ul, 1));
+  root.style.setProperty("--sc-r", Math.max(ur, 1));
+  root.style.setProperty("--sc-yl", y(ul) + "px");
+  root.style.setProperty("--sc-yr", y(ur) + "px");
 }
-function crowded() { // ярлык вылез за первый экран или задел часы/поиск
+function plusAt() { // «+» вне потока (position: absolute): по месту последней плитки своего ряда/колонки, плитки от неё не зависят
+  const rs = getComputedStyle(root), gap = parseFloat(rs.columnGap) || 0, rgap = parseFloat(rs.rowGap) || 0, rr = root.getBoundingClientRect(), ox = rr.left + root.clientLeft, oy = rr.top + root.clientTop;
+  const pr = parseFloat(rs.paddingRight) + parseFloat(rs.borderRightWidth), pb = parseFloat(rs.paddingBottom) + parseFloat(rs.borderBottomWidth);
+  const f = document.getElementById("lumi-first").getBoundingClientRect(), cols = vertical(), split = cols && layout() == "split", tiles = tilesOf(root);
+  const short = ["minimal", "dock"].includes(document.body.getAttribute("lumi-sc-preset")), after = (v, pad, edge) => v + pad >= edge - 1 ? edge : v; // у стеклянной полосы dock «+» стоит за полосой
+  for (const p of root.querySelectorAll(".lumi-add")) {
+    p.style.left = p.style.top = p.style.height = "";
+    const side = p.dataset.side;
+    if (!tiles.length || (side == "l" && !split)) continue; // пусто — «+» в потоке рядом с подсказкой; в [flat] одна «+» — правая
+    const w = p.offsetWidth, last = (split ? tiles.filter(t => t.dataset.col == side) : tiles).at(-1);
+    let x, y, h = 36;
+    if (!last) { x = side == "l" ? 0 : rr.width - w; y = rr.top + rr.height / 2 - 18; } // пустая колонка split
+    else {
+      const lr = last.getBoundingClientRect();
+      if (cols) { x = lr.left + (lr.width - w) / 2; y = after(lr.bottom, pb, rr.bottom) + rgap; }
+      else {
+        h = short ? 36 : lr.height;
+        x = after(lr.right, pr, rr.right) + gap;
+        y = lr.top + (lr.height - h) / 2;
+        if (x + w > f.right - 12) { x = lr.left; y = after(lr.bottom, pb, rr.bottom) + rgap; } // справа нет места — под последней плиткой
+      }
+    }
+    p.style.height = h + "px";
+    p.style.left = (last ? x - ox : x) + "px";
+    p.style.top = (y - oy) + "px";
+  }
+}
+function crowded() { // ярлык или «+» вылез за первый экран или задел часы/поиск
   const f = document.getElementById("lumi-first").getBoundingClientRect(), pad = 12;
   const avoid = ["lumi-clock", "lumi-search"].map(id => document.getElementById(id).getBoundingClientRect()).filter(r => r.width && r.height);
   return [...root.children].filter(c => c.getClientRects().length).some(c => { const r = c.getBoundingClientRect();
@@ -442,13 +476,12 @@ function place() {
   if (COLS.includes(lay) && n) {
     if (lay == "split") mark();
     else { // строк в колонке: сколько влезает по высоте, поровну между колонками
-      const cs = getComputedStyle(root), gap = parseFloat(cs.rowGap) || 0, pad = parseFloat(cs.paddingTop) + parseFloat(cs.paddingBottom);
-      const h = Math.max(...tiles.map(t => t.getBoundingClientRect().height)), items = root.children.length;
-      const fit = Math.max(1, Math.floor((document.getElementById("lumi-first").clientHeight - 48 - pad + gap) / (h + gap)));
-      root.style.setProperty("--sc-rows", Math.ceil(items / Math.ceil(items / fit)));
+      const gap = parseFloat(getComputedStyle(root).rowGap) || 0, pad = parseFloat(getComputedStyle(root).paddingTop) + parseFloat(getComputedStyle(root).paddingBottom);
+      root.style.setProperty("--sc-rows", Math.ceil(n / Math.ceil(n / Math.max(1, fitRows(tileH() || 1, gap) - Math.ceil(pad / ((tileH() || 1) + gap))))));
     }
   }
-  if (lay != "below" && (!n || crowded())) root.setAttribute("flat", "");
+  plusAt();
+  if (lay != "below" && (!n || crowded())) { root.setAttribute("flat", ""); plusAt(); }
 }
 const applyLayout = () => { const v = Services.prefs.getStringPref(LAYOUT, "below"); document.body.setAttribute("lumi-sc-layout", LAYOUTS.includes(v) ? v : "below"); place(); render(); }; // render: split строит две колонки с двумя «+»
 Services.prefs.addObserver(LAYOUT, applyLayout);

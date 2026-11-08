@@ -1,5 +1,5 @@
 /* Ярлыки Home (home/shortcuts.js): ряд плиток под поиском */
-#lumi-shortcuts { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: min(760px, 100%); }
+#lumi-shortcuts { position: relative; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; width: min(760px, 100%); }
 .lumi-tile {
   display: flex; flex-direction: column; align-items: center; gap: 8px; width: 96px; padding: 12px 6px 10px; border-radius: 14px;
   color: var(--lumi-fg, #c0caf5); text-decoration: none; font-size: 12px; user-select: none;
@@ -9,17 +9,17 @@
 .lumi-tile-title { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lumi-shortcuts-hint { margin: 0; padding: 8px 16px; max-width: 420px; text-align: center; font-size: 12px; line-height: 1.5; color: var(--lumi-muted, #a9b1d6);
   border-radius: 12px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); }
-.lumi-add {
-  align-self: stretch; width: 56px; border: 1px dashed color-mix(in srgb, var(--lumi-dim, #565f89) 60%, transparent); border-radius: 14px; cursor: pointer;
+.lumi-add { /* вне потока: shortcuts.js place() ставит left/top/height по месту последней плитки — плитки от «+» не зависят */
+  position: absolute; z-index: 1; width: 56px; height: 36px; border: 1px dashed color-mix(in srgb, var(--lumi-dim, #565f89) 60%, transparent); border-radius: 14px; cursor: pointer;
   font: 24px/1 Inter, system-ui, sans-serif; color: var(--lumi-muted, #a9b1d6); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent);
-  transition: background .15s, color .15s, border-color .15s, opacity .15s; opacity: 0; /* виден, когда курсор рядом (shortcuts.js: [near] на ряду); место занимает всегда */
+  transition: background .15s, color .15s, border-color .15s, opacity .15s; opacity: 0; /* виден, когда курсор рядом (shortcuts.js: [near] на ряду) */
   &:hover, &:focus-visible { color: var(--lumi-accent, #7aa2f7); border-color: var(--lumi-accent, #7aa2f7); outline: none; background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
 }
 #lumi-shortcuts[near] .lumi-add, #lumi-shortcuts:has(.lumi-shortcuts-hint) .lumi-add, body.sc-dragging .lumi-add, .lumi-add:focus-visible { opacity: 1; }
 /* «Стекло» — компактные плитки (остальные стили задают свои размеры сами; радиус и отступы у них прежние) */
 body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) :is(.lumi-tile, .lumi-add) { border-radius: 12px; }
 body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) .lumi-tile { width: 64px; gap: 6px; padding: 8px 6px 7px; }
-body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) #lumi-first > #lumi-shortcuts:not([flat]) > .lumi-add { align-self: stretch; height: auto; }
+#lumi-shortcuts:has(.lumi-shortcuts-hint) > .lumi-add { position: static; align-self: stretch; height: auto; } /* пустая папка: «+» рядом с подсказкой, как раньше */
 .lumi-add-back { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgb(0 0 0 / .35); }
 .lumi-add-box {
   box-sizing: border-box; width: min(340px, calc(100vw - 32px)); padding: 18px; display: flex; flex-direction: column; gap: 12px; border-radius: 16px;
@@ -88,7 +88,7 @@ body[lumi-sc-preset="minimal"] {
     border-radius: 8px; pointer-events: none; opacity: 0; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); }
   & #lumi-shortcuts > .lumi-tile:is(:hover, :focus-visible) .lumi-tile-title { opacity: 1; }
   & .sc-ghost { width: 56px; padding: 10px 0; } & .sc-ghost .lumi-tile-title { display: none; }
-  & .lumi-add { width: 36px; height: 36px; align-self: center; }
+  & .lumi-add { width: 36px; }
 }
 body[lumi-sc-preset="dock"] {
   & #lumi-shortcuts { width: fit-content; max-width: min(760px, 100%); gap: 4px; padding: 8px 12px; border-radius: 22px; /* единственный backdrop-filter — на полосе, не на плитках */
@@ -99,7 +99,7 @@ body[lumi-sc-preset="dock"] {
   & #lumi-shortcuts > .lumi-tile:is(:hover, :focus-visible) .sc-ico { scale: 1.5; }
   & :is(#lumi-shortcuts > .lumi-tile, .sc-ghost) .lumi-tile-title { display: none; }
   & .sc-ghost { width: 44px; padding: 6px 0; }
-  & .lumi-add { width: 36px; height: 36px; align-self: center; }
+  & .lumi-add { width: 36px; }
 }
 body[lumi-sc-preset="cards"] {
   & #lumi-shortcuts > .lumi-tile, & .sc-ghost { box-sizing: border-box; flex-direction: row; justify-content: flex-start; gap: 12px; padding: 12px 14px; font-size: 13px; }
@@ -116,13 +116,13 @@ body:is([lumi-sc-layout="left"], [lumi-sc-layout="right"], [lumi-sc-layout="spli
   position: absolute; top: 50%; translate: 0 -50%; display: grid; grid-auto-flow: column; grid-template-rows: repeat(var(--sc-rows, 1), auto);
   justify-content: start; align-content: center; width: fit-content; max-width: none; pointer-events: none;
   & > * { pointer-events: auto; direction: ltr; }
-  & > .lumi-add { align-self: center; justify-self: center; height: 36px; } }
+}
 body[lumi-sc-layout="left"] #lumi-first > #lumi-shortcuts:not([flat]) { left: 32px; }
 body[lumi-sc-layout="right"] #lumi-first > #lumi-shortcuts:not([flat]) { right: 32px; direction: rtl; } /* первая колонка у самого края, вторая левее */
 /* split: две независимые колонки — левая и правая; каждая со своим «+», строки считает mark(), по вертикали каждая центрируется сама (--sc-yl / --sc-yr) */
-body[lumi-sc-layout="split"] #lumi-first > #lumi-shortcuts:not([flat]) { left: 32px; right: 32px; top: 0; bottom: 0; translate: none; align-content: start; width: auto; grid-template-columns: auto auto; justify-content: space-between; grid-template-rows: repeat(var(--sc-rows, 1), minmax(var(--sc-th, 0px), auto));
-  & > [data-col="l"] { position: relative; top: var(--sc-yl, 0px); }
-  & > [data-col="r"] { position: relative; top: var(--sc-yr, 0px); } }
+body[lumi-sc-layout="split"] #lumi-first > #lumi-shortcuts:not([flat]) { left: 32px; right: 32px; top: 0; bottom: 0; translate: none; align-content: start; width: auto; grid-template-columns: repeat(var(--sc-cl, 1), auto) 1fr repeat(var(--sc-cr, 1), auto); grid-template-rows: repeat(var(--sc-rows, 1), minmax(var(--sc-th, 0px), auto));
+  & > .lumi-tile[data-col="l"] { position: relative; top: var(--sc-yl, 0px); }
+  & > .lumi-tile[data-col="r"] { position: relative; top: var(--sc-yr, 0px); } }
 #lumi-shortcuts[flat] > .lumi-add[data-side="l"] { display: none; } /* в виде «под поиском» одна «+» — в конце ряда */
 /* карточки: в колонке — список фиксированной ширины */
 body[lumi-sc-preset="cards"]:is([lumi-sc-layout="left"], [lumi-sc-layout="right"], [lumi-sc-layout="split"]) #lumi-first > #lumi-shortcuts:not([flat]) > .lumi-tile { width: 168px; min-width: 0; padding: 8px 12px; }
@@ -135,5 +135,5 @@ body[lumi-sc-preset="dock"][lumi-sc-layout="split"] #lumi-first > #lumi-shortcut
   padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; isolation: isolate;
   &::before, &::after { content: ''; position: absolute; z-index: -1; inset: -8px -12px; border-radius: 22px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(18px);
     border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 35%, transparent); box-shadow: 0 8px 24px rgb(0 0 0 / .25); }
-  &::before { grid-column: 1 / 2; grid-row: 1 / span var(--sc-l, 1); translate: 0 var(--sc-yl, 0px); }
-  &::after { grid-column: 2 / 3; grid-row: 1 / span var(--sc-r, 1); translate: 0 var(--sc-yr, 0px); } }
+  &::before { grid-column: 1 / span var(--sc-cl, 1); grid-row: 1 / span var(--sc-l, 1); translate: 0 var(--sc-yl, 0px); }
+  &::after { grid-column-start: calc(var(--sc-cl, 1) + 2); grid-column-end: span var(--sc-cr, 1); grid-row: 1 / span var(--sc-r, 1); translate: 0 var(--sc-yr, 0px); } }

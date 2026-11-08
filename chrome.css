@@ -968,13 +968,15 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame) { border-color: var(--lumi-glass-edge); }
   /* backdrop-filter в Firefox размывает только интерфейс, а сайт (<browser> другого процесса) — нет: сквозь полупрозрачные панели над сайтом
    * читался текст страницы. Под цветом палитры у них непрозрачная подложка --lumi-solid */
-  & :is(#lumi-hovercard, #lumi-pin-frame),
+  & #lumi-hovercard,
   & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
   /* панель настроек — настоящее стекло: свою заливку рисует страница (surface с ползунком прозрачности), рамка прозрачная, а сайт под ней вырезан
    * маской (дырка по живому прямоугольнику панели; js: settings/settings.js, блок «стекло») — сквозь панель видно то же, что за окном */
   & #lumi-settings { background: transparent; }
   /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
-  & #tabbrowser-tabpanels[lumi-hole] {
+  /* тот же вырез — у мини-окна закрепа: js/lumi-rail.uc.js (updateHole) вырезает по рамке окошка панель ПРЕЖНЕЙ вкладки под ним (не всю область: внутри неё
+   * лежит и панель самого закрепа), вместо подложки --lumi-solid у #lumi-pin-frame. Переменные выреза — инлайн на самой панели, у настроек — на #tabbrowser-tabpanels */
+  & :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-hole] {
     mask-image: radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 0 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 100% 0, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 0 0, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)),
       linear-gradient(#000, #000), linear-gradient(#000, #000);
     mask-size: var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-hole-w) var(--lumi-hole-h), 100% 100%;

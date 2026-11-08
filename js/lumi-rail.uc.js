@@ -297,12 +297,32 @@
   const pinButtons = new WeakMap(); // вкладка закрепа -> плитка в рейке
   const panelOf = tab => tab?.linkedBrowser?.closest(".browserSidebarContainer");
 
+  // Стекло (chrome.css §14): панель ПРЕЖНЕЙ вкладки под окошком вырезается по рамке (маска [lumi-hole], как дырка под панелью настроек) — сквозь прозрачную
+  // рамку и прозрачный сайт закрепа виден фон окна, а не резкий сайт под ним. Вырез — в координатах самой панели; translate анимации появления вычитаем.
+  let holed;
+  const clearHole = () => {
+    if (!holed) return;
+    holed.removeAttribute("lumi-hole");
+    for (const v of ["x", "y", "w", "h"]) holed.style.removeProperty(`--lumi-hole-${v}`);
+    holed = null;
+  };
+  function updateHole() {
+    const behind = shown?.mini && !leaving && !frame.hidden && document.documentElement.hasAttribute("lumi-glass") ? panelOf(shown.prev) : null;
+    if (holed && holed !== behind) clearHole();
+    if (!behind) return;
+    const r = frame.getBoundingClientRect(), p = behind.getBoundingClientRect(), [tx = 0, ty = 0] = getComputedStyle(frame).translate.split(" ").map(n => parseFloat(n) || 0);
+    holed = behind;
+    behind.setAttribute("lumi-hole", "");
+    for (const [v, n] of [["x", r.left - tx - p.left], ["y", r.top - ty - p.top], ["w", r.width], ["h", r.height]]) behind.style.setProperty(`--lumi-hole-${v}`, n + "px");
+  }
+
   // Закрытие окошка — обратное появлению (chrome.css, lumi-pin-in/lumi-fade-in): then() вызывается после анимации и всё снимает.
   // При «уменьшить анимацию» — сразу. smooth только у действий пользователя; программные hidePin() (выгрузка, открепление) — мгновенные.
   let leaving = false;
   async function leave(then, withPanel = true) {
     if (!shown?.mini || leaving || calm()) return then();
     leaving = true;
+    clearHole(); // прежняя вкладка снова видна под гаснущей рамкой — без скачка в конце
     const cur = shown;
     const fade = (el, ms, easing, shift) => el.animate(
       [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }], { duration: ms, easing, fill: "forwards" });
@@ -339,6 +359,7 @@
     frame.hidden = backdrop.hidden = grip.hidden = false;
     applyWidth(pin);
     updateFrame();
+    updateHole();
     gBrowser.selectedBrowser.focus(); // клавиатура — сразу сайту закрепа, а не плитке рейки
   }
   // Спрятать закреп (окошком или во весь экран): снова выбрана вкладка, что была до него
@@ -374,6 +395,7 @@
     shown = null;
     keepBehind?.disconnect();
     keepBehind = null;
+    clearHole();
     frame.hidden = backdrop.hidden = grip.hidden = true;
     tabbox().style.removeProperty("--lumi-pin-w");
     const win = panelOf(pin);
@@ -418,6 +440,7 @@
     const move = e => {
       w = Math.round(Math.min(Math.max(e.clientX - box.getBoundingClientRect().left - 12, MIN_W), maxWidth()));
       box.style.setProperty("--lumi-pin-w", w + "px");
+      updateHole();
     };
     const up = () => {
       shield.remove();
@@ -444,6 +467,11 @@
     grip = h("div", "", { id: "lumi-pin-grip", hidden: true });
     grip.addEventListener("mousedown", startResize);
     tabbox().append(backdrop, frame, grip);
+    // вырез за рамкой (updateHole): размер рамки/области, смена режима окна
+    const ro = new ResizeObserver(updateHole);
+    ro.observe(frame);
+    ro.observe(tabbox());
+    new MutationObserver(updateHole).observe(document.documentElement, { attributeFilter: ["lumi-glass"] });
 
     // выбрали другую вкладку (полоса, Ctrl+Tab, смена пространства…) — окошка больше нет
     window.addEventListener("TabSelect", () => {

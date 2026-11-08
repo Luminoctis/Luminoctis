@@ -5,7 +5,7 @@
 
 // Оверлей #lumi-glitch и атрибут lumi-glitch на корне живут только на время глитча (chrome.css, «Редкий глитч»); в покое их нет совсем.
 (() => {
-  const PREF = "luminoctis.look.tab-glitch", CHANCE = 1 / 200, MS = 150;
+  const PREF = "luminoctis.look.tab-glitch", MS = 150;
   UC_API.Windows.waitWindowLoading(window).then(() => {
     const root = document.documentElement, t0 = Date.now();
     let busy = false, openedAt = -1e9;
@@ -20,10 +20,10 @@
         el("feBlend", { in: "ro", in2: "co", mode: "screen" }))));
     };
     const stop = () => { busy = false; root.removeAttribute("lumi-glitch"); document.getElementById("lumi-glitch")?.remove(); };
-    const run = (ms = MS) => {
+    const run = (ms = MS, { debug = false } = {}) => {
       if (busy) return;
       busy = true;
-      window.lumiSounds?.play("glitch");
+      window.lumiSounds?.play("glitch", debug ? { force: true, ignoreFocus: true } : {}); // из окна отладки фокус у него, не у браузера
       const fx = Object.assign(document.createElement("div"), { id: "lumi-glitch" });
       fx.append(filters(), ...["lumi-glitch-noise", "lumi-glitch-band", "lumi-glitch-band b2"].map(c => Object.assign(document.createElement("i"), { className: c })));
       root.style.setProperty("--lumi-glitch-ms", `${ms}ms`);
@@ -35,8 +35,8 @@
     gBrowser.tabContainer.addEventListener("TabOpen", () => { openedAt = performance.now(); });
     gBrowser.tabContainer.addEventListener("TabSelect", () => {
       if (!Services.prefs.getBoolPref(PREF, true) || Date.now() - t0 < 5000 || performance.now() - openedAt < 200) return;
-      if (window.lumiGlitch.rand() < CHANCE && !reduced()) run();
+      if (window.lumiGlitch.rand() < window.lumiGlitch.chance && !reduced()) run();
     });
-    window.lumiGlitch = { run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
+    window.lumiGlitch = { chance: 1 / 200, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
   });
 })();

@@ -88,11 +88,15 @@
     { group: "Окна", id: "win-private", label: "Приватное окно", hint: "Открыть новое приватное окно", run: () => OpenBrowserWindow({ private: true }) },
     { group: "Окна", id: "compact-on", label: "Compact mode: вкл", hint: "Рейка, полоса и адрес прячутся; «Сбросить всё» вернёт настройки", run: () => COMPACT.forEach(p => dbg.setBoolPref(p, true)) },
     { group: "Окна", id: "compact-off", label: "Compact mode: выкл", hint: "Всё на месте", run: () => COMPACT.forEach(p => dbg.setBoolPref(p, false)) },
-    { group: "Вкладки", id: "tab-glitch", label: "Глитч вкладки", hint: "Показывает редкий глитч смены вкладки сразу", run: () => window.lumiGlitch.run() },
+    { group: "Вкладки", id: "tab-glitch", label: "Глитч вкладки", hint: "Показывает редкий глитч смены вкладки сразу", run: () => window.lumiGlitch.run(undefined, { debug: true }) },
     { group: "Вкладки", id: "tab-gray", label: "Выгруженная вкладка", hint: "Новая вкладка в фоне, серая, пока не выбрана", run: () => gBrowser.addTab("https://example.org/", { triggeringPrincipal: SYSTEM, createLazyBrowser: true }) },
   ];
 
+  const { BrowserWindowTracker } = ChromeUtils.importESModule("resource:///modules/BrowserWindowTracker.sys.mjs");
+  // шанс глитча — во всех окнах сразу; не pref, после перезапуска снова 1/200
+  const setGlitchChance = n => { for (const w of BrowserWindowTracker.orderedWindows) if (w.lumiGlitch) w.lumiGlitch.chance = 1 / n; };
   function cleanup() {
+    setGlitchChance(200);
     if (fx()) download(false);
     stopLoad();
     for (const t of [...badged]) setBadge(t, null);
@@ -113,6 +117,6 @@
     if (!action) throw new Error("нет действия " + id);
     return action.run({ tab: luminoctis.pins()[args.pin ?? 0], n: args.n ?? 3 });
   }
-  window.lumiDebug = { actions, run, open, cleanup };
+  window.lumiDebug = { actions, run, open, cleanup, setGlitchChance, get glitchChance() { return Math.round(1 / window.lumiGlitch.chance); } };
   window.addEventListener("unload", cleanup, { once: true });
 })();

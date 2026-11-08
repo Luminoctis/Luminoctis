@@ -2,6 +2,7 @@
 // и совпадения из истории/закладок (moz_places по frecency). Адрес/домен открывается сразу. Результат — в новой выбранной вкладке, Home остаётся.
 // Клавиши: ↑/↓ по подсказкам, Enter, Esc (закрыть список, повторно — снять фокус).
 // Ctrl+V с картинкой в буфере — сразу поиск по ней в Google Lens (POST multipart на lens.google.com/v3/upload, поле encoded_image), в новой вкладке.
+import { JS } from "./paths.js";
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const root = document.getElementById("lumi-search");
@@ -57,22 +58,9 @@ const goText = async text => { // Enter без выбранной подсказ
   if (t) await go(looksLikeUrl(t) ? { url: urlFor(t) } : { term: t });
 };
 
-// поиск по картинке: тело multipart собирает FormData (Response отдаёт байты и Content-Type с boundary), в поток — без потери байтов
-const MAX_IMG = 20 * 1024 * 1024;
-async function lensRequest(file) {
-  const bmp = await createImageBitmap(file); // не картинка — исключение
-  const fd = new FormData();
-  fd.append("encoded_image", file, "image");
-  fd.append("processed_image_dimensions", `${bmp.width},${bmp.height}`);
-  bmp.close();
-  const r = new Response(fd), buf = await r.arrayBuffer();
-  const bin = Cc["@mozilla.org/io/arraybuffer-input-stream;1"].createInstance(Ci.nsIArrayBufferInputStream);
-  bin.setData(buf, 0, buf.byteLength);
-  const postData = Cc["@mozilla.org/network/mime-input-stream;1"].createInstance(Ci.nsIMIMEInputStream);
-  postData.addHeader("Content-Type", r.headers.get("content-type"));
-  postData.setData(bin);
-  return { url: `https://lens.google.com/v3/upload?hl=${Services.locale.appLocaleAsBCP47}&re=df&st=${Date.now()}&ep=gisbubb`, postData };
-}
+// поиск по картинке: запрос собирает общий модуль js/lumi-lens.sys.mjs (им же пользуется адресная строка)
+const { lensRequest: lens, MAX_IMG } = ChromeUtils.importESModule(JS("lumi-lens.sys.mjs"));
+const lensRequest = file => lens(file, window);
 async function searchImage(file) {
   if (file.size > MAX_IMG) return setHint("Картинка больше 20 МБ", 3000);
   setHint("Ищу по картинке…");

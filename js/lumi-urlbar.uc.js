@@ -77,6 +77,44 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const st = loads.get(gBrowser.selectedBrowser);
     paint(st?.loading || st?.shown ? st : null, true);
   });
+  // Ctrl+V с картинкой в буфере — сразу поиск по ней в Google Lens (общий модуль lumi-lens.sys.mjs, как в поиске Home).
+  // На Home — в новой вкладке, на обычной странице — в текущей. Текст вставляется как обычно.
+  const { jsUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
+  const { lensRequest, MAX_IMG } = ChromeUtils.importESModule(jsUrl("lumi-lens.sys.mjs"));
+  let hintTimer = 0, hintOrig = null;
+  const hint = (msg, ms) => { // подсказка в поле: msg на ms мс (без ms — до следующего вызова), без msg — прежняя
+    const f = gURLBar.inputField;
+    clearTimeout(hintTimer);
+    hintOrig ??= f.placeholder;
+    f.placeholder = msg ?? hintOrig;
+    if (msg == null) hintOrig = null;
+    else if (ms) hintTimer = setTimeout(() => hint(), ms);
+  };
+  const searchImage = async file => {
+    if (file.size > MAX_IMG) return hint("Картинка больше 20 МБ", 3000);
+    hint("Ищу по картинке…");
+    try {
+      const { url, postData } = await lensRequest(file, window);
+      const where = gBrowser.selectedTab.hasAttribute("lumi-home") ? "tab" : "current";
+      openTrustedLinkIn(url, where, { postData });
+      gURLBar.view.close();
+      gURLBar.handleRevert();
+      gURLBar.blur();
+      hint();
+    } catch (e) {
+      console.error("Luminoctis адресная строка, поиск по картинке:", e);
+      hint("Не удалось отправить картинку", 3000);
+    }
+  };
+  const onPaste = e => {
+    const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
+    if (!file) return;
+    e.preventDefault();
+    e.stopPropagation();
+    return searchImage(file);
+  };
+  gURLBar.inputField.addEventListener("paste", onPaste, true);
+  window.lumiUrlbarPaste = { onPaste, searchImage }; // для dev/check-urlbar.js
   const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
   const list = gURLBar.querySelector(".searchmode-switcher-panel-list");
   // в родной строке заголовок «This time search with:» (разовый поиск); у нас пункт меняет поисковик по умолчанию

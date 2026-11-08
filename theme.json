@@ -92,6 +92,9 @@
     "js/lumi-keys.sys.mjs": {
       "name": "lumi-keys"
     },
+    "js/lumi-lens.sys.mjs": {
+      "name": "lumi-lens"
+    },
     "js/lumi-media-child.sys.mjs": {
       "name": "lumi-media-child"
     },

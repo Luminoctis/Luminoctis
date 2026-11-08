@@ -974,14 +974,18 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
   /* тот же вырез — у мини-окна закрепа: js/lumi-rail.uc.js (updateHole) вырезает по рамке окошка панель ПРЕЖНЕЙ вкладки под ним (не всю область: внутри неё
    * лежит и панель самого закрепа), вместо подложки --lumi-solid у #lumi-pin-frame. Переменные выреза — инлайн на самой панели, у настроек — на #tabbrowser-tabpanels */
-  & :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-hole] {
-    mask-image: radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 0 100%, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 100% 0, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)), radial-gradient(circle at 0 0, transparent calc(var(--lumi-radius) - 0.5px), #000 var(--lumi-radius)),
+  & :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-hole],
+  & #tabbrowser-tabpanels .browserContainer[lumi-hole2] {
+    --lumi-hole-rad: var(--lumi-hole-r, var(--lumi-radius));
+    mask-image: radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 0 100%, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 100% 0, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 0 0, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)),
       linear-gradient(#000, #000), linear-gradient(#000, #000);
-    mask-size: var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-radius) var(--lumi-radius), var(--lumi-hole-w) var(--lumi-hole-h), 100% 100%;
-    mask-position: var(--lumi-hole-x) var(--lumi-hole-y), calc(var(--lumi-hole-x) + var(--lumi-hole-w) - var(--lumi-radius)) var(--lumi-hole-y), var(--lumi-hole-x) calc(var(--lumi-hole-y) + var(--lumi-hole-h) - var(--lumi-radius)), calc(var(--lumi-hole-x) + var(--lumi-hole-w) - var(--lumi-radius)) calc(var(--lumi-hole-y) + var(--lumi-hole-h) - var(--lumi-radius)), var(--lumi-hole-x) var(--lumi-hole-y), 0 0;
+    mask-size: var(--lumi-hole-rad) var(--lumi-hole-rad), var(--lumi-hole-rad) var(--lumi-hole-rad), var(--lumi-hole-rad) var(--lumi-hole-rad), var(--lumi-hole-rad) var(--lumi-hole-rad), var(--lumi-hole-w) var(--lumi-hole-h), 100% 100%;
+    mask-position: var(--lumi-hole-x) var(--lumi-hole-y), calc(var(--lumi-hole-x) + var(--lumi-hole-w) - var(--lumi-hole-rad)) var(--lumi-hole-y), var(--lumi-hole-x) calc(var(--lumi-hole-y) + var(--lumi-hole-h) - var(--lumi-hole-rad)), calc(var(--lumi-hole-x) + var(--lumi-hole-w) - var(--lumi-hole-rad)) calc(var(--lumi-hole-y) + var(--lumi-hole-h) - var(--lumi-hole-rad)), var(--lumi-hole-x) var(--lumi-hole-y), 0 0;
     mask-repeat: no-repeat;
     mask-composite: add, add, add, add, exclude, add;
   }
+  /* вторая дырка — под раскрытой карточкой мини-плеера (js/lumi-rail.uc.js, initPlayers): то же правило, но на .browserContainer панели (маски вложены, дырки настроек/закрепа не мешают),
+   * переменные --lumi-hole-x/y/w/h и радиус карточки --lumi-hole-r — инлайн; backdrop-filter у карточки над сайтом бессилен, а здесь сквозь неё видно стекло окна */
   /* рейка, полоса вкладок и адресная строка в Compacting лежат на сайте с тем же стеклом, что и на месте (--lumi-bg0/bg1) — подложки нет */
 }
 /* Compacting в стекле: пока панель выехала, сайт под ней не рисуется (js/lumi-compact.uc.js ставит --lumi-cut = inset() по живым прямоугольникам

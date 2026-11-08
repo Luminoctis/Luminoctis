@@ -1057,6 +1057,43 @@
       clearTimeout(closeTimer);
       closeTimer = setTimeout(() => box.removeAttribute("open"), 250);
     });
+
+    // Стекло (chrome.css §14): backdrop-filter не размывает сайт (чужой процесс), поэтому под РАСКРЫТОЙ карточкой сайт вырезается маской по её рамке
+    // и сквозь карточку видно стекло окна. Вторая независимая дырка: [lumi-hole2] на .browserContainer панелей (дырки настроек/закрепа — на самих панелях,
+    // маски вложены и пересекаются), переменные --lumi-hole-x/y/w/h/r — инлайн на нём. Одна карточка: вырез следует за рамкой каждый кадр, пока идут переходы;
+    // несколько (рамка одна на всех, между карточками в полёте были бы щели): вырез только когда все раскрыты и не двигаются. У свёрнутой плитки выреза нет.
+    // Режем видимые панели: выбранную (.deck-selected) и панели Split view ([zen-split]); Home не режем — у него backdrop-filter и так размывает страницу.
+    let carved = [], raf = 0;
+    const uncarve = keep => {
+      for (const el of carved) if (!keep.includes(el)) { el.removeAttribute("lumi-hole2"); for (const v of "xywhr") el.style.removeProperty(`--lumi-hole-${v}`); }
+      carved = keep;
+    };
+    function carve() {
+      raf = 0;
+      const cards = [...box.children], open = box.hasAttribute("open"), moving = cards.some(c => c.getAnimations().length);
+      if (moving) raf = requestAnimationFrame(carve);
+      const on = document.documentElement.hasAttribute("lumi-glass") && cards.length && (cards.length == 1 ? open || moving : open && !moving);
+      const rects = on ? cards.map(c => c.getBoundingClientRect()) : [];
+      const L = Math.min(...rects.map(r => r.left)), T = Math.min(...rects.map(r => r.top)), R = Math.max(...rects.map(r => r.right)), B = Math.max(...rects.map(r => r.bottom));
+      const radius = on ? parseFloat(getComputedStyle(cards[0]).borderTopLeftRadius) || 0 : 0;
+      const hit = on ? [...document.querySelectorAll("#tabbrowser-tabpanels > .browserSidebarContainer")]
+        .filter(p => p.matches(".deck-selected, [zen-split='true']") && !window.lumiHome?.isHome(gBrowser.getTabForBrowser(p.querySelector("browser"))))
+        .map(p => p.querySelector(":scope > .browserContainer")).filter(el => {
+          const r = el?.getBoundingClientRect();
+          return r && r.left < R && r.right > L && r.top < B && r.bottom > T;
+        }) : [];
+      uncarve(hit);
+      for (const el of hit) {
+        const r = el.getBoundingClientRect();
+        el.setAttribute("lumi-hole2", "");
+        for (const [v, n] of [["x", L - r.left], ["y", T - r.top], ["w", R - L], ["h", B - T], ["r", radius]]) el.style.setProperty(`--lumi-hole-${v}`, n + "px");
+      }
+    }
+    const schedule = () => { raf ||= requestAnimationFrame(carve); };
+    new MutationObserver(schedule).observe(box, { attributeFilter: ["open"], childList: true });
+    new MutationObserver(schedule).observe(document.documentElement, { attributeFilter: ["lumi-glass"] });
+    new ResizeObserver(schedule).observe(document.getElementById("tabbrowser-tabpanels"));
+    window.addEventListener("TabSelect", schedule);
   }
 
   // Громкость самих медиа на сайте (свойство volume у <video>/<audio>) — через JSWindowActor LumiMedia (js/lumi-media-child.sys.mjs), во всех фреймах вкладки.

@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: редкий глитч
-// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатели luminoctis.look.tab-glitch и luminoctis.look.startup-glitch (один глитч при запуске браузера). window.lumiGlitch.run() — запустить сразу.
+// @description    Раз в ~100 смен вкладки интерфейс на ~150 мс «ломается»: RGB-сдвиг, дрожание, шум. Выключатели luminoctis.look.tab-glitch и luminoctis.look.startup-glitch (один глитч при запуске браузера, без звука, ~400 мс, когда интерфейс Zen уже показан). window.lumiGlitch.run() — запустить сразу.
 // ==/UserScript==
 
 // Оверлей #lumi-glitch и атрибут lumi-glitch на корне живут только на время глитча (chrome.css, «Редкий глитч»); в покое их нет совсем.
@@ -20,13 +20,15 @@
         el("feBlend", { in: "ro", in2: "co", mode: "screen" }))));
     };
     const stop = () => { busy = false; root.removeAttribute("lumi-glitch"); document.getElementById("lumi-glitch")?.remove(); };
-    const run = (ms = MS, { debug = false } = {}) => {
+    const run = (ms = MS, { debug = false, silent = false } = {}) => {
       if (busy) return;
       busy = true;
-      window.lumiSounds?.play("glitch", debug ? { force: true, ignoreFocus: true } : {}); // из окна отладки фокус у него, не у браузера
+      if (!silent) window.lumiSounds?.play("glitch", debug ? { force: true, ignoreFocus: true } : {}); // из окна отладки фокус у него, не у браузера
       const fx = Object.assign(document.createElement("div"), { id: "lumi-glitch" });
       fx.append(filters(), ...["lumi-glitch-noise", "lumi-glitch-band", "lumi-glitch-band b2"].map(c => Object.assign(document.createElement("i"), { className: c })));
-      root.style.setProperty("--lumi-glitch-ms", `${ms}ms`);
+      const n = Math.max(1, Math.round(ms / MS)); // длиннее 150 мс — не медленное движение, а n быстрых всплесков (chrome.css крутит те же кадры n раз)
+      root.style.setProperty("--lumi-glitch-ms", `${ms / n}ms`);
+      root.style.setProperty("--lumi-glitch-n", n);
       root.append(fx);
       root.setAttribute("lumi-glitch", "");
       setTimeout(stop, ms + 40); // таймер, а не animationend: при reduced-motion и в свёрнутом окне анимаций нет
@@ -37,21 +39,26 @@
       if (!Services.prefs.getBoolPref(PREF, true) || Date.now() - t0 < 5000 || performance.now() - openedAt < 200) return;
       if (window.lumiGlitch.rand() < window.lumiGlitch.chance && !reduced()) run();
     });
-    // Стартовый глитч: раз за запуск Zen, в первом окне. Флаг — в default-ветке prefs (в профиль не пишется, живёт на процесс).
+    // Стартовый глитч: раз за запуск Zen, в первом окне, без звука. Флаг — в default-ветке prefs (в профиль не пишется, живёт на процесс).
+    // Раньше шёл, пока интерфейс ещё невидим: Zen держит всё на opacity 0 (:root[zen-before-loaded]) до конца восстановления сессии (gZenStartup.promiseInitialized).
     const DONE = "luminoctis.internal.startup-glitch-done", START = "luminoctis.look.startup-glitch";
+    const sleep = ms => new Promise(r => setTimeout(r, ms));
     const startup = async ({ force = false } = {}) => {
       const def = Services.prefs.getDefaultBranch("");
       if (!force) {
         if (Services.prefs.getBoolPref(DONE, false)) return;
         def.setBoolPref(DONE, true);
       }
-      if (!Services.prefs.getBoolPref(START, true)) return;
-      // дать glitch.ogg разобраться, но не дольше 600 мс, чтобы звук не опоздал
-      if (Services.prefs.getBoolPref("luminoctis.sounds.glitch.enabled", true)) await Promise.race([window.lumiSounds?.ready("glitch"), new Promise(r => setTimeout(r, 600))]);
-      if (reduced()) window.lumiSounds?.play("glitch"); else run();
+      if (!Services.prefs.getBoolPref(START, true) || reduced()) return;
+      await Promise.race([window.gZenStartup?.promiseInitialized, sleep(6000)]); // потолок 6 с: не ждать вечно
+      while (document.hidden && Date.now() - t0 < 30000) await sleep(250); // свёрнуто или запуск в фоне: ждём показа не дольше 30 с от запуска
+      if (document.hidden) return;
+      await sleep(400); // запас: плавное появление Zen и полоса обновления (0,35 с) заканчиваются
+      if (document.hidden || reduced()) return;
+      window.lumiGlitch.startupAt = Date.now();
+      run(400, { silent: true });
     };
-    window.lumiGlitch = { startup, chance: 1 / 100, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
-    // окно уже нарисовано: кадр после загрузки (не на белом окне)
-    requestAnimationFrame(() => requestAnimationFrame(() => setTimeout(startup, 100)));
+    window.lumiGlitch = { startup, startupAt: 0, chance: 1 / 100, run, stop, get active() { return busy; }, rand: () => Math.random() }; // rand — подмена в проверке
+    startup();
   });
 })();

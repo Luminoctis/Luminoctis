@@ -13,7 +13,7 @@
   const { pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   const { BrowserWindowTracker } = ChromeUtils.importESModule("resource:///modules/BrowserWindowTracker.sys.mjs");
   const { Downloads } = ChromeUtils.importESModule("resource://gre/modules/Downloads.sys.mjs");
-  const P = "luminoctis.sounds.", GLITCH = "luminoctis.look.tab-glitch", START = "luminoctis.look.startup-glitch";
+  const P = "luminoctis.sounds.", GLITCH = "luminoctis.look.tab-glitch";
   const prefs = Services.prefs;
   // действие -> [множитель громкости, минимальный интервал мс, разброс высоты (доля), разброс громкости (доля)]
   const ACTIONS = {
@@ -42,8 +42,8 @@
   }
   const preload = action => Promise.all(sources(action).map(load));
   const master = () => prefs.getBoolPref(P + "enabled", false);
-  // звук глитча живёт отдельно от общего выключателя; нужен, только пока включён и сам глитч
-  const glitchOn = () => prefs.getBoolPref(P + "glitch.enabled", true) && (prefs.getBoolPref(GLITCH, true) || prefs.getBoolPref(START, true));
+  // звук глитча живёт отдельно от общего выключателя; нужен, только пока включён и редкий глитч (стартовый глитч без звука)
+  const glitchOn = () => prefs.getBoolPref(P + "glitch.enabled", true) && prefs.getBoolPref(GLITCH, true);
   const wanted = () => master() ? Object.keys(ACTIONS) : glitchOn() ? ["glitch"] : [];
 
   function ensure(list = wanted()) {
@@ -113,8 +113,7 @@
   };
   prefs.addObserver(P, prefObserver);
   prefs.addObserver(GLITCH, prefObserver);
-  prefs.addObserver(START, prefObserver);
-  window.addEventListener("unload", () => { prefs.removeObserver(P, prefObserver); prefs.removeObserver(GLITCH, prefObserver); prefs.removeObserver(START, prefObserver); ctx?.close(); }, { once: true });
+  window.addEventListener("unload", () => { prefs.removeObserver(P, prefObserver); prefs.removeObserver(GLITCH, prefObserver); ctx?.close(); }, { once: true });
   sync();
 
   const PRINT = /^(?: |Backspace|Enter)$/;
@@ -146,7 +145,5 @@
     window.addEventListener("unload", () => list.removeView(view), { once: true });
   });
 
-  // Promise: звук действия разобран (или не читается); без контекста — сразу
-  const ready = action => ctx ? preload(action).then(() => {}) : Promise.resolve();
-  window.lumiSounds = { play, ready, log, get count() { return count; }, ACTIONS, sources, get ctx() { return ctx; }, get decoded() { return bufs; } };
+  window.lumiSounds = { play, log, get count() { return count; }, ACTIONS, sources, get ctx() { return ctx; }, get decoded() { return bufs; } };
 })();

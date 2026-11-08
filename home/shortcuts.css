@@ -119,7 +119,11 @@ body:is([lumi-sc-layout="left"], [lumi-sc-layout="right"], [lumi-sc-layout="spli
   & > .lumi-add { align-self: center; justify-self: center; height: 36px; } }
 body[lumi-sc-layout="left"] #lumi-first > #lumi-shortcuts:not([flat]) { left: 32px; }
 body[lumi-sc-layout="right"] #lumi-first > #lumi-shortcuts:not([flat]) { right: 32px; direction: rtl; } /* первая колонка у самого края, вторая левее */
-body[lumi-sc-layout="split"] #lumi-first > #lumi-shortcuts:not([flat]) { left: 32px; right: 32px; width: auto; grid-template-columns: auto auto; justify-content: space-between; }
+/* split: две независимые колонки — левая и правая; каждая со своим «+», строки считает mark(), по вертикали каждая центрируется сама (--sc-yl / --sc-yr) */
+body[lumi-sc-layout="split"] #lumi-first > #lumi-shortcuts:not([flat]) { left: 32px; right: 32px; top: 0; bottom: 0; translate: none; align-content: start; width: auto; grid-template-columns: auto auto; justify-content: space-between; grid-template-rows: repeat(var(--sc-rows, 1), minmax(var(--sc-th, 0px), auto));
+  & > [data-col="l"] { position: relative; top: var(--sc-yl, 0px); }
+  & > [data-col="r"] { position: relative; top: var(--sc-yr, 0px); } }
+#lumi-shortcuts[flat] > .lumi-add[data-side="l"] { display: none; } /* в виде «под поиском» одна «+» — в конце ряда */
 /* карточки: в колонке — список фиксированной ширины */
 body[lumi-sc-preset="cards"]:is([lumi-sc-layout="left"], [lumi-sc-layout="right"], [lumi-sc-layout="split"]) #lumi-first > #lumi-shortcuts:not([flat]) > .lumi-tile { width: 168px; min-width: 0; padding: 8px 12px; }
 /* минимал: имя — сбоку от значка (слева — справа от него, справа — слева) */
@@ -131,5 +135,5 @@ body[lumi-sc-preset="dock"][lumi-sc-layout="split"] #lumi-first > #lumi-shortcut
   padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; isolation: isolate;
   &::before, &::after { content: ''; position: absolute; z-index: -1; inset: -8px -12px; border-radius: 22px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(18px);
     border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 35%, transparent); box-shadow: 0 8px 24px rgb(0 0 0 / .25); }
-  &::before { grid-column: 1 / 2; grid-row: 1 / span var(--sc-l, 1); }
-  &::after { grid-column: 2 / 3; grid-row: 1 / -1; } }
+  &::before { grid-column: 1 / 2; grid-row: 1 / span var(--sc-l, 1); translate: 0 var(--sc-yl, 0px); }
+  &::after { grid-column: 2 / 3; grid-row: 1 / span var(--sc-r, 1); translate: 0 var(--sc-yr, 0px); } }

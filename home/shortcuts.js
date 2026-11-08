@@ -6,7 +6,7 @@
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const root = document.getElementById("lumi-shortcuts");
-const PREF = "luminoctis.home.shortcuts.folder", PRESET = "luminoctis.home.shortcuts.preset", LAYOUT = "luminoctis.home.shortcuts.layout", MAX = 24, DWELL = 450, B = PlacesUtils.bookmarks;
+const PREF = "luminoctis.home.shortcuts.folder", PRESET = "luminoctis.home.shortcuts.preset", LAYOUT = "luminoctis.home.shortcuts.layout", RIGHT = "luminoctis.home.shortcuts.right", MAX = 24, DWELL = 450, B = PlacesUtils.bookmarks;
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const wait = ms => new Promise(r => setTimeout(r, ms));
 
@@ -14,6 +14,9 @@ const folder = () => Services.prefs.getStringPref(PREF, "") || B.toolbarGuid;
 const isLink = c => c.type == PlacesUtils.TYPE_X_MOZ_PLACE && /^https?:|^file:|^about:/.test(c.uri);
 const isDir = c => c.type == PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER;
 const label = n => n.title || (n.uri || "").replace(/^https?:\/\/(www\.)?/, "");
+// split: guid закладок правой колонки (JSON-массив); всё остальное — левая. Лишние guid (удалены, другая папка) игнорируются
+const rightSet = () => { try { return new Set(JSON.parse(Services.prefs.getStringPref(RIGHT, "[]"))); } catch { return new Set(); } };
+const saveRight = R => { const v = JSON.stringify([...R]); if (v != Services.prefs.getStringPref(RIGHT, "[]")) Services.prefs.setStringPref(RIGHT, v); };
 let model = new Map(), top = [], rootNode = null, seq = 0, lastSig = "", openGuid = null, drag = null, skipClick = false, menu = null;
 
 // иконка сайта; нет иконки (или не загрузилась) — кружок в стиле мода
@@ -64,15 +67,24 @@ async function render(force) { // force — DOM менялся руками (п�
     walk(tree, null);
     top = (tree.children ?? []).filter(c => isLink(c) || isDir(c)).slice(0, MAX);
   }
-  const sig = JSON.stringify([top.map(n => [n.guid, n.title, n.uri, n.kids?.map(k => [k.guid, k.title, k.uri])]), openGuid]);
+  const R = rightSet(), split = layout() == "split" && top.length > 0;
+  const sig = JSON.stringify([top.map(n => [n.guid, n.title, n.uri, n.kids?.map(k => [k.guid, k.title, k.uri])]), openGuid, split && [...R]]);
   if (!force && sig == lastSig) return; // запоздалые события от своих же правок: ничего не изменилось — не дёргаем
   lastSig = sig;
-  const plus = el("button", "lumi-add", "+"); // плитка «+» в конце ряда
-  plus.type = "button";
-  plus.title = "Добавить ярлык";
-  plus.setAttribute("aria-label", "Добавить ярлык");
-  if (!top.length) root.replaceChildren(el("p", "lumi-shortcuts-hint", "Здесь будут ваши ярлыки: добавьте закладки в выбранную папку или выберите другую в Настройки → Home → Ярлыки."), plus);
-  else root.replaceChildren(...top.map(tileOf), ...(top.length < MAX ? [plus] : []));
+  const mkPlus = side => { // плитка «+» в конце ряда (split: своя в конце каждой колонки)
+    const plus = el("button", "lumi-add", "+");
+    plus.type = "button";
+    plus.title = "Добавить ярлык";
+    plus.setAttribute("aria-label", "Добавить ярлык");
+    if (side) plus.dataset.side = side;
+    return plus;
+  };
+  if (!top.length) root.replaceChildren(el("p", "lumi-shortcuts-hint", "Здесь будут ваши ярлыки: добавьте закладки в выбранную папку или выберите другую в Настройки → Home → Ярлыки."), mkPlus());
+  else if (split) { // левая колонка, её «+», правая колонка, её «+» (при полном списке «+» скрыты, но стоят на местах — по ним mark() делит колонки)
+    const pl = mkPlus("l"), pr = mkPlus("r");
+    pl.hidden = pr.hidden = top.length >= MAX;
+    root.replaceChildren(...top.filter(n => !R.has(n.guid)).map(tileOf), pl, ...top.filter(n => R.has(n.guid)).map(tileOf), pr);
+  } else root.replaceChildren(...top.map(tileOf), ...(top.length < MAX ? [mkPlus()] : []));
   place();
   renderBox();
 }
@@ -143,14 +155,16 @@ function openDialog({ head, text, fields = [], ok, onSubmit }) {
   inputs[0]?.select();
 }
 const domain = href => new URL(href).hostname.replace(/^www\./, "");
-function openAdd() {
+function openAdd(side) {
   openDialog({ head: "Новый ярлык", ok: "Добавить", fields: [["Адрес", "example.com"], ["Название", "можно оставить пустым"]],
     async onSubmit([u, t], [ui]) {
       const href = addUrl(u);
       if (!href) { ui.classList.add("bad"); ui.focus(); return false; }
       let ok = true;
-      await mutate(async () => { try { await B.insert({ parentGuid: folder(), url: href, title: t.trim() || domain(href) }); } catch { ok = false; } });
-      if (!ok) { ui.classList.add("bad"); return false; } // папки нет и т. п.
+      const guid = PlacesUtils.history.makeGuid(), R = rightSet();
+      if (side == "r") { R.add(guid); saveRight(R); } // колонка запоминается до вставки — плитка сразу встанет в правую
+      await mutate(async () => { try { await B.insert({ guid, parentGuid: folder(), url: href, title: t.trim() || domain(href) }); } catch { ok = false; } });
+      if (!ok) { R.delete(guid); saveRight(R); ui.classList.add("bad"); return false; } // папки нет и т. п.
     } });
 }
 const edit = n => openDialog({ head: "Изменить ярлык", ok: "Сохранить", fields: [["Адрес", "example.com", n.uri], ["Название", "можно оставить пустым", n.title]],
@@ -262,9 +276,16 @@ function moveDrag(e) {
   let cont = d.boxRect && inRect(d.boxRect, e) ? grid : root;
   if (cont == root && d.fromBox && top.length >= MAX) cont = grid; // основной ряд полон — ярлык остаётся в папке
   document.querySelector(".sc-fold-back")?.classList.toggle("away", !!d.boxRect && cont == root);
-  const list = tilesOf(cont).filter(x => x != hole);
+  const cols = cont == root && layout() == "split" && !root.hasAttribute("flat"), rr = root.getBoundingClientRect(); // split: колонку выбирает курсор по половинам
+  const side = cols && e.clientX > rr.left + rr.width / 2 ? "r" : "l";
+  const list = tilesOf(cont).filter(x => x != hole && (!cols || x.dataset.col == side));
   if (hole.parentElement == cont && inRect(hole.getBoundingClientRect(), e)) return disarm(); // над своим местом
-  if (!list.length) { disarm(); if (hole.parentElement != cont) flip(() => cont.insertBefore(hole, cont.querySelector(".lumi-add"))); return; }
+  if (!list.length) { // пустая колонка — перед её «+»
+    disarm();
+    const ref = cols ? root.querySelector(`.lumi-add[data-side="${side}"]`) : cont.querySelector(".lumi-add");
+    if (cols ? hole.nextElementSibling !== ref : hole.parentElement != cont) flip(() => cont.insertBefore(hole, ref));
+    return;
+  }
   const dist = r => Math.hypot(Math.max(r.left - e.clientX, 0, e.clientX - r.right), Math.max(r.top - e.clientY, 0, e.clientY - r.bottom));
   let T = list[0], best = Infinity;
   for (const x of list) { const dd = dist(x.getBoundingClientRect()); if (dd < best) { best = dd; T = x; } }
@@ -298,24 +319,31 @@ async function endDrag(cancel) {
   if (cancel || !node) return render(true);
   const parent = inGrid ? openGuid : folder(), tgt = armed && model.get(armed.dataset.guid);
   if (tgt) return group(node, tgt);
-  const sibs = (model.get(node.parentGuid)?.children ?? []).filter(c => isLink(c) || isDir(c)), i = sibs.findIndex(c => c.guid == node.guid);
-  if (parent == node.parentGuid && (sibs[i + 1]?.guid ?? null) == next) return render(true); // место не изменилось
+  const R = rightSet(), sideOf = c => R.has(c.guid) ? "r" : "l", side = !inGrid && layout() == "split" ? hole.dataset.col : null; // колонка, куда бросили
+  const all = (model.get(node.parentGuid)?.children ?? []).filter(c => isLink(c) || isDir(c)), sibs = side ? all.filter(c => sideOf(c) == side) : all, i = sibs.findIndex(c => c.guid == node.guid);
+  if (parent == node.parentGuid && (!side || sideOf(node) == side) && (sibs[i + 1]?.guid ?? null) == next) return render(true); // место не изменилось
   return mutate(async () => {
     let index = B.DEFAULT_INDEX;
     if (next) { const nx = await B.fetch(next); index = nx.index; if (nx.parentGuid == node.parentGuid && node.index < nx.index) index--; }
     await B.update({ guid: node.guid, parentGuid: parent, index });
     if (parent != node.parentGuid) await cleanup(node.parentGuid);
+    if (inGrid) R.delete(node.guid); else if (side) side == "r" ? R.add(node.guid) : R.delete(node.guid);
+    saveRight(R);
   });
 }
 function group(src, tgt) { // ярлык на ярлык → новая папка из двух; ярлык на папку → внутрь
   return mutate(async () => {
     let dest = tgt.guid;
+    const R = rightSet();
     if (!isDir(tgt)) {
       const f = await B.insert({ parentGuid: folder(), type: B.TYPE_FOLDER, title: "Папка", index: (await B.fetch(tgt.guid)).index });
       await B.update({ guid: tgt.guid, parentGuid: f.guid, index: 0 });
       dest = f.guid;
+      if (R.delete(tgt.guid)) R.add(f.guid); // папка остаётся в колонке цели
     }
     await B.update({ guid: src.guid, parentGuid: dest, index: B.DEFAULT_INDEX });
+    R.delete(src.guid);
+    saveRight(R);
     await cleanup(src.parentGuid);
   });
 }
@@ -350,7 +378,8 @@ window.addEventListener("blur", closeMenu);
 const open = (a, background) => win.openTrustedLinkIn(a.dataset.url, "tab", { inBackground: background });
 document.addEventListener("click", e => {
   if (e.button) return; // в chrome-документе click приходит и для ПКМ. Не гасить его: preventDefault на click(2) делает mouseup «погашенным», и Windows не шлёт contextmenu
-  if (e.target.closest(".lumi-add")) return openAdd();
+  const plus = e.target.closest(".lumi-add");
+  if (plus) return openAdd(plus.dataset.side);
   const a = e.target.closest(".lumi-tile");
   if (!a || a.classList.contains("sc-ghost")) return;
   e.preventDefault();
@@ -369,23 +398,39 @@ const later = () => { clearTimeout(timer); timer = setTimeout(render, 200); };
 const events = ["bookmark-added", "bookmark-removed", "bookmark-moved", "bookmark-title-changed", "bookmark-url-changed"];
 PlacesUtils.observers.addListener(events, later);
 Services.prefs.addObserver(PREF, later);
+Services.prefs.addObserver(RIGHT, later);
 // пресет вида (glass | minimal | dock | cards): атрибут на body, CSS в shortcuts.css; перерисовка не нужна
 // расположение (below | bottom | left | right | split): атрибут на body, CSS в shortcuts.css. Колонки — сетка с --sc-rows строк; не помещаются
 // или задели бы часы/поиск/край экрана — [flat] на #lumi-shortcuts = вид «под поиском» (place())
 const LAYOUTS = ["below", "bottom", "left", "right", "split"], COLS = ["left", "right", "split"];
 const layout = () => document.body.getAttribute("lumi-sc-layout");
 const vertical = () => !root.hasAttribute("flat") && COLS.includes(layout());
-function mark() { // split: правая колонка начинается с первой строки; в левой ceil(n/2) ярлыков, в правой остальные и «+»
+function mark() { // split: каждая плитка в своей колонке (data-col l/r по месту в DOM: до первого «+» — левая), строки считаются по колонке отдельно
   if (layout() != "split") return;
-  const t = tilesOf(root), L = Math.ceil(t.length / 2);
-  root.style.setProperty("--sc-rows", Math.max(L, t.length - L + 1));
-  root.style.setProperty("--sc-l", L);
-  t.forEach((x, i) => x.style.gridRow = i == L ? "1" : "");
+  const n = { l: 0, r: 0 };
+  let side = "l";
+  for (const c of root.children) {
+    const plus = c.classList.contains("lumi-add");
+    if (!plus && !c.classList.contains("lumi-tile")) continue;
+    c.dataset.col = side;
+    if (!c.hidden) { c.style.gridColumn = side == "l" ? "1" : "2"; c.style.gridRow = ++n[side]; }
+    if (plus && c.dataset.side == "l") side = "r";
+  }
+  // каждая колонка центрируется по вертикали сама (сдвиг top в CSS), чтобы одна не двигала другую
+  root.style.removeProperty("--sc-th"); // строки одинаковой высоты (по самой высокой плитке): «+» одной колонки не зависит от плиток другой
+  const h = Math.max(0, ...tilesOf(root).map(t => t.getBoundingClientRect().height)), gap = parseFloat(getComputedStyle(root).rowGap) || 0, F = document.getElementById("lumi-first").clientHeight;
+  const y = k => Math.max(0, (F - (k * h + Math.max(0, k - 1) * gap)) / 2);
+  if (h) root.style.setProperty("--sc-th", h + "px");
+  root.style.setProperty("--sc-rows", Math.max(n.l, n.r, 1));
+  root.style.setProperty("--sc-l", Math.max(n.l, 1));
+  root.style.setProperty("--sc-r", Math.max(n.r, 1));
+  root.style.setProperty("--sc-yl", y(n.l) + "px");
+  root.style.setProperty("--sc-yr", y(n.r) + "px");
 }
 function crowded() { // ярлык вылез за первый экран или задел часы/поиск
   const f = document.getElementById("lumi-first").getBoundingClientRect(), pad = 12;
   const avoid = ["lumi-clock", "lumi-search"].map(id => document.getElementById(id).getBoundingClientRect()).filter(r => r.width && r.height);
-  return [...root.children].some(c => { const r = c.getBoundingClientRect();
+  return [...root.children].filter(c => c.getClientRects().length).some(c => { const r = c.getBoundingClientRect();
     return r.top < f.top || r.bottom > f.bottom || r.left < f.left || r.right > f.right
       || avoid.some(a => r.left < a.right + pad && r.right > a.left - pad && r.top < a.bottom + pad && r.bottom > a.top - pad); });
 }
@@ -393,7 +438,7 @@ function place() {
   if (drag?.on) return;
   const lay = layout(), tiles = tilesOf(root), n = tiles.length;
   root.removeAttribute("flat");
-  tiles.forEach(t => t.style.gridRow = "");
+  for (const c of root.children) c.style.gridRow = c.style.gridColumn = "";
   if (COLS.includes(lay) && n) {
     if (lay == "split") mark();
     else { // строк в колонке: сколько влезает по высоте, поровну между колонками
@@ -405,7 +450,7 @@ function place() {
   }
   if (lay != "below" && (!n || crowded())) root.setAttribute("flat", "");
 }
-const applyLayout = () => { const v = Services.prefs.getStringPref(LAYOUT, "below"); document.body.setAttribute("lumi-sc-layout", LAYOUTS.includes(v) ? v : "below"); place(); };
+const applyLayout = () => { const v = Services.prefs.getStringPref(LAYOUT, "below"); document.body.setAttribute("lumi-sc-layout", LAYOUTS.includes(v) ? v : "below"); place(); render(); }; // render: split строит две колонки с двумя «+»
 Services.prefs.addObserver(LAYOUT, applyLayout);
 applyLayout();
 const ro = new ResizeObserver(() => place()); // окно, часы или поиск изменили размер
@@ -417,6 +462,7 @@ applyPreset();
 window.addEventListener("unload", () => {
   PlacesUtils.observers.removeListener(events, later);
   Services.prefs.removeObserver(PREF, later);
+  Services.prefs.removeObserver(RIGHT, later);
   Services.prefs.removeObserver(PRESET, onPreset);
   Services.prefs.removeObserver(LAYOUT, applyLayout);
   ro.disconnect();
@@ -426,8 +472,8 @@ document.addEventListener("visibilitychange", () => { if (!document.hidden) late
 let nearE = null, nearRaf = 0;
 document.addEventListener("pointermove", e => { nearE = e; nearRaf ||= requestAnimationFrame(() => {
   nearRaf = 0;
-  const r = root.querySelector(".lumi-add")?.getBoundingClientRect(), p = nearE;
-  root.toggleAttribute("near", !!(p && r && (p.target.closest?.("#lumi-shortcuts") || Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100)));
+  const p = nearE, rs = [...root.querySelectorAll(".lumi-add")].map(b => b.getBoundingClientRect()).filter(r => r.width);
+  root.toggleAttribute("near", !!(p && rs.length && (p.target.closest?.("#lumi-shortcuts") || rs.some(r => Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100))));
 }); });
 document.addEventListener("mouseout", e => { if (!e.relatedTarget) { nearE = null; root.removeAttribute("near"); } }); // курсор ушёл из окна
 window.lumiShortcuts = { render, folder, get tiles() { return [...root.querySelectorAll(".lumi-tile")]; }, get boxTiles() { return [...document.querySelectorAll(".sc-grid .lumi-tile")]; }, openBox, closeBox, get dragging() { return !!drag?.on; } };

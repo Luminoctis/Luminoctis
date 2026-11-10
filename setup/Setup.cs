@@ -11,6 +11,7 @@ using System.IO;
 using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -28,7 +29,7 @@ using System.Windows.Threading;
 class Prof { public string Name, Dir; public bool IsDefault; }
 class Mod { public string Id, Name; }
 class Probe {
-  public string ZenDir, Profile, Installed;
+  public string ZenDir, Profile, Installed, DataDir; // DataDir — pref luminoctis.home.dir профиля (null = папка по умолчанию)
   public bool Sine;
   public List<Prof> Profiles = new List<Prof>();
   public List<Mod> Mods = new List<Mod>();
@@ -50,6 +51,7 @@ class Ui {
   DispatcherTimer poll;
   FrameworkElement[] screens;
   bool busy;
+  string dataDir;                      // папка данных мода (null = «Документы\Luminoctis Home», pref не пишем)
 
   T F<T>(string n) where T : class { return (T)Root.FindName(n); }
   TextBlock Tb(string n) { return F<TextBlock>(n); }
@@ -76,6 +78,7 @@ class Ui {
     Bt("OYes").Click += (s, e) => { Vis("Overlay", false); if (confirmYes != null) confirmYes(); };
     Bt("WAdvLink").Click += (s, e) => ToggleAdv();
     Bt("WBackups").Click += (s, e) => OpenBackups();
+    Bt("WDataPick").Click += (s, e) => PickData();
     Bt("WPrimary").Click += (s, e) => Go(false);
     Bt("WSecondary").Click += (s, e) => Confirm("un.title", "un.text", "un.yes", "cancel", () => Go(true));
     Bt("MContinue").Click += (s, e) => {
@@ -99,6 +102,8 @@ class Ui {
     Bt("WBackups").Content = Str.T("w.backups");
     Bt("MContinue").Content = Str.T("mods.btn");
     Tb("WAdvLabel").Text = Str.T("w.profile");
+    Tb("WDataLabel").Text = Str.T("w.data");
+    Bt("WDataPick").Content = Str.T("w.datapick");
     relang = true;
     try {
       if (redraw != null) redraw();
@@ -176,6 +181,18 @@ class Ui {
       rb.Checked += (s, e) => { var d = (string)((RadioButton)s).Tag; if (!Same(d, profile)) ReProbe(d); };
       box.Children.Add(rb);
     }
+    Tb("WDataPath").Text = dataDir ?? DefaultData();
+  }
+
+  static string DefaultData() { return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments), "Luminoctis Home"); }
+
+  // выбранная папка — родитель: данные кладём в её подпапку «Luminoctis Home», а не россыпью в корень
+  void PickData() {
+    var p = FolderPicker.Pick(Win, Str.T("w.data"), dataDir ?? DefaultData());
+    if (p == null) return;
+    if (!string.Equals(Path.GetFileName(p.TrimEnd('\\')), "Luminoctis Home", StringComparison.OrdinalIgnoreCase)) p = Path.Combine(p, "Luminoctis Home");
+    dataDir = p;
+    Tb("WDataPath").Text = p;
   }
 
   void OpenBackups() {
@@ -210,7 +227,7 @@ class Ui {
     var d = (Dictionary<string, object>)new JavaScriptSerializer().DeserializeObject(json);
     var r = new Probe();
     Func<string, string> s = k => d.ContainsKey(k) ? d[k] as string : null;
-    r.ZenDir = s("zenDir"); r.Profile = s("profile"); r.Installed = s("installedVersion");
+    r.ZenDir = s("zenDir"); r.Profile = s("profile"); r.Installed = s("installedVersion"); r.DataDir = s("dataDir");
     r.Sine = d["sine"] is bool && (bool)d["sine"];
     foreach (var o in (d["profiles"] as System.Collections.IEnumerable) ?? new object[0]) {
       var m = (Dictionary<string, object>)o;
@@ -244,7 +261,7 @@ class Ui {
       var r = t.Status == TaskStatus.RanToCompletion ? t.Result : null;
       if (r == null) { FailScreen(null, "probe"); return; }
       if (keepWelcome && pr != null && r.ZenDir == null) r.ZenDir = pr.ZenDir;
-      pr = r;
+      pr = r; dataDir = r.DataDir;
       profile = Forced ? profile : (r.Profile ?? (r.Profiles.Count > 0 ? r.Profiles[0].Dir : null));
       if (!Forced && r.Profile == null && profile != null && !keepWelcome) { BeginProbe(profile, true); return; } // нет профиля по умолчанию: берём первый
       AfterProbe();
@@ -255,7 +272,7 @@ class Ui {
     profile = prof; Bt("WPrimary").IsEnabled = false; Bt("WSecondary").IsEnabled = false;
     Task.Run(() => DoProbe(prof)).ContinueWith(t => {
       var r = t.Status == TaskStatus.RanToCompletion ? t.Result : null;
-      if (r != null) { if (r.ZenDir == null) r.ZenDir = pr.ZenDir; pr = r; }
+      if (r != null) { if (r.ZenDir == null) r.ZenDir = pr.ZenDir; pr = r; dataDir = r.DataDir; }
       ShowWelcomeKeepAdv();
     }, TaskScheduler.FromCurrentSynchronizationContext());
   }
@@ -291,11 +308,10 @@ class Ui {
   }
 
   void PickZen() {
-    using (var d = new System.Windows.Forms.FolderBrowserDialog()) {
-      if (d.ShowDialog() != System.Windows.Forms.DialogResult.OK) return;
-      if (!File.Exists(Path.Combine(d.SelectedPath, "zen.exe"))) { ShowNoZen("nozen.bad"); return; }
-      ZenOverride = d.SelectedPath; Start();
-    }
+    var p = FolderPicker.Pick(Win, Str.T("nozen.pick"), Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles));
+    if (p == null) return;
+    if (!File.Exists(Path.Combine(p, "zen.exe"))) { ShowNoZen("nozen.bad"); return; }
+    ZenOverride = p; Start();
   }
 
   void Go(bool un) {
@@ -370,6 +386,7 @@ class Ui {
     if (un) args += " -Uninstall";
     else if (disable != null && disable.Count > 0) args += " -DisableMods \"" + string.Join(",", disable) + "\"";
     else args += " -KeepMods";
+    if (!un && dataDir != null) args += " -DataDir \"" + dataDir.TrimEnd('\\') +"\"";
     string done = null, err = null; var sw = Stopwatch.StartNew();
     var ui = TaskScheduler.FromCurrentSynchronizationContext();
     Task.Run(() => Ps(args, l => {
@@ -469,6 +486,7 @@ class Ui {
       case "welcome-fresh": ShowWelcome(); break;
       case "welcome-installed": pr.Installed = "0.3.2"; ShowWelcome(); break;
       case "welcome-advanced": pr.Installed = "0.4.0"; ShowWelcome(); ToggleAdv(); break;
+      case "welcome-data": pr.Installed = "0.4.0"; dataDir = @"E:\Luminoctis Home"; ShowWelcome(); ToggleAdv(); break;
       case "zen-running": ShowZenRunning(); StopPoll(); break;
       case "mods": ShowMods(); break;
       case "progress": Prog("p.install", "step.files"); Vis("PBar", true); F<ProgressBar>("PBar").Value = 66; Show(F<FrameworkElement>("ScProg"), false); break;
@@ -482,6 +500,45 @@ class Ui {
       case "noprofile": ShowNoProf(); break;
       default: throw new Exception("unknown screen " + name);
     }
+  }
+}
+
+// Выбор папки окном Проводника (IFileOpenDialog с FOS_PICKFOLDERS); старый FolderBrowserDialog .NET — лишь маленькое дерево папок
+static class FolderPicker {
+  [ComImport, Guid("DC1C5A9C-E88A-4dde-A5A1-60F82A20AEF7")] class FileOpenDialog { }
+  [ComImport, Guid("42f85136-db7e-439c-85f1-e4075d135fc8"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IFileDialog { // порядок методов = vtable; объявлены только до GetResult
+    [PreserveSig] int Show(IntPtr owner);
+    void SetFileTypes(uint n, IntPtr spec); void SetFileTypeIndex(uint i); void GetFileTypeIndex(out uint i);
+    void Advise(IntPtr sink, out uint cookie); void Unadvise(uint cookie);
+    void SetOptions(uint fos); void GetOptions(out uint fos);
+    void SetDefaultFolder(IShellItem si); void SetFolder(IShellItem si); void GetFolder(out IShellItem si); void GetCurrentSelection(out IShellItem si);
+    void SetFileName([MarshalAs(UnmanagedType.LPWStr)] string name); void GetFileName(out IntPtr name);
+    void SetTitle([MarshalAs(UnmanagedType.LPWStr)] string title); void SetOkButtonLabel([MarshalAs(UnmanagedType.LPWStr)] string text); void SetFileNameLabel([MarshalAs(UnmanagedType.LPWStr)] string text);
+    void GetResult(out IShellItem si);
+  }
+  [ComImport, Guid("43826D1E-E718-42EE-BC55-A1E261C37BFE"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+  interface IShellItem {
+    void BindToHandler(IntPtr pbc, ref Guid bhid, ref Guid riid, out IntPtr ppv); void GetParent(out IShellItem si);
+    void GetDisplayName(uint sigdn, [MarshalAs(UnmanagedType.LPWStr)] out string name);
+  }
+  [DllImport("shell32.dll", CharSet = CharSet.Unicode, PreserveSig = false)]
+  static extern void SHCreateItemFromParsingName(string path, IntPtr pbc, [MarshalAs(UnmanagedType.LPStruct)] Guid riid, out IShellItem si);
+
+  // null — отмена; start — папка, с которой открыть окно (берётся ближайшая существующая сверху)
+  public static string Pick(Window owner, string title, string start) {
+    var d = (IFileDialog)new FileOpenDialog();
+    try {
+      d.SetOptions(0x20 | 0x40 | 0x800); // PICKFOLDERS | FORCEFILESYSTEM | PATHMUSTEXIST
+      d.SetTitle(title);
+      while (!string.IsNullOrEmpty(start) && !Directory.Exists(start)) start = Path.GetDirectoryName(start);
+      if (!string.IsNullOrEmpty(start)) { IShellItem f; SHCreateItemFromParsingName(start, IntPtr.Zero, typeof(IShellItem).GUID, out f); d.SetFolder(f); }
+      var h = owner == null ? IntPtr.Zero : new System.Windows.Interop.WindowInteropHelper(owner).Handle;
+      if (d.Show(h) != 0) return null; // 0x800704C7 — отмена
+      IShellItem r; d.GetResult(out r);
+      string path; r.GetDisplayName(0x80058000, out path); // SIGDN_FILESYSPATH
+      return path;
+    } finally { Marshal.ReleaseComObject(d); }
   }
 }
 

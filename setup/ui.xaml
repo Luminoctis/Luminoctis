@@ -167,6 +167,12 @@
               <StackPanel x:Name="WAdv" Visibility="Collapsed" Margin="0,0,0,8">
                 <TextBlock x:Name="WAdvLabel" FontSize="12" Foreground="#565f89"/>
                 <ScrollViewer MaxHeight="80" VerticalScrollBarVisibility="Auto" Margin="0,4,0,0"><StackPanel x:Name="WProfiles"/></ScrollViewer>
+                <TextBlock x:Name="WDataLabel" FontSize="12" Foreground="#565f89" Margin="0,10,0,0"/>
+                <Grid Margin="0,4,0,0">
+                  <Grid.ColumnDefinitions><ColumnDefinition Width="*"/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+                  <TextBlock x:Name="WDataPath" FlowDirection="LeftToRight" FontSize="13" Foreground="#a9b1d6" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
+                  <Button x:Name="WDataPick" Grid.Column="1" Style="{StaticResource Ghost}" Height="30" MinWidth="110" Margin="10,0,0,0"/>
+                </Grid>
               </StackPanel>
               <Grid>
                 <Button x:Name="WAdvLink" Style="{StaticResource Link}" HorizontalAlignment="Left"/>

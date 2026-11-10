@@ -6,9 +6,10 @@
 #   -Yes                            отвечать «да» на все вопросы
 #   -Probe                          ничего не менять, вывести одну строку JSON (Zen, профили, версия, мешающие моды, Sine) — для Luminoctis-Setup.exe
 #   -DisableMods <id,id> / -KeepMods  заранее решить, какие мешающие моды выключить (без вопроса); для графического установщика
+#   -DataDir <папка>                папка данных мода (заметки, обои) → pref luminoctis.home.dir; без параметра не трогаем
 #   -Update                         как -Yes, но выключенные ранее моды Zen заново не трогает (зовёт update.ps1 при обновлении из мода)
 # Повторный запуск = обновление/починка. Источники берутся от корня репозитория (папка выше installer\).
-param([string]$ZenDir, [string]$ProfileDir, [switch]$Uninstall, [switch]$Yes, [switch]$Update, [switch]$Probe, [string]$DisableMods, [switch]$KeepMods)
+param([string]$ZenDir, [string]$ProfileDir, [switch]$Uninstall, [switch]$Yes, [switch]$Update, [switch]$Probe, [string]$DisableMods, [switch]$KeepMods, [string]$DataDir)
 $ErrorActionPreference = 'Stop'
 [Console]::OutputEncoding = [Text.Encoding]::UTF8
 $root = Split-Path $PSScriptRoot -Parent
@@ -106,8 +107,10 @@ if ($Probe) {
   }
   $cur = $null
   if ($ProfileDir) { $cur = $ProfileDir } else { $c = @($plist | Where-Object isDefault); if ($c) { $cur = $c[0].dir } }
-  $ver = $null; $hitsP = @(); $sine = $false
+  $ver = $null; $hitsP = @(); $sine = $false; $dd = $null
   if ($cur -and (Test-Path $cur)) {
+    $pf = Join-Path $cur 'prefs.js'
+    if (Test-Path $pf) { $raw = Get-PrefRaw ([IO.File]::ReadAllLines($pf, $utf8)) 'luminoctis.home.dir'; if ($raw) { try { $dd = $raw | ConvertFrom-Json } catch {} } }
     $sf = Join-Path $cur 'luminoctis-install.json'
     if (Test-Path $sf) { try { $ver = ([IO.File]::ReadAllText($sf) | ConvertFrom-Json).version } catch {} }
     $mf = Join-Path $cur 'zen-themes.json'
@@ -124,7 +127,7 @@ if ($Probe) {
     $pd = if ($zd -match '\\scoop\\apps\\') { ($zd -replace '\\apps\\.*$', '') + '\persist\zen-browser\addition' } else { $zd }
     foreach ($cj in (Join-Path $zd 'config.js'), (Join-Path $pd 'config.js')) { if ((Test-Path $cj) -and (Select-String -Path $cj -Pattern 'sine' -Quiet)) { $sine = $true } }
   }
-  [ordered]@{ zenDir = $zd; profile = $cur; profiles = $plist; installedVersion = $ver; overlapMods = $hitsP; sine = $sine } | ConvertTo-Json -Compress -Depth 5
+  [ordered]@{ zenDir = $zd; profile = $cur; profiles = $plist; installedVersion = $ver; overlapMods = $hitsP; sine = $sine; dataDir = $dd } | ConvertTo-Json -Compress -Depth 5
   exit 0
 }
 
@@ -225,6 +228,11 @@ if ($Uninstall) {
 if (Test-Path (Join-Path $chrome 'sine-mods')) { Fail 'Найден Sine (chrome\sine-mods). Luminoctis с ним не совместим: Sine подменяет загрузчик скриптов. Удалите Sine или используйте другой профиль.' 'sine' }
 foreach ($cj in (Join-Path $ZenDir 'config.js'), (Join-Path $progDir 'config.js')) {
   if ((Test-Path $cj) -and (Select-String -Path $cj -Pattern 'sine' -Quiet)) { Fail "В $cj упоминается Sine. Luminoctis с ним не совместим." 'sine' }
+}
+
+# папку данных проверяем до любых правок: недоступная папка не должна оставить установку наполовину
+if ($DataDir) {
+  try { New-Item -ItemType Directory -Force $DataDir | Out-Null } catch { Fail "Не удалось создать папку данных: $DataDir" 'datadir' $DataDir }
 }
 
 # --- 4. Программная часть fx-autoconfig ---
@@ -342,6 +350,9 @@ Write-Mods $mods $modsFile
 # --- настройки Zen ---
 Step 6 $total 'prefs'
 Set-Prefs $prefsFile @($newPrefs.Keys) $newPrefs
+if ($DataDir) {
+  Set-Prefs $prefsFile @('luminoctis.home.dir') @{ 'luminoctis.home.dir' = '"' + $DataDir.Replace('\', '\\').Replace('"', '\"') + '"' }
+}
 foreach ($c in $cacheDirs) { Remove-Item $c -Recurse -Force -ErrorAction SilentlyContinue }
 
 # --- 8. Состояние ---

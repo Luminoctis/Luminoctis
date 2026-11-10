@@ -10,9 +10,10 @@
   const keys = ChromeUtils.importESModule(jsUrl("lumi-keys.sys.mjs"));
   const h = (tag, className, props = {}) =>
     Object.assign(document.createElement(tag), { className }, props);
-  const labeled = (el, text) => {
-    el.setAttribute("aria-label", text);
-    el.title = text;
+  const labeled = (el, text, title = text) => {
+    if (el.getAttribute("aria-label") != text) el.setAttribute("aria-label", text);
+    if (title == null) el.hasAttribute("title") && el.removeAttribute("title");
+    else if (el.getAttribute("title") != title) el.setAttribute("title", title);
     return el;
   };
 
@@ -22,8 +23,6 @@
   const SETTINGS_URL = pageUrl("settings/settings.html");
   let settings;
   const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches; // «уменьшить анимацию» — общая для рейки и полосы
-  // [lumi-settings-open] на корне — метка «панель открыта» (стилей на неё сейчас нет: размытие под панелью — backdrop-filter у #lumi-settings, chrome.css §14)
-  const syncSettingsFlag = () => document.documentElement.toggleAttribute("lumi-settings-open", !!settings && !settings.hidden);
   // Заглушка вместо пустой/дефолтной/битой иконки сайта (вкладка ещё грузится, у сайта нет значка): аккуратная точка цвета текста.
   // В img ставится прозрачный пиксель, а саму точку рисует CSS (img[lumi-dot], chrome.css раздел 6) — context-fill у data:-картинок не работает.
   const DOT = "data:image/gif;base64,R0lGODlhAQABAAAAACH5BAEKAAEALAAAAAABAAEAAAICTAEAOw==";
@@ -58,11 +57,9 @@
         settings.hidden = false;
       }
       settings.firstChild.focus(); // чтобы Esc сразу закрывал
-      syncSettingsFlag();
     },
     closeSettings() {
       if (settings) settings.hidden = true;
-      syncSettingsFlag();
     },
     // закрепы — для панели настроек и самопроверок (dev\check-pins.js)
     openTime, // LumiTime целиком — вкладкой (панель: settings|stats|journal|day)
@@ -128,7 +125,7 @@
     initPlayers(players);
     initTaskDot(logo);
     initRailMenu(rail);
-    setInterval(unloadIdleTabs, 60000);
+    watchUnloadTimer();
     gZenWorkspaces.promiseInitialized
       .then(() => SessionStore.promiseAllWindowsRestored)
       .then(migratePins)
@@ -703,8 +700,7 @@
       });
       pinButtons.set(tab, btn);
     }
-    labeled(btn, tab.label);
-    if (window.lumiHover?.enabled() ?? true) btn.removeAttribute("title"); // вместо подсказки — карточка (lumi-hovercard.uc.js)
+    labeled(btn, tab.label, window.lumiHover?.enabled() ?? true ? null : tab.label); // вместо подсказки — карточка (lumi-hovercard.uc.js)
     setIcon(btn.firstChild, pinIcon(tab));
     btn.toggleAttribute("pending", tab.hasAttribute("pending"));
     const g = tab.glanceTab;
@@ -799,6 +795,19 @@
   // Своего таймера у Zen 1.23 нет. Раз в минуту родной выгрузкой Firefox выгружаем вкладки и закрепы, которые не выбраны,
   // не на виду (под мини-окном закрепа и в Split view у них zenModeActive), ничего не играют и неактивны дольше N минут.
   // Вкладку с открытым диалогом или вопросом «покинуть страницу?» discardBrowser сам не трогает.
+  // Интервал крутится, только пока настройка > 0 (при 0 — «никогда» — зря не будим окно раз в минуту)
+  function watchUnloadTimer() {
+    const PREF = "luminoctis.tabs.unload-minutes";
+    let timer;
+    const sync = () => {
+      const on = Services.prefs.getIntPref(PREF, 0) > 0;
+      if (on && !timer) timer = setInterval(unloadIdleTabs, 60000);
+      else if (!on && timer) timer = clearInterval(timer);
+    };
+    Services.prefs.addObserver(PREF, sync);
+    window.addEventListener("unload", () => { Services.prefs.removeObserver(PREF, sync); clearInterval(timer); }, { once: true });
+    sync();
+  }
   function unloadIdleTabs() {
     const minutes = Services.prefs.getIntPref("luminoctis.tabs.unload-minutes", 0);
     if (!minutes) return;

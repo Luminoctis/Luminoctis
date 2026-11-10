@@ -69,10 +69,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const glance = tab.glanceTab;
     item.toggleAttribute("glance", !!glance);
     if (glance) luminoctis.setIcon(item.glanceEl, gBrowser.getIcon(glance));
-    item.labelEl.textContent = tab.label;
+    if (item.labelEl.textContent != tab.label) item.labelEl.textContent = tab.label;
     // родная подсказка-title дублировала бы карточку при наведении (js/lumi-hovercard.uc.js); без карточки — остаётся
-    if (hoverCard) item.removeAttribute("title");
-    else item.title = tab.label;
+    const title = hoverCard ? null : tab.label;
+    if (item.getAttribute("title") != title) title == null ? item.removeAttribute("title") : item.setAttribute("title", title);
     item.toggleAttribute("selected", tab.selected || !!glance?.selected); // пока открыт Glance, выбрана его вкладка — подсвечиваем родителя
     item.toggleAttribute("multiselected", tab.multiselected || (tab.selected && gBrowser.multiSelectedTabsCount > 0)); // Ctrl/Shift+клик
     item.toggleAttribute("unloadable", unloadable(tab));

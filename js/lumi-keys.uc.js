@@ -10,7 +10,7 @@
   const WRAP = "luminoctis.keys.wrap";
 
   function step(dir) {
-    const tabs = [...document.querySelectorAll("#lumi-tabs > .lumi-tab")].map(el => el.tab).filter(Boolean);
+    const tabs = [...document.querySelectorAll("#lumi-tabs > .lumi-tab:not([closing])")].map(el => el.tab).filter(Boolean);
     if (!tabs.length) return;
     const i = tabs.indexOf(gBrowser.selectedTab);
     let to;
@@ -29,7 +29,7 @@
     else if (event.altKey && !event.ctrlKey && !event.shiftKey && !event.metaKey && /^Digit\d$/.test(event.code)) { // Alt+цифровой блок — Alt-коды Windows, не трогаем
       const n = +event.code.slice(-1);
       handled = true;
-      document.querySelectorAll("#lumi-pins .lumi-pin")[(n || 10) - 1]?.click();
+      if (!event.repeat) document.querySelectorAll("#lumi-pins .lumi-pin")[(n || 10) - 1]?.click();
     }
     if (handled) (event.preventDefault(), event.stopPropagation());
   }, true);

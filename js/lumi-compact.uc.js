@@ -23,7 +23,7 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
   }, true);
 
   for (const zone of [
-    { attr: "lumi-show-sidebar", el: rail, hot: "lumi-hot-left" },
+    { attr: "lumi-show-sidebar", el: rail, hot: "lumi-hot-left", pref: "luminoctis.compact.sidebar" },
     { attr: "lumi-show-tabstrip", el: strip, hot: "lumi-hot-top", pref: "luminoctis.compact.tabstrip" },
   ]) {
     const hot = Object.assign(document.createElement("div"), { id: zone.hot });

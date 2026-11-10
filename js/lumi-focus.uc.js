@@ -11,6 +11,8 @@
   const engine = ChromeUtils.importESModule(jsUrl("lumi-time.sys.mjs"));
   const strict = ChromeUtils.importESModule(jsUrl("lumi-strict.sys.mjs"));
   const BLOCK = pageUrl("home/time-block.html");
+  // заглушка — витрина, а не сайт: адресная строка пуста, как у Home (список начальных страниц Firefox; сверяется без ?query)
+  if (typeof gInitialPages != "undefined" && !gInitialPages.includes(BLOCK)) gInitialPages.push(BLOCK);
   // движок запускает рейка (lumi-rail.uc.js, E.init()); до загрузки данных focusBlock — null
 
   const observer = {

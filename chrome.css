@@ -21,7 +21,7 @@
   --lumi-mono: "JetBrains Mono", Consolas, monospace;
   --lumi-radius: 16px;
 
-  /* Zen ставит цвета рабочего пространства инлайн-стилем на :root — поэтому !important */
+  /* Zen ставит цвета рабочего пространства инлайн-стилем — поэтому !important */
   --zen-primary-color: var(--lumi-accent) !important;
   --zen-main-browser-background: var(--lumi-bg0) !important;
   --zen-main-browser-background-toolbar: var(--lumi-bg0) !important;
@@ -51,6 +51,14 @@
   --panel-separator-color: var(--lumi-raised) !important;
   --focus-outline-color: var(--lumi-accent) !important;
   --color-accent-primary: var(--lumi-accent) !important;
+}
+/* Цвет пространства Zen (свой градиент в «Цвете пространства») пишет инлайн-стилем прямо на свои подложки, а не на :root —
+ * без этого он просвечивал в щелях вокруг вкладок и рейки, а в прозрачном режиме закрывал стекло (2026-11-10, Zen 1.24) */
+:root:not([lumi-home-live="site"]) :is(#zen-browser-background, .zen-toolbar-background) { /* под сайтом с Zen Internet родные слои Zen оставлены намеренно (раздел 14) */
+  --zen-main-browser-background: var(--lumi-bg0) !important;
+  --zen-main-browser-background-toolbar: var(--lumi-bg0) !important;
+  --zen-main-browser-background-old: var(--lumi-bg0) !important;
+  --zen-main-browser-background-toolbar-old: var(--lumi-bg0) !important;
 }
 
 ::selection { background: color-mix(in srgb, var(--lumi-accent) 35%, transparent); }

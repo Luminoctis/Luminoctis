@@ -131,7 +131,9 @@ const paint = doc => {
     glass && t in LIFT ? `color-mix(in srgb, ${c[t]} ${Math.min(100, solid + LIFT[t])}%, transparent)` : c[t]);
   const cs = glass ? 100 - Math.min(90, Math.max(0, Services.prefs.getIntPref(COMPACT, 45))) : 100; // в непрозрачном режиме — сплошные
   for (const [v, t] of [["compact-bg", "bg0"], ["compact-bg1", "bg1"]]) root.style.setProperty(`--lumi-${v}`, cs == 100 ? c[t] : `color-mix(in srgb, ${c[t]} ${cs}%, transparent)`);
-  root.style.setProperty("--lumi-solid", c.bg0); // непрозрачный bg0: текст на акценте, подложка сайтов
+  // непрозрачный bg0: текст на акценте, подложка сайтов. В стекле — 99%: сплошной (100%) фон Firefox считает «непрозрачной областью» окна
+  // и сужает под ней стекло Windows — при загрузке и переключении вкладок вылезали чёрные полосы (js/lumi-home-live.uc.js, fullGlass)
+  root.style.setProperty("--lumi-solid", glass ? `color-mix(in srgb, ${c.bg0} 99%, transparent)` : c.bg0);
   root.toggleAttribute("lumi-glass", glass);
   root.toggleAttribute("lumi-wallpaper", glass && mode == "wallpaper");
   root.toggleAttribute("lumi-private", priv);

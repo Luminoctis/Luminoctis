@@ -957,9 +957,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   /* и сам <browser>: без мода Transparent Zen (установщик отключает его как пересекающийся) Zen красит прозрачные <browser[transparent]> белым
    * (--zen-transparent-browser-background: белый 10% в тёмной теме, 60% в светлой) — белёсая дымка поверх страниц Zen Internet. Мод Transparent Zen это и снимал
    * (.browserStack > browser { background: transparent }) — делаем то же, страница стоит прямо на стекле окна */
-  @media -moz-pref("browser.tabs.allow_transparent_browser") {
-    & #tabbrowser-tabpanels browser[type="content"] { background: transparent !important; }
-  }
+  /* без прозрачных сайтов — тоже: Zen красит <browser> сплошным #202020, а сплошной фон сужает стекло окна (см. --lumi-solid в js/lumi-palette.sys.mjs);
+   * под страницей и так подложка --lumi-solid */
+  & #tabbrowser-tabpanels browser[type="content"] { background: transparent !important; }
 
   & #lumi-rail { border-color: var(--lumi-glass-edge); }
   /* одинаковая прозрачность везде (прозрачный режим и «Обои»): у рейки и невыбранных вкладок своей заливки нет — один слой фона окна;

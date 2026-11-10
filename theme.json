@@ -7,7 +7,7 @@
   "readme": "README.md",
   "image": "",
   "author": "Laith",
-  "version": "0.5.28",
+  "version": "0.5.33",
   "tags": [
     "tokyo-night",
     "compact",
@@ -88,6 +88,9 @@
         "chrome://browser/content/browser.xhtml"
       ],
       "name": "lumi-keys"
+    },
+    "js/lumi-glass.sys.mjs": {
+      "name": "lumi-glass"
     },
     "js/lumi-keys.sys.mjs": {
       "name": "lumi-keys"

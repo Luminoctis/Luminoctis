@@ -17,6 +17,7 @@
 (() => {
   const { jsUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   const { windowMode } = ChromeUtils.importESModule(jsUrl("lumi-palette.sys.mjs"));
+  const { setGlass } = ChromeUtils.importESModule(jsUrl("lumi-glass.sys.mjs"));
   const mica = matchMedia("(-moz-windows-mica)"); // без него Windows не рисует прозрачные пиксели окна
   const DESKTOP = "desktop";
 
@@ -34,7 +35,7 @@
       const dwm = ctypes.open("dwmapi.dll"), gdi = ctypes.open("gdi32.dll"), W = ctypes.winapi_abi, P = ctypes.voidptr_t;
       U = { ctypes, ACCENT, DATA, BB, MARGINS, comp: lib.declare("SetWindowCompositionAttribute", W, I, P, DATA.ptr),
         blurBehind: dwm.declare("DwmEnableBlurBehindWindow", W, I, P, BB.ptr), extend: dwm.declare("DwmExtendFrameIntoClientArea", W, I, P, MARGINS.ptr),
-        attr: dwm.declare("DwmSetWindowAttribute", W, I, P, UI, P, UI),
+        attr: dwm.declare("DwmSetWindowAttribute", W, I, P, UI, P, UI), pos: lib.declare("SetWindowPos", W, I, P, P, I, I, I, I, UI),
         rgn: gdi.declare("CreateRectRgn", W, P, I, I, I, I), del: gdi.declare("DeleteObject", W, I, P) };
     } catch (e) { console.warn("Luminoctis прозрачная Home: нет Win32", e); U = null; }
     return U;
@@ -53,17 +54,22 @@
     Object.assign(bb, { flags: 1 | 2 | 4, enable: on ? 1 : 0, rgn: on ? U.rgn(0, 0, -1, -1) : null, max: 1 }); // ENABLE | BLURREGION | TRANSITIONONMAXIMIZED
     U.blurBehind(h, bb.address());
     glassOn = on;
+    hooked = setGlass(window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle, on);
     if (on) { U.del(bb.rgn); fullGlass(); }
+    // пересчёт рамки окна (как при смене размера, у Windhawk — TriggerWindowNCRendering): Zen заново ставит стекло уже через перехват.
+    // Без этого после запуска окно оставалось чёрным, пока его не свернуть в окно и обратно
+    U.pos(h, null, 0, 0, 0, 0, 0x1 | 0x2 | 0x4 | 0x10 | 0x20); // NOSIZE | NOMOVE | NOZORDER | NOACTIVATE | FRAMECHANGED
   }
   // Firefox после каждой отрисовки сужает стекло до «непрозрачной области» (элементы со сплошным фоном, nsWindow::UpdateOpaqueRegionInternal) —
   // под ней размытие пропадало: чёрные прямоугольники при наведении и загрузке. Windhawk перехватывал этот вызов; мы возвращаем стекло на всё окно сразу после отрисовки
   // (замер 2026-11-10: чёрных точек в полосе интерфейса до 20 тыс. на кадр без этого, 0 с ним)
-  let glassOn = false, full = null;
+  // Основной путь — перехват вызова, как у Windhawk (lumi-glass.sys.mjs); MozAfterPaint — запасной, если перехват не встал (стекло возвращается с опозданием в кадр)
+  let glassOn = false, hooked = false, full = null;
   function fullGlass() {
     if (!full) { full = new U.MARGINS(); Object.assign(full, { l: -1, r: -1, t: -1, b: -1 }); }
     U.extend(own(), full.address());
   }
-  window.addEventListener("MozAfterPaint", () => { if (glassOn) fullGlass(); });
+  window.addEventListener("MozAfterPaint", () => { if (glassOn && !hooked) fullGlass(); });
   let accentSet = 0;
   function accent(kind) {
     const a = new U.ACCENT(), d = new U.DATA();
@@ -166,6 +172,9 @@
   }));
   // область сайта меняется от Compacting, рейки и размера окна — дыра следует за ней
   UC_API.Windows.waitWindowLoading(window).then(() => { const p = panels(); if (p) new ResizeObserver(() => { if (site) holeRect(); }).observe(p); });
+  // Стекло — сразу, до первого показа окна: Windows решает, как выводить развёрнутое на весь экран окно, при показе, и если стекла ещё нет,
+  // окно остаётся чёрным до смены режима «в окно ↔ на весь экран» (у Windhawk стекло ставится при создании окна). Полная проверка — после загрузки
+  try { if (windowMode(window) == "transparent" && api()) accent(wantKind(true)); } catch (e) { console.warn("Luminoctis: раннее стекло окна", e); }
   UC_API.Windows.waitWindowLoading(window).then(() => update()); // окно уже «Прозрачное» при запуске
   window.addEventListener("TabSelect", e => { update(e.detail?.previousTab); requestAnimationFrame(() => update()); });
   window.addEventListener("sizemodechange", () => update());

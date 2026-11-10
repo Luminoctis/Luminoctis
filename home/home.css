@@ -11,6 +11,10 @@ body { margin: 0; background: var(--lumi-bg0, #16161e); color: var(--lumi-fg, #c
 #lumi-wallpaper { position: fixed; inset: 0; z-index: 0;
   background: radial-gradient(ellipse at 30% 20%, color-mix(in srgb, var(--lumi-accent, #7aa2f7) 18%, transparent), transparent 60%),
     var(--lumi-bg0, #16161e); }
+/* Home рисуется в процессе интерфейса, и сплошные (100%) фоны во всю страницу Firefox считает «непрозрачной областью окна»: при переключении
+ * Home ↔ сайт стекло окна на кадр сужалось — чёрная вспышка (js/lumi-home-live.uc.js, fullGlass). 99% — глазом не отличить, а областью не считается */
+body, #lumi-wallpaper { background-color: color-mix(in srgb, var(--lumi-bg0, #16161e) 99%, transparent); }
+:root .lumi-wp-color { background-color: color-mix(in srgb, var(--wp-c0, transparent) 99%, transparent); }
 
 #lumi-home { position: relative; z-index: 1; pointer-events: none; /* пустые места — клики по обоям */ }
 #lumi-first {

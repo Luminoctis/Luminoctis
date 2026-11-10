@@ -19,7 +19,7 @@ import * as store from "./store.js";
 export const DIR = "notes";
 export const ORDER = "notes/boards.json";
 export const DEFAULTS = ["Сегодня", "Дела", "Идеи"];
-export const TRASH_DIR = "luminoctis.notes.trash-dir"; // скрытый pref: папка вместо Корзины Windows (для проверок)
+const TRASH_DIR = "luminoctis.notes.trash-dir"; // скрытый pref: папка вместо Корзины Windows (для проверок)
 export const CHANGED = "lumi-notes-changed"; // Services.obs: файлы листов изменены не страницей Home
 export const SAVED = "lumi-notes-saved"; // Services.obs: лист записан или Home его перечитала (слушает рейка); Home на него не реагирует — петли нет
 // фиксированные цвета листов/рядов: не зависят от темы браузера, читаются и на тёмном, и на светлом фоне
@@ -163,7 +163,7 @@ export function docToggle(text, line) {
   return lines.join("\n");
 }
 
-export const sheetNames =layout => layout.rows.flatMap(r => r.sheets.map(s => s.name));
+const sheetNames = layout => layout.rows.flatMap(r => r.sheets.map(s => s.name));
 
 // имя листа = имя файла: без символов, запрещённых в Windows
 export const cleanName = name => name.replace(/[<>:"/\\|?*\x00-\x1f]/g, " ").replace(/\s+/g, " ").trim().replace(/[. ]+$/, "").slice(0, 80);
@@ -178,17 +178,18 @@ export async function writeRaw(name, text) {
 export const writeSheet = (name, items) => writeRaw(name, serialize(items));
 export const writeLayout = layout => store.writeJSON(ORDER, layout);
 
-// раскладка по файлам: старый/битый boards.json переписывается; нет ни одного листа — создаются три по умолчанию
+// три листа по умолчанию, если ни одного нет (зовёт страница Home, чтение раскладки файлов не создаёт)
+export async function seedDefaults() {
+  await writeSheet(DEFAULTS[0], [{ text: "Нажми на текст, чтобы изменить; новый пункт — внизу листа", check: false, children: [] }]);
+  for (const n of DEFAULTS.slice(1)) await writeSheet(n, []);
+  await writeLayout(normalizeLayout(DEFAULTS, DEFAULTS)); // порядок по умолчанию, не по алфавиту
+}
+// раскладка по файлам: старый/битый boards.json переписывается; нет ни папки, ни листов — пустая раскладка, ничего не создаётся
 export async function readLayout() {
   const files = (await store.list(DIR)).filter(f => /\.md$/i.test(f)).map(f => f.slice(0, -3));
+  if (!files.length) return normalizeLayout(null, []);
   let raw = null;
-  if (!files.length) {
-    raw = DEFAULTS; // порядок по умолчанию, не по алфавиту
-    await writeSheet(DEFAULTS[0], [{ text: "Нажми на текст, чтобы изменить; новый пункт — внизу листа", check: false, children: [] }]);
-    for (const n of DEFAULTS.slice(1)) await writeSheet(n, []);
-    files.push(...DEFAULTS);
-  }
-  else try { raw = await store.readJSON(ORDER, null); } catch {} // битый JSON — не страшно, соберём из файлов
+  try { raw = await store.readJSON(ORDER, null); } catch {} // битый JSON — не страшно, соберём из файлов
   const layout = normalizeLayout(raw, files);
   if (JSON.stringify(raw) != JSON.stringify(layout)) await writeLayout(layout);
   return layout;

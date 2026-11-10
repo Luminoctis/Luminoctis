@@ -400,6 +400,7 @@ export function createLive({ text = "", onChange, onLink, onBlur } = {}) {
   root.addEventListener("blur", () => { focused = false; paint(0, 0); onBlur?.(); });
 
   rebuild();
+  root.lumiDestroy = () => document.removeEventListener("selectionchange", onSel); // страница снимает слушатель, когда пересоздаёт редактор
   const api = { el: root, get text() { return doc; }, place, sel: selOffsets, undo, redo, focus() { root.focus(); place(doc.length); } };
   root._live = api; // для dev/check-home-notes.js
   return api;

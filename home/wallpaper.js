@@ -157,6 +157,11 @@ function reset() {
 export async function favorite() {
   const it = current?.item;
   if (!it || !favs) return false;
+  try { await toggleFav(it); } catch (e) { console.error("LumiHome: избранное:", e); return false; } // нет доступа к папке данных — тихо
+  syncButtons();
+  return true;
+}
+async function toggleFav(it) {
   const i = favs.findIndex(f => key(f) == key(it));
   if (i >= 0) { // повторный ♥ — убрать из избранного вместе с сохранённой копией
     const [f] = favs.splice(i, 1);
@@ -173,15 +178,13 @@ export async function favorite() {
       file: name, nsfw: !!it.nsfw, added: new Date().toISOString() });
     await store.writeJSON(FAV, favs);
   }
-  syncButtons();
-  return true;
 }
 export async function ban() {
   const it = current?.item;
   if (!it) return;
   bans.add(key(it));
   state.queue = state.queue.filter(i => !bans.has(key(i)));
-  await store.writeJSON(BANS, [...bans]);
+  await store.writeJSON(BANS, [...bans]).catch(e => console.error("LumiHome: бан:", e));
   await next();
 }
 export function openSource() {
@@ -314,6 +317,10 @@ function drawCover(g, src, W, H, pad) {
 const PAD = 80;
 function paint() {
   const c = edgeCanvas;
+  if (!glass() && !windowWall()) { // окно непрозрачное: кадр в окне не виден — холсты не держат размер окна
+    for (const k of [c, wall()?.querySelector("canvas")]) if (k && (k.width != 1 || k.height != 1)) Object.assign(k, { width: 1, height: 1 });
+    return;
+  }
   if (document.hidden && !windowWall()) return;
   const { W, H } = geo, dpr = win.devicePixelRatio, cw = Math.round((W + 2 * PAD) * dpr), ch = Math.round((H + 2 * PAD) * dpr);
   if (c.width != cw || c.height != ch) Object.assign(c, { width: cw, height: ch });
@@ -343,7 +350,7 @@ function copyToWall(c) { // окну — копия кадра
 // Перерисовка по событиям (размер/положение вкладки, окно, видимость, смена настроек). Таймер идёт, только пока что-то движется:
 // смена слоёв или видео на видимой Home.
 let tickTimer = 0;
-const animating = () => (!document.hidden || windowWall()) && (fade || (!document.hidden && current?.el.matches?.("video"))); // скрытая Home рисует только в режиме окна «Обои»
+const animating = () => (glass() || windowWall()) && (!document.hidden || windowWall()) && (fade || (!document.hidden && current?.el.matches?.("video"))); // скрытая Home рисует только в режиме окна «Обои»
 function tick() {
   tickTimer = 0;
   if (!animating()) return;
@@ -396,7 +403,15 @@ if (embedder) for (const n of [embedder, embedder.closest(".browserSidebarContai
 let settle = 0;
 const relayoutSoon = () => { clearTimeout(settle); settle = setTimeout(relayout, 80); }; // конец анимации (compact двигает вкладку без смены размера)
 win.addEventListener("resize", relayout);
-win.addEventListener("transitionend", relayoutSoon, true);
+const MOVES = new Set(["margin-top", "translate", "transform"]); // что двигает вкладку (compact, пространства)
+win.addEventListener("transitionend", e => MOVES.has(e.propertyName) && relayoutSoon(), true);
+// Spaces (библиотека Zen) сдвигает окно стилем #zen-appcontent-wrapper (transform) и снимает его при закрытии — без перехода; следим за атрибутом
+const wrap = win.document.getElementById("zen-appcontent-wrapper");
+if (wrap) {
+  const mo = new win.MutationObserver(relayoutSoon);
+  mo.observe(wrap, { attributes: true, attributeFilter: ["style"] });
+  addEventListener("unload", () => mo.disconnect());
+}
 
 // ---------- смена по расписанию ----------
 let timer = 0;

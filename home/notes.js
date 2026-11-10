@@ -48,7 +48,9 @@ root.replaceChildren(box, errBox);
 
 function fail(e, what) {
   console.error("LumiNotes:", what, e);
-  errBox.textContent = `LumiNotes: не удалось ${what} — ${e?.message ?? e}`;
+  const io = e instanceof DOMException; // ошибка диска — спокойная подсказка вместо текста ошибки
+  errBox.classList.toggle("calm", io);
+  errBox.textContent = io ? "Не удалось открыть папку данных — выберите её в настройках" : `LumiNotes: не удалось ${what} — ${e?.message ?? e}`;
   errBox.hidden = false;
 }
 
@@ -64,28 +66,38 @@ function flush(b) {
   b.dirty = false;
   const doc = isDoc(b), data = doc ? b.text ?? "" : b.cards.map(c => ({ ...c })), name = b.name;
   b.saving = (b.saving ?? Promise.resolve()).then(() => (doc ? md.writeRaw(name, data) : md.writeSheet(name, data)))
+    .then(() => (lastSig = null)) // диск изменили мы — следующее чтение перерисует
     .catch(e => { b.dirty = true; fail(e, `сохранить «${name}»`); });
   return b.saving;
 }
 const flushAll = () => Promise.all(boards.map(flush));
 let lp = Promise.resolve(); // записи раскладки идут цепочкой
-const saveLayout = () => (lp = lp.then(() => md.writeLayout(layout)).catch(e => fail(e, "сохранить раскладку")));
+const saveLayout = () => (lp = lp.then(() => md.writeLayout(layout)).then(() => (lastSig = null)).catch(e => fail(e, "сохранить раскладку")));
 const sync = () => { boards = layout.rows.flatMap(r => r.sheets).map(m => byMeta.get(m)); }; // плоский список — по раскладке
 const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 
 // ---------- чтение ----------
-let loading = null;
+let loading = null, lastSig = null; // lastSig — что лежало на диске при прошлом чтении (то же самое — не перерисовываем)
+const SHOW_NOTES = "luminoctis.home.show.notes";
+const wanted = () => !window.browsingContext.usePrivateBrowsing && Services.prefs.getBoolPref(SHOW_NOTES, true); // в приватном окне и при выключенном блоке заметки не читаем
 async function load() {
+  if (!wanted()) return;
   if (root.querySelector(".lumi-note-editor, .lumi-sheet-rename, .lumi-row-rename, .lumi-sub-input, .lumi-add-input:not(:placeholder-shown)") || document.activeElement?.closest?.(".lumi-live") || drag) return; // идёт ввод — не мешаем (перерисовка убила бы каретку)
   try {
     await lp;
-    const lay = await md.readLayout();
+    let lay = await md.readLayout();
+    if (!lay.rows.some(r => r.sheets.length)) { await md.seedDefaults(); lay = await md.readLayout(); }
     const old = new Map(boards.map(b => [b.name, b])), map = new Map();
+    const raws = new Map(await Promise.all(lay.rows.flatMap(r => r.sheets).map(async m => [m.name, await md.readRaw(m.name)])));
+    const sig = JSON.stringify([lay, [...raws]]);
+    errBox.hidden = true;
+    if (sig == lastSig && !boards.some(b => b.dirty)) return;
+    lastSig = sig;
     await Promise.all(lay.rows.flatMap(r => r.sheets).map(async meta => {
       const b = old.get(meta.name);
       if (b?.dirty) return map.set(meta, Object.assign(b, { meta }));
-      if (meta.mode == "doc") return map.set(meta, Object.assign(b ?? { name: meta.name, cards: [] }, { meta, cards: [], text: await md.readRaw(meta.name) }));
-      const cards = await md.readSheet(meta.name);
+      if (meta.mode == "doc") return map.set(meta, Object.assign(b ?? { name: meta.name, cards: [] }, { meta, cards: [], text: raws.get(meta.name) }));
+      const cards = md.parse(raws.get(meta.name));
       const same = b && md.serialize(cards) == md.serialize(b.cards); // не менялось — оставить объекты (на них держится «свёрнуто»)
       map.set(meta, b ? Object.assign(b, { cards: same ? b.cards : cards, meta }) : { name: meta.name, meta, cards });
     }));
@@ -334,6 +346,7 @@ function rowEl(r) {
 function render() {
   const keep = new Map([...box.querySelectorAll(".lumi-sheet")].map(s => [s._b, s.querySelector(".lumi-cards")?.scrollTop ?? 0]));
   const left = new Map([...box.querySelectorAll(".lumi-row")].map(r => [r._r, r.querySelector(".lumi-row-scroll").scrollLeft]));
+  for (const e of box.querySelectorAll(".lumi-live")) e.lumiDestroy?.();
   box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", "Новый ряд", "ряд"));
   for (const s of box.querySelectorAll(".lumi-sheet")) { const c = s.querySelector(".lumi-cards"); if (c) c.scrollTop = keep.get(s._b) ?? 0; }
   for (const r of box.querySelectorAll(".lumi-row")) r.querySelector(".lumi-row-scroll").scrollLeft = left.get(r._r) ?? 0;
@@ -968,15 +981,18 @@ box.addEventListener("dragend", endDrag); // Esc или мимо — всё пл
 document.addEventListener("visibilitychange", () => (document.hidden ? flushAll() : reload()));
 window.addEventListener("focus", reload);
 window.addEventListener("pagehide", flushAll);
-const onDir = () => flushAll().then(() => { boards = []; reload(); });
+const onDir = () => flushAll().then(() => { boards = []; lastSig = null; reload(); });
+const onShow = () => reload();
 const onChanged = () => reload();
-const onNew = () => { for (const b of boards) { b.kind = undefined; b.draft = null; } reload(); }; // новый вид по умолчанию — всем строкам ввода
+const onNew = () => { for (const b of boards) { b.kind = undefined; b.draft = null; } lastSig = null; reload(); }; // новый вид по умолчанию — всем строкам ввода
 Services.prefs.addObserver(DIR, onDir);
 Services.prefs.addObserver(NEW, onNew);
+Services.prefs.addObserver(SHOW_NOTES, onShow);
 Services.obs.addObserver(onChanged, md.CHANGED);
 window.addEventListener("unload", () => {
   Services.prefs.removeObserver(DIR, onDir);
   Services.prefs.removeObserver(NEW, onNew);
+  Services.prefs.removeObserver(SHOW_NOTES, onShow);
   Services.obs.removeObserver(onChanged, md.CHANGED);
 });
 

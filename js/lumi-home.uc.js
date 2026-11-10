@@ -18,15 +18,6 @@
   const KEY = "lumi-home";
   let prev = null; // вкладка, с которой пришли на Home
 
-  // Разовая чистка: Wallpaper Engine и эквалайзер вырезаны (2026-10-30) — убираем их prefs; был включён только источник «we» — вернуть дефолт (Wallhaven)
-  if (!Services.prefs.getBoolPref("luminoctis.home.we-cut", false)) {
-    const P = "luminoctis.home.wallpaper.", pr = Services.prefs;
-    Services.prefs.setBoolPref("luminoctis.home.we-cut", true); // сразу: другие окна не повторят
-    const others = pr.getChildList(P + "src.").some(n => n != P + "src.we" && pr.getBoolPref(n, false));
-    if (pr.getBoolPref(P + "src.we", false) && !others) pr.clearUserPref(P + "src.wallhaven");
-    for (const n of [...pr.getChildList(P + "we."), ...pr.getChildList("luminoctis.home.eq."), P + "src.we"]) pr.clearUserPref(n);
-  }
-
   const isEmpty = tab => !!tab?.hasAttribute("zen-empty-tab"); // серая пустая вкладка Zen: выбрана в пространстве без вкладок
   const isHome = tab => !!tab?.hasAttribute(KEY);
   // скрытая вкладка LumiTime целиком (lumi-rail.uc.js, openTime) — как Home, не в полосе; «откуда» пришли — её lumiPrev
@@ -194,7 +185,16 @@
     }
     // Home прошлой сессии восстанавливается позже старта (уже создана новая) — find() оставит одну, иначе старая висит в полосе как «Luminoctis Home»
     window.addEventListener("SSTabRestoring", event => { if (SessionStore.getCustomTabValue(event.target, KEY) == "1") find(); });
-    if (!startsOnHome) SessionStore.promiseAllWindowsRestored.then(() => { armed = true; find(); ensure(); sync(); }).catch(console.error);
+    // после восстановления сессии (в любой ветке старта): лишние Home убрать, в режиме «Обои» поднять; выбрана сломанная Home (about:blank из сессии) — открыть новую
+    const repair = () => {
+      const sel = gBrowser.selectedTab, wasBroken = (isHome(sel) || SessionStore.getCustomTabValue(sel, KEY) == "1") && broken(sel);
+      find(); ensure();
+      if (wasBroken) open();
+      sync();
+    };
+    SessionStore.promiseAllWindowsRestored.then(() => { if (!startsOnHome) armed = true; repair(); }).catch(console.error);
+    // вкладка Home досталась из сессии уже после этого (окна, восстановленные позже первого) — проверить и её
+    window.addEventListener("SSTabRestored", event => { if (SessionStore.getCustomTabValue(event.target, KEY) == "1") setTimeout(repair, 300); });
     const onWin = () => { ensure(); sync(); };
     Services.prefs.addObserver("luminoctis.look.window", onWin);
     window.addEventListener("unload", () => Services.prefs.removeObserver("luminoctis.look.window", onWin), { once: true });

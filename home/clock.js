@@ -81,7 +81,7 @@ export class Clock {
     this.layout = "";
     clocks.add(this);
     this.update(new Date(), options());
-    start();
+    start(); schedule(); // новый стиль «Стрелки» (превью) требует секундного тика
   }
   update(now, o) {
     const style = this.fixed || o.style;
@@ -124,7 +124,7 @@ export class Clock {
     mm.setAttribute("transform", `rotate(${m * 6})`);
     ss.setAttribute("transform", `rotate(${now.getSeconds() * 6})`);
     this.date.hidden = o.datefmt == "off";
-    if (!this.date.hidden) this.date.textContent = dateText(now, o.datefmt);
+    if (!this.date.hidden) { const t = dateText(now, o.datefmt); if (this.date.textContent != t) this.date.textContent = t; }
   }
   build(count, h12) {
     this.digits = [];
@@ -160,14 +160,16 @@ const schedule = () => {
   clearTimeout(timer);
   timer = 0;
   if (document.hidden) return;
-  const tick = () => { const now = tickAll(); timer = setTimeout(tick, 1000 - now.getMilliseconds()); };
-  timer = setTimeout(tick, 1000 - new Date().getMilliseconds());
+  // секунды видны (цифры или секундная стрелка) — тик раз в секунду, иначе раз в минуту
+  const wait = now => ((options().seconds || [...clocks].some(c => c.style == "analog")) ? 1000 - now.getMilliseconds() : 60000 - now.getSeconds() * 1000 - now.getMilliseconds());
+  const tick = () => { const now = tickAll(); timer = setTimeout(tick, wait(now)); };
+  timer = setTimeout(tick, wait(new Date()));
 };
 function start() {
   if (started) return;
   started = true;
   schedule();
-  const onPref = () => { if (window.lumiClock) retone(); tickAll(); };
+  const onPref = () => { if (window.lumiClock) retone(); tickAll(); schedule(); };
   const onVis = () => { if (!document.hidden) { if (window.lumiClock) retone(); tickAll(); } schedule(); };
   Services.prefs.addObserver(PREF, onPref);
   document.addEventListener("visibilitychange", onVis);

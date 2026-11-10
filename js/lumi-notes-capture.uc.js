@@ -44,7 +44,8 @@
         item.setAttribute("label", name);
         item.addEventListener("command", () => add(name, text, title, url).catch(err => {
           console.error("LumiNotes:", err);
-          Services.prompt.alert(window, "LumiNotes", `Не удалось добавить заметку в «${name}»: ${err.message}`);
+          // спокойная подсказка над страницей вместо окна с ошибкой
+          gBrowser.getNotificationBox().appendNotification("lumi-notes-dir", { label: "Не удалось открыть папку данных — выберите её в настройках", priority: 3 }, [], true);
         }));
         return item;
       }));

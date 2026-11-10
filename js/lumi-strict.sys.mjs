@@ -10,7 +10,7 @@
 import { normDomain, matchHost, activePhase, now as engineNow } from "./lumi-time.sys.mjs";
 
 export const PREF_ENABLED = "luminoctis.strict.enabled", PREF_LISTS = "luminoctis.strict.lists";
-export const FOCUS_MODES = ["off", "focus", "focus+breaks"];
+const FOCUS_MODES = ["off", "focus", "focus+breaks"];
 const hm = v => (typeof v == "string" && /^([01]\d|2[0-3]):[0-5]\d$/.test(v) ? v : null);
 const minutes = v => +v.slice(0, 2) * 60 + +v.slice(3);
 const uuid = () => Services.uuid.generateUUID().toString().slice(1, -1);
@@ -39,7 +39,7 @@ export function lists() {
 export function save(next) { Services.prefs.setStringPref(PREF_LISTS, JSON.stringify(next.map(clean).filter(Boolean))); }
 
 // конец текущего интервала расписания списка (мс) или null, если сейчас вне расписания
-export function scheduleEnd(l, t) {
+function scheduleEnd(l, t) {
   if (!l.days.length || l.from == l.to) return null;
   const d = new Date(t), cur = d.getHours() * 60 + d.getMinutes(), f = minutes(l.from), e = minutes(l.to);
   const dow = (d.getDay() + 6) % 7, at = (dayShift, m) => new Date(d.getFullYear(), d.getMonth(), d.getDate() + dayShift, 0, m).getTime();

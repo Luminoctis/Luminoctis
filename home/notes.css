@@ -279,6 +279,7 @@ section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
   padding: 12px 16px; border-radius: 12px; cursor: pointer; font-size: 15px;
   background: color-mix(in srgb, var(--lumi-red, #f7768e) 85%, black); color: white; box-shadow: 0 6px 24px rgb(0 0 0 / .4);
 }
+.lumi-notes-error.calm { background: var(--lumi-bg-2, #24283b); color: var(--lumi-fg, #c0caf5); border: 1px solid var(--lumi-dim, #565f89); }
 
 @media (prefers-reduced-motion: reduce) {
   .lumi-row, .lumi-sheet, .lumi-sheet::after, .lumi-card, .lumi-card::before, .lumi-row-more, .lumi-add-sheet, .lumi-sheet-tools, .lumi-card-tools, .lumi-sheet-grip::after, .lumi-sheet-grip-b::after, .lumi-sheet-grip-c::after,

@@ -512,7 +512,7 @@ window.addEventListener("unload", () => {
 document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); });
 // «+» виден, пока курсор в 100px от него или над рядом ([near] на #lumi-shortcuts); раз в кадр
 let nearE = null, nearRaf = 0;
-document.addEventListener("pointermove", e => { nearE = e; nearRaf ||= requestAnimationFrame(() => {
+document.addEventListener("pointermove", e => { if (document.documentElement.scrollTop > innerHeight / 2) return; nearE = e; nearRaf ||= requestAnimationFrame(() => {
   nearRaf = 0;
   const p = nearE, rs = [...root.querySelectorAll(".lumi-add")].map(b => b.getBoundingClientRect()).filter(r => r.width);
   root.toggleAttribute("near", !!(p && rs.length && (p.target.closest?.("#lumi-shortcuts") || rs.some(r => Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100))));

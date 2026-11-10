@@ -24,7 +24,7 @@ const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k
 export const s = (tag, attrs = {}, ...kids) => h(tag, { ...attrs, svg: true }, ...kids);
 export const KIND = { Focus: "Фокус", Break: "Перерыв", "Long break": "Длинный перерыв" };
 export const MODE = { Countdown: "Отсчёт", Stopwatch: "Секундомер" };
-export const RESULT = { Completed: "Завершено", Stopped: "Остановлено" };
+const RESULT = { Completed: "Завершено", Stopped: "Остановлено" };
 export const clockOf = ms => E.formatClock(ms);
 // «1 ч 05 мин» / «12 мин»
 export function hm(ms) {

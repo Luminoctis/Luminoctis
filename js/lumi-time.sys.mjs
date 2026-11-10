@@ -13,7 +13,7 @@ import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 import { pageUrl } from "./lumi-paths.sys.mjs";
 const STORE_URL = pageUrl("home/store.js");
 const store = () => ChromeUtils.importESModule(STORE_URL);
-export const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json" };
+const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json" };
 export const dayFile = date => `time/days/${date}.json`;
 const MIN = 60000;
 const STATE_VERSION = 3;
@@ -25,14 +25,14 @@ export const now = () => clock();
 export function setClock(fn) { clock = fn || (() => Date.now()); schedule(); }
 
 // ---------- ядро (core.ts) ----------
-export function idleState(completedFocuses = 0) {
+function idleState(completedFocuses = 0) {
   return { version: STATE_VERSION, phase: "idle", startedAt: 0, plannedMs: 0, adjustmentMs: 0,
     runningSince: null, pausedSince: null, active: [], pauses: [],
     acceptedOvertime: false, notified: false, topic: "", pair: { focus: 25, rest: 5 },
     longBreak: 20, every: 4, completedFocuses };
 }
 const intervals = v => Array.isArray(v) && v.every(r => Array.isArray(r) && r.length == 2 && Number.isFinite(r[0]) && Number.isFinite(r[1]) && r[1] >= r[0]);
-export function isTimerState(v) {
+function isTimerState(v) {
   return !!v && typeof v == "object" && [1, 2, 3].includes(v.version) && ["idle", "focus", "break", "long-break"].includes(v.phase)
     && Number.isFinite(v.startedAt) && Number.isFinite(v.plannedMs) && v.plannedMs >= 0
     && (v.adjustmentMs === undefined || Number.isSafeInteger(v.adjustmentMs))
@@ -43,13 +43,13 @@ export function isTimerState(v) {
     && Number.isInteger(v.completedFocuses) && v.completedFocuses >= 0
     && (v.timerMode === undefined || v.timerMode == "Countdown" || v.timerMode == "Stopwatch");
 }
-export function restoreTimerState(v) {
+function restoreTimerState(v) {
   if (!isTimerState(v)) return null;
   if (v.version == STATE_VERSION) return v;
   return { ...v, version: STATE_VERSION, timerMode: v.timerMode ?? "Countdown",
     acceptedOvertime: v.version == 1 && v.phase != "idle" ? true : v.acceptedOvertime };
 }
-export function activeMs(s, t) {
+function activeMs(s, t) {
   return s.active.reduce((sum, [a, b]) => sum + Math.max(0, b - a), 0) + (s.runningSince === null ? 0 : Math.max(0, t - s.runningSince));
 }
 export const elapsedMs = (s, t) => Math.max(0, activeMs(s, t) + (s.adjustmentMs ?? 0));
@@ -81,7 +81,7 @@ export function countedTodayMs(s, t) {
   const a = dayStart(t), b = new Date(a); b.setDate(b.getDate() + 1);
   return countedInRange(s, t, a.getTime(), b.getTime());
 }
-export function countedWeekMs(s, t) {
+function countedWeekMs(s, t) {
   if (s.phase != "focus") return 0;
   const a = dayStart(t); a.setDate(a.getDate() - (a.getDay() + 6) % 7);
   const b = new Date(a); b.setDate(b.getDate() + 7);
@@ -112,19 +112,19 @@ export function display(s, t) {
     progress: Math.max(0, 1 - e / s.plannedMs),
   };
 }
-export function startFocus(prev, t, pair, longBreak, every, topic, timerMode = "Countdown") {
+function startFocus(prev, t, pair, longBreak, every, topic, timerMode = "Countdown") {
   return { ...idleState(prev.completedFocuses), phase: "focus", startedAt: t, acceptedOvertime: true, timerMode,
     plannedMs: timerMode == "Stopwatch" ? 0 : pair.focus * MIN, runningSince: t, topic: topic.trim() || "Фокус",
     pair: { ...pair }, longBreak, every };
 }
-export function startBreak(prev, t) {
+function startBreak(prev, t) {
   if (prev.phase != "focus") throw new Error("Фокус не идёт");
   const count = prev.completedFocuses + 1, long = count >= prev.every;
   return { ...idleState(long ? 0 : count), phase: long ? "long-break" : "break", acceptedOvertime: true,
     startedAt: t, plannedMs: (long ? prev.longBreak : prev.pair.rest) * MIN,
     runningSince: t, pair: { ...prev.pair }, longBreak: prev.longBreak, every: prev.every };
 }
-export function startStopwatchSegment(prev, t, phase, topic = "") {
+function startStopwatchSegment(prev, t, phase, topic = "") {
   return { ...idleState(prev.completedFocuses), phase, startedAt: t, plannedMs: 0, runningSince: t,
     acceptedOvertime: true, timerMode: "Stopwatch", topic: phase == "focus" ? topic.trim() || "Фокус" : "",
     pair: { ...prev.pair }, longBreak: prev.longBreak, every: prev.every };
@@ -141,8 +141,8 @@ export function resume(s, t) {
   s.pausedSince = null;
   s.runningSince = t;
 }
-export function uncountOvertime(s, t) { if (s.phase != "idle" && elapsedMs(s, t) >= s.plannedMs) s.acceptedOvertime = false; }
-export function adjustElapsed(s, t, minutes) {
+function uncountOvertime(s, t) { if (s.phase != "idle" && elapsedMs(s, t) >= s.plannedMs) s.acceptedOvertime = false; }
+function adjustElapsed(s, t, minutes) {
   if (s.phase == "idle") return false;
   const e = elapsedMs(s, t);
   if (minutes < 0 && e < MIN) return false;
@@ -160,7 +160,7 @@ export function finish(s, t, result, id, timezoneOffset) {
     plannedMs: s.plannedMs, adjustmentMs: s.adjustmentMs ?? 0, acceptedOvertime: s.acceptedOvertime, active, pauses,
     timerMode: s.timerMode ?? "Countdown" };
 }
-export function countedIntervals(r) {
+function countedIntervals(r) {
   if (r.countedOverrideMs !== undefined) {
     const actual = r.active.reduce((sum, [a, b]) => sum + Math.max(0, b - a), 0);
     return creditedIntervals(r.active, r.countedOverrideMs, true, r.countedOverrideMs - actual, r.endedAt);
@@ -174,8 +174,8 @@ export function adjustRecordDuration(r, minutes) {
   return { ...r, countedOverrideMs: next };
 }
 // правило «≥3 мин»: короче — в журнал не идёт (кроме добавленных вручную)
-export const shouldLog = r => !!r.manual || countedRecordMs(r) >= 3 * MIN;
-export function isRecord(v) {
+const shouldLog = r => !!r.manual || countedRecordMs(r) >= 3 * MIN;
+function isRecord(v) {
   return !!v && typeof v == "object" && v.version === 1 && typeof v.id == "string"
     && ["Focus", "Break", "Long break"].includes(v.kind) && typeof v.topic == "string" && ["Completed", "Stopped"].includes(v.result)
     && Number.isFinite(v.startedAt) && Number.isFinite(v.endedAt) && Number.isFinite(v.timezoneOffset) && Number.isFinite(v.plannedMs)
@@ -185,19 +185,19 @@ export function isRecord(v) {
     && (v.timerMode === undefined || v.timerMode == "Countdown" || v.timerMode == "Stopwatch")
     && intervals(v.active) && intervals(v.pauses);
 }
-export const latestRecord = records => records.reduce((best, r) => (!best || r.endedAt >= best.endedAt ? r : best), null);
+const latestRecord = records => records.reduce((best, r) => (!best || r.endedAt >= best.endedAt ? r : best), null);
 
 // ---------- настройки (settings.ts) ----------
 export const validMinutes = v => Number.isInteger(v) && v >= 1 && v <= 720;
 export const validCount = v => Number.isInteger(v) && v >= 1 && v <= 24;
 export const validGoalHours = v => Number.isFinite(v) && v > 0 && v <= 744;
-export const validSoundFile = v => typeof v == "string" && v.length <= 1000 && /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|webm)$/i.test(v.trim());
+const validSoundFile = v => typeof v == "string" && v.length <= 1000 && /\.(mp3|wav|ogg|oga|m4a|aac|flac|opus|webm)$/i.test(v.trim());
 // «https://www.youtube.com/watch» → «youtube.com»; не домен — null
 export function normDomain(v) {
   const d = String(v).trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/[/?#].*$/, "").replace(/:\d+$/, "").replace(/^(\*\.|www\.)/, "");
   return /^[^\s/:.]+(\.[^\s/:.]+)+$/.test(d) ? d : null;
 }
-export const DEFAULT_SETTINGS = {
+const DEFAULT_SETTINGS = {
   version: 1,
   pairs: [{ focus: 25, rest: 5 }, { focus: 45, rest: 10 }, { focus: 50, rest: 10 }, { focus: 60, rest: 15 }],
   longBreaks: [15, 20, 30], counts: [2, 3, 4, 6, 8],
@@ -270,7 +270,7 @@ function addByDate(target, list, offset) {
     }
   }
 }
-export function focusTimeByDateAndTopic(records, since = -Infinity) {
+function focusTimeByDateAndTopic(records, since = -Infinity) {
   const days = new Map();
   for (const r of records) {
     if (r.kind != "Focus") continue;
@@ -727,7 +727,7 @@ function alertFinished(phase) {
 // ---------- блок сайтов во время фокуса (js/lumi-focus.uc.js) ----------
 const hhmm = t => { const d = new Date(t); return `${pad(d.getHours())}:${pad(d.getMinutes())}`; };
 // блок текущего цикла: пресет цикла (state.presetId) или, без пресета («Свой»), общие поля настроек
-export function blockFor(st = data.state) {
+function blockFor(st = data.state) {
   const s = data.settings, p = s.presets.find(x => x.id == st.presetId);
   return p ? p.block : { enabled: s.blockEnabled, sites: s.blockSites, breaks: s.blockBreaks };
 }

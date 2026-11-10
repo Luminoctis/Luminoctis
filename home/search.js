@@ -5,6 +5,7 @@
 import { JS } from "./paths.js";
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
+const priv = window.browsingContext.usePrivateBrowsing;
 const root = document.getElementById("lumi-search");
 // в Zen 1.23 (Firefox 14x) Services.search убран — служба в модуле SearchService; старый путь оставлен запасным
 let SS;
@@ -114,7 +115,7 @@ async function suggest() {
     items = [base, ...remote.map(term => ({ term, title: term })), ...local.filter(l => l.url != base.url)].slice(0, 9);
     paint();
   };
-  localMatches(q).then(r => { local = r; show(); });
+  if (!priv) localMatches(q).then(r => { local = r; show(); }); // в приватном окне историю в подсказках не показываем
   try {
     if (!controller) {
       let m;
@@ -122,7 +123,7 @@ async function suggest() {
       catch { m = ChromeUtils.importESModule("resource://gre/modules/SearchSuggestionController.sys.mjs"); }
       controller = new m.SearchSuggestionController();
     }
-    const r = await controller.fetch({ searchString: q, inPrivateBrowsing: false, engine, maxLocalResults: 2, maxRemoteResults: 6 });
+    const r = await controller.fetch({ searchString: q, inPrivateBrowsing: priv, engine, maxLocalResults: 2, maxRemoteResults: 6 });
     remote = [...r.local, ...r.remote].map(e => e.value).filter(v => v && v != q);
     show();
   } catch {}

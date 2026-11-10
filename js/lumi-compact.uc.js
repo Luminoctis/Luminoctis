@@ -16,7 +16,8 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
   const root = document.documentElement;
   const openPopups = new Set();
   const zones = [];
-  window.addEventListener("popupshown", event => openPopups.add(event.target), true);
+  // подсказки (tooltip) не держат панели: их popupshown иногда приходит уже после popuphidden, и панель «залипала»
+  window.addEventListener("popupshown", event => { if (event.target.localName != "tooltip") openPopups.add(event.target); }, true);
   window.addEventListener("popuphidden", event => {
     openPopups.delete(event.target);
     zones.forEach(zone => zone.later());

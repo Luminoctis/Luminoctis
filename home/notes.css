@@ -73,7 +73,7 @@
   &.img { width: 20px; height: 20px; background: currentColor; mask: var(--ic) center / contain no-repeat; } }
 .lumi-sheet-title { margin: 0; flex: 1; min-width: 0; font-size: 18px; font-weight: 700; line-height: 1.3; letter-spacing: .01em;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lumi-sheet-count { font-size: 14px; color: var(--lumi-dim, #565f89); }
+.lumi-sheet-count { font-size: 14px; color: var(--lumi-muted, #a9b1d6); }
 .lumi-sheet-rename { flex: 1; min-width: 0; height: 32px; box-sizing: border-box; padding: 0 8px; border-radius: 8px; font: 700 18px Inter, system-ui, sans-serif; }
 .lumi-sheet-tools, .lumi-card-tools { display: flex; gap: 2px; opacity: 0; transition: opacity .15s; }
 .lumi-sheet:hover .lumi-sheet-tools, .lumi-sheet-tools:focus-within, .lumi-card:hover .lumi-card-tools, .lumi-card-tools:focus-within { opacity: 1; }

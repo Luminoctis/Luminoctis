@@ -216,7 +216,7 @@ Zen Browser mod Luminoctis by Laith.
 
 ## Тестовый Zen (`dev\`)
 
-- `powershell -ExecutionPolicy Bypass -File "dev\run.ps1"` — запустить тестовый Zen (отдельный профиль `dev\profile`, основной Zen не задевается).
+- `powershell -ExecutionPolicy Bypass -File "<папка Luminoctis>\dev\run.ps1"` — запустить тестовый Zen (отдельный профиль `dev\profile`, основной Zen не задевается).
   Каждый запуск заново кладёт в профиль `user.js`, `chrome\userChrome.css` (подключает `Luminoctis\chrome.css`), fx-autoconfig, скрипты из `Luminoctis\js`
   и страницу настроек из `Luminoctis\settings`,
   и стартует с `-purgecaches` — правки видны после перезапуска тестового Zen.

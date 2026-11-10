@@ -235,6 +235,9 @@ if ($DataDir) {
   try { New-Item -ItemType Directory -Force $DataDir | Out-Null } catch { Fail "Не удалось создать папку данных: $DataDir" 'datadir' $DataDir }
 }
 
+$ts = Get-Date -Format 'yyyyMMdd-HHmmss'
+$bk = Join-Path $profile "luminoctis-backup\$ts"
+
 # --- 4. Программная часть fx-autoconfig ---
 Step 3 $total 'program'
 $srcProg = Join-Path $root 'vendor\fx-autoconfig\program'
@@ -248,6 +251,11 @@ if (-not ($pairs | Where-Object { -not (Same $_.S $_.T) })) {
   Write-Host 'fx-autoconfig в папке Zen уже установлен — пропускаю.'
 } else {
   if ((Test-Path $pairs[0].T) -and -not (Ask 'В папке Zen уже есть другой config.js. Заменить?')) { Fail 'Без fx-autoconfig скрипты мода не работают.' 'noac' }
+  # чужие config.js / config-prefs.js перед заменой копируем в резервную папку профиля
+  foreach ($p in $pairs) { if ((Test-Path $p.T) -and -not (Same $p.S $p.T)) {
+    New-Item -ItemType Directory -Force (Join-Path $bk 'zen-program') | Out-Null
+    Copy-Item $p.T (Join-Path $bk "zen-program\$(Split-Path $p.T -Leaf)") -Force
+  } }
   Write-Host 'Ставлю fx-autoconfig в папку Zen (нужны права администратора)...'
   $q = { param($s) $s.Replace("'", "''") }
   $cmd = "New-Item -ItemType Directory -Force '$(& $q (Split-Path $pairs[1].T -Parent))' | Out-Null; " +
@@ -264,8 +272,6 @@ if (-not ($pairs | Where-Object { -not (Same $_.S $_.T) })) {
 
 # --- 5. Резервная копия ---
 Step 4 $total 'backup'
-$ts = Get-Date -Format 'yyyyMMdd-HHmmss'
-$bk = Join-Path $profile "luminoctis-backup\$ts"
 New-Item -ItemType Directory -Force $bk | Out-Null
 foreach ($f in 'chrome\userChrome.css', 'chrome\userContent.css', 'zen-themes.json') {
   $p = Join-Path $profile $f

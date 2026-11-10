@@ -31,8 +31,17 @@ const newer = (a, b) => {
   return false;
 };
 
+// только https и хосты GitHub: адрес релиза лежит в настройках, а скачанное потом запускается
+const HOSTS = ["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"];
+export function checkUrl(u) {
+  let x;
+  try { x = new URL(u); } catch { throw new Error("неверный адрес обновления: " + u); }
+  if (x.protocol !== "https:" || !HOSTS.includes(x.hostname)) throw new Error("адрес обновления не разрешён: " + u);
+  return u;
+}
+
 async function latest() {
-  const r = await fetch(Services.prefs.getStringPref(P + "url"), { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
+  const r = await fetch(checkUrl(Services.prefs.getStringPref(P + "url")), { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
   if (!r.ok) throw new Error("GitHub ответил " + r.status);
   const rel = await r.json();
   const version = String(rel.tag_name || "").replace(/^v/, "");
@@ -64,7 +73,8 @@ const file = path => {
 };
 
 async function download(url) {
-  const r = await fetch(url, { cache: "no-store" });
+  const r = await fetch(checkUrl(url), { cache: "no-store" });
+  checkUrl(r.url); // после перенаправлений тоже
   if (!r.ok) throw new Error("не скачалось: " + url + " (" + r.status + ")");
   return r;
 }

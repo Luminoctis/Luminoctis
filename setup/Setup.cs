@@ -204,9 +204,17 @@ class Ui {
   // ---------- Зонды и запуск PowerShell ----------
   string Script { get { return Path.Combine(Tmp, "installer", "install.ps1"); } }
 
+  // аргумент в кавычках; завершающие \ (корень диска D:\) удваиваем, иначе они съедают закрывающую кавычку
+  static string Q(string s) { return "\"" + System.Text.RegularExpressions.Regex.Replace(s, @"(\\+)$", "$1$1") + "\""; }
+
+  static string PsExe() {
+    var p = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), @"WindowsPowerShell\v1.0\powershell.exe");
+    return File.Exists(p) ? p : "powershell.exe";
+  }
+
   // возвращает код выхода; строки stdout/stderr — в onLine (из рабочего потока)
   int Ps(string args, Action<string> onLine) {
-    var psi = new ProcessStartInfo("powershell.exe", "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File \"" + Script + "\" " + args) {
+    var psi = new ProcessStartInfo(PsExe(), "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File " + Q(Script) + " " + args) {
       UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true, RedirectStandardError = true,
       StandardOutputEncoding = Encoding.UTF8, StandardErrorEncoding = Encoding.UTF8, WorkingDirectory = Tmp
     };
@@ -220,7 +228,7 @@ class Ui {
   }
 
   Probe DoProbe(string prof) {
-    var args = "-Probe" + (prof != null ? " -ProfileDir \"" + prof + "\"" : "") + (ZenOverride != null ? " -ZenDir \"" + ZenOverride + "\"" : "");
+    var args = "-Probe" + (prof != null ? " -ProfileDir " + Q(prof) : "") + (ZenOverride != null ? " -ZenDir " + Q(ZenOverride) : "");
     string json = null;
     Ps(args, l => { if (l.StartsWith("{")) json = l; });
     if (json == null) return null;
@@ -382,11 +390,11 @@ class Ui {
     Vis("PBar", true); F<ProgressBar>("PBar").BeginAnimation(RangeBase.ValueProperty, null); F<ProgressBar>("PBar").Value = 0;
     SetClose(false);
     Show(F<FrameworkElement>("ScProg"));
-    var args = "-Yes -ProfileDir \"" + profile + "\" -ZenDir \"" + pr.ZenDir + "\"";
+    var args = "-Yes -ProfileDir " + Q(profile) + " -ZenDir " + Q(pr.ZenDir);
     if (un) args += " -Uninstall";
-    else if (disable != null && disable.Count > 0) args += " -DisableMods \"" + string.Join(",", disable) + "\"";
+    else if (disable != null && disable.Count > 0) args += " -DisableMods " + Q(string.Join(",", disable));
     else args += " -KeepMods";
-    if (!un && dataDir != null) args += " -DataDir \"" + dataDir.TrimEnd('\\') +"\"";
+    if (!un && dataDir != null) args += " -DataDir " + Q(dataDir);
     string done = null, err = null; var sw = Stopwatch.StartNew();
     var ui = TaskScheduler.FromCurrentSynchronizationContext();
     Task.Run(() => Ps(args, l => {
@@ -548,8 +556,7 @@ static class Program {
     using (var z = new ZipArchive(s, ZipArchiveMode.Read)) {
       using (var r = new StreamReader(z.GetEntry("theme.json").Open(), Encoding.UTF8))
         version = (string)((Dictionary<string, object>)new JavaScriptSerializer().DeserializeObject(r.ReadToEnd()))["version"];
-      var dir = Path.Combine(Path.GetTempPath(), "luminoctis-setup-" + version);
-      if (Directory.Exists(dir)) Directory.Delete(dir, true);
+      var dir = Path.Combine(Path.GetTempPath(), "luminoctis-setup-" + version + "-" + Guid.NewGuid().ToString("N").Substring(0, 8)); // своя папка у каждого запуска
       foreach (var e in z.Entries) {
         if (e.FullName.EndsWith("/")) continue;
         var t = Path.Combine(dir, e.FullName.Replace('/', '\\'));

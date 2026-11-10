@@ -95,20 +95,21 @@
   const { BrowserWindowTracker } = ChromeUtils.importESModule("resource:///modules/BrowserWindowTracker.sys.mjs");
   // шанс глитча — во всех окнах сразу; не pref, после перезапуска снова 1/100
   const setGlitchChance = n => { for (const w of BrowserWindowTracker.orderedWindows) if (w.lumiGlitch) w.lumiGlitch.chance = 1 / n; };
-  function cleanup() {
-    setGlitchChance(100);
+  // shared=false: только своё окно (общие подмены — шанс глитча, prefs — принадлежат открытому окну отладки)
+  function cleanup(shared = true) {
+    if (shared) setGlitchChance(100);
     if (fx()) download(false);
     stopLoad();
     for (const t of [...badged]) setBadge(t, null);
     setTasks(logoAttr || "");
     logoAttr = null;
     updateDot();
-    dbg.restorePrefs();
+    if (shared) dbg.restorePrefs();
   }
+  const debugWin = () => { for (const w of Services.wm.getEnumerator("")) { try { if (w.location.href.startsWith(URL)) return w; } catch {} } };
   function open() {
-    for (const w of Services.wm.getEnumerator("")) {
-      try { if (w.location.href.startsWith(URL)) return void w.focus(); } catch {}
-    }
+    const w = debugWin();
+    if (w) return void w.focus();
     window.openDialog(URL, "lumi-debug", `chrome,dialog=no,resizable,alwaysRaised,width=420,height=760,left=${Math.max(0, window.screenX + window.outerWidth - 440)},top=${window.screenY + 40}`);
   }
   // args.pin — номер закрепа (по умолчанию первый), args.n — число
@@ -118,5 +119,5 @@
     return action.run({ tab: luminoctis.pins()[args.pin ?? 0], n: args.n ?? 3 });
   }
   window.lumiDebug = { actions, run, open, cleanup, setGlitchChance, get glitchChance() { return Math.round(1 / window.lumiGlitch.chance); } };
-  window.addEventListener("unload", cleanup, { once: true });
+  window.addEventListener("unload", () => cleanup(!debugWin()), { once: true });
 })();

@@ -25,6 +25,7 @@ const palette = ChromeUtils.importESModule(JS("lumi-palette.sys.mjs"));
 palette.watch(document, { glass: true });
 const keys = ChromeUtils.importESModule(JS("lumi-keys.sys.mjs"));
 
+let onPanelShown = null; // (видна) — для превью часов: скрытая панель их не тикает
 // ---------- стекло: сквозь панель видно то, что за окном ----------
 // Панель лежит над сайтом (<browser> другого процесса), который не размыть и не сделать прозрачным. В прозрачном режиме и в «Обоях»
 // область сайтов (#tabbrowser-tabpanels) маскируется дыркой ровно под панелью (chrome.css, раздел 14, [lumi-hole]) —
@@ -41,7 +42,7 @@ const keys = ChromeUtils.importESModule(JS("lumi-keys.sys.mjs"));
   const frame = () => { hole(); if (Date.now() < until) win.requestAnimationFrame(frame); else running = false; };
   const kick = () => { until = Date.now() + 450; if (!running) { running = true; win.requestAnimationFrame(frame); } };
   if (box && panels) {
-    const mo = new win.MutationObserver(kick);
+    const mo = new win.MutationObserver(() => { kick(); onPanelShown?.(!box.hidden); });
     mo.observe(box, { attributes: true });
     mo.observe(root, { attributes: true, attributeFilter: ["lumi-glass", "inDOMFullscreen"] });
     win.addEventListener("resize", kick);
@@ -201,6 +202,7 @@ function renderSpaces() {
       el("option", { value: 0, textContent: "Без контейнера" }),
       ...identities.map(i => el("option", { value: i.userContextId, textContent: ContextualIdentityService.getUserContextLabel(i.userContextId) })));
     container.value = ws.containerTabId || 0;
+    if (container.selectedIndex < 0) container.value = 0; // контейнер удалён — иначе список пустой
     container.addEventListener("change", () => {
       ws.containerTabId = Number(container.value);
       win.gZenWorkspaces.saveWorkspace(ws);
@@ -622,7 +624,12 @@ renderPalette();
 // ---------- Luminoctis Home: часы и обои (home/clock.js, home/wallpaper.js; docs/areas/home.md) ----------
 {
   const { Clock } = await import("../home/clock.js");
-  for (const b of document.querySelectorAll(".clock-styles [data-value]")) new Clock(b.querySelector(".clock-prev"), b.dataset.value); // живые превью
+  const clockPrev = [...document.querySelectorAll(".clock-styles [data-value]")].map(b => ({ root: b.querySelector(".clock-prev"), style: b.dataset.value, clock: null })); // живые превью
+  // скрытая панель не тикает 10 превью: часы убираются из общего списка, при показе создаются заново
+  const setPreviews = on => { for (const p of clockPrev) { if (on && !p.clock) p.clock = new Clock(p.root, p.style); else if (!on && p.clock) (p.clock.remove(), p.clock = null); } };
+  window.lumiSettingsClocks = () => clockPrev.filter(p => p.clock).length; // для проверок
+  onPanelShown = setPreviews;
+  setPreviews(!(window.frameElement?.parentNode?.hidden));
   for (const p of document.querySelectorAll(".sc-prev")) p.append(...["Почта", "Видео", "Карты", "Игры"].map(t => el("span", { className: "sc-pv" }, el("i"), el("b", { textContent: t })))); // превью стилей ярлыков (settings.css)
   // числа: ползунки (рядом <output>) и списки
   for (const input of document.querySelectorAll("[data-int-pref]")) {

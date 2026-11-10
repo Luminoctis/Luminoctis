@@ -54,7 +54,9 @@
     Object.assign(bb, { flags: 1 | 2 | 4, enable: on ? 1 : 0, rgn: on ? U.rgn(0, 0, -1, -1) : null, max: 1 }); // ENABLE | BLURREGION | TRANSITIONONMAXIMIZED
     U.blurBehind(h, bb.address());
     glassOn = on;
-    hooked = setGlass(window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle, on);
+    handle = window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle;
+    hooked = setGlass(handle, on);
+    window[on && !hooked ? "addEventListener" : "removeEventListener"]("MozAfterPaint", fullGlass); // запасной путь — только пока перехват не встал
     if (on) { U.del(bb.rgn); fullGlass(); }
     // пересчёт рамки окна (как при смене размера, у Windhawk — TriggerWindowNCRendering): Zen заново ставит стекло уже через перехват.
     // Без этого после запуска окно оставалось чёрным, пока его не свернуть в окно и обратно
@@ -64,12 +66,11 @@
   // под ней размытие пропадало: чёрные прямоугольники при наведении и загрузке. Windhawk перехватывал этот вызов; мы возвращаем стекло на всё окно сразу после отрисовки
   // (замер 2026-11-10: чёрных точек в полосе интерфейса до 20 тыс. на кадр без этого, 0 с ним)
   // Основной путь — перехват вызова, как у Windhawk (lumi-glass.sys.mjs); MozAfterPaint — запасной, если перехват не встал (стекло возвращается с опозданием в кадр)
-  let glassOn = false, hooked = false, full = null;
+  let glassOn = false, hooked = false, full = null, handle = null;
   function fullGlass() {
     if (!full) { full = new U.MARGINS(); Object.assign(full, { l: -1, r: -1, t: -1, b: -1 }); }
     U.extend(own(), full.address());
   }
-  window.addEventListener("MozAfterPaint", () => { if (glassOn && !hooked) fullGlass(); });
   let accentSet = 0;
   function accent(kind) {
     const a = new U.ACCENT(), d = new U.DATA();
@@ -155,7 +156,7 @@
   const onPref = () => { update(); setTimeout(() => { accentSet = -2; update(); }, 150); }; // Zen ставит свою подложку по toplevel-backdrop после нас — перекрываем
   const PREFS = [KIND, WIN, TRANSPARENT, HT, WPMODE];
   for (const n of PREFS) Services.prefs.addObserver(n, onPref); // применяются сразу
-  window.addEventListener("unload", () => { for (const n of PREFS) Services.prefs.removeObserver(n, onPref); }, { once: true });
+  window.addEventListener("unload", () => { for (const n of PREFS) Services.prefs.removeObserver(n, onPref); if (handle) setGlass(handle, false); }, { once: true }); // иначе хвост в glass остаётся после закрытия окна
   // «Выгруженная» Home — закрытая вкладка: «L» создаёт новую, страница грузится ~0,3 с. У нового документа нет [lumi-through], а до появления корня Firefox
   // красит его тёмным холстом (вспышка на всю вкладку). Поэтому <browser> прячем (opacity 0 — видно дыру к рабочему столу, как у готовой Home) с начала загрузки
   // до появления корня; в этот момент ставим [lumi-through] и показываем (до первой отрисовки страницы)

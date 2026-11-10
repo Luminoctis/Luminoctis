@@ -37,7 +37,7 @@ h2 {
   margin: 14px 0 0; font-size: 11px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--label);
   &:first-child { margin-top: 2px; }
 }
-.hint { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--lumi-dim); }
+.hint { font-weight: 400; letter-spacing: 0; text-transform: none; color: var(--label); }
 /* вводная строка раздела (Home) */
 section > p.hint { margin: 2px 0 0; font-size: 12px; line-height: 1.4; }
 .ok {
@@ -118,7 +118,7 @@ kbd {
 .preset .name-in { flex: 1; min-width: 0; height: 26px; padding: 0 8px; border-radius: 7px; }
 .swatches { display: flex; gap: 3px; & i { width: 14px; height: 14px; border-radius: 4px; outline: 1px solid var(--line); outline-offset: -1px; } }
 .badge { padding: 1px 7px; border-radius: 6px; font-size: 10px; color: var(--lumi-accent); background: color-mix(in srgb, var(--lumi-accent) 14%, transparent); }
-.group { margin-top: 6px; font-size: 11px; color: var(--lumi-dim); }
+.group { margin-top: 6px; font-size: 11px; color: var(--label); }
 
 /* цвета палитры: клик по строке — редактор под ней */
 .color {
@@ -183,7 +183,7 @@ kbd {
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .actions input { height: 36px; border-radius: 10px; }
-.empty { padding: 8px 12px; color: var(--lumi-dim); font-size: 12.5px; }
+.empty { padding: 8px 12px; color: var(--label); font-size: 12.5px; }
 /* строки-флажки списка (пункты меню «⋯») — плотнее обычных */
 .row.slim { padding: 7px 12px; border-radius: 9px; font-size: 12.5px; }
 /* подтверждение удаления пространства — под его строкой */
@@ -270,7 +270,7 @@ details.more {
     &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
   }
   &[open] > summary::after { content: "▴"; }
-  & .more-hint { color: var(--lumi-dim); }
+  & .more-hint { color: var(--label); }
 }
 details.more[open] { gap: 8px; & > summary { margin-bottom: 0; } }
 /* «О моде»: строка-ссылка */

@@ -29,9 +29,7 @@
   const bufs = new Map(); // src -> AudioBuffer | null (null: файл не читается/не декодируется)
   const loading = new Map(); // src -> Promise
 
-  const setSources = action => [pageUrl(`sounds/${prefs.getStringPref(P + "pack", "default") === "gx" ? "gx/" : ""}${action}.ogg`)];
-
-  const sources = setSources;
+  const sources = action => [pageUrl(`sounds/${prefs.getStringPref(P + "pack", "default") === "gx" ? "gx/" : ""}${action}.ogg`)];
 
   function load(src) {
     if (!loading.has(src) && !bufs.has(src)) {
@@ -141,7 +139,8 @@
 
   UC_API.Windows.waitWindowLoading(window).then(async () => {
     const list = await Downloads.getList(Downloads.ALL);
-    const view = { onDownloadChanged(d) { if (d.succeeded && !d._lumiSound) (d._lumiSound = true, play("download", { ignoreFocus: true })); } };
+    const seen = new WeakSet(); // отметка своя у каждого окна: загрузка общая, играть может любое
+    const view = { onDownloadChanged(d) { if (d.succeeded && !seen.has(d)) (seen.add(d), play("download", { ignoreFocus: true })); } };
     await list.addView(view);
     window.addEventListener("unload", () => list.removeView(view), { once: true });
   });

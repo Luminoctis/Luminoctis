@@ -94,7 +94,7 @@ export const windowMode = w => {
   const m = pr.getStringPref(WIN, "");
   return m == "transparent" || (m == "wallpaper" && !isPrivate(w)) ? m : "opaque";
 };
-export const blurKind = () => { const k = pr.getStringPref(KIND, "acrylic"); return ["none", "blur", "mica"].includes(k) ? k : "acrylic"; };
+const blurKind = () => { const k = pr.getStringPref(KIND, "acrylic"); return ["none", "blur", "mica"].includes(k) ? k : "acrylic"; };
 // разовая миграция (2026-10-30): «Размыть то, что за окном» → blur-kind=blur (если окно прозрачное), Mica в старом переключателе → blur-kind=mica
 if (!pr.getBoolPref(LOOK + "modes-migrated", false)) {
   pr.setBoolPref(LOOK + "modes-migrated", true);
@@ -123,6 +123,9 @@ const gray = h => {
 const paint = doc => {
   const c = colors(), o = override(), root = doc.documentElement, w = doc.defaultView, priv = isPrivate(w);
   if (HEX.test(o)) c.accent = o;
+  // светлая своя тема: значки и кнопки окна Zen рисует по схеме (chrome.css: --toolbar-color-scheme: dark !important) — подбираем по яркости фона
+  const [r0, g0, b0] = [1, 3, 5].map(i => parseInt(c.bg0.slice(i, i + 2), 16));
+  root.style.setProperty("--toolbar-color-scheme", 0.299 * r0 + 0.587 * g0 + 0.114 * b0 > 140 ? "light" : "dark", "important");
   const mode = windowMode(w), glass = glassDocs.has(doc) && mode != "opaque";
   let solid = 100 - int(SEE, 90);
   if (priv && mode != "transparent") for (const t of TOKENS) c[t] = gray(c[t]); // и страницы (Home) тоже

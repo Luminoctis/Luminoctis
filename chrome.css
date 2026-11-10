@@ -12,6 +12,7 @@
   --lumi-fg: #c0caf5;
   --lumi-muted: #a9b1d6;
   --lumi-dim: #565f89;
+  --lumi-pending-filter: grayscale(1) brightness(0.6); /* выгруженные вкладки, закрепы и значки — серые */
   --lumi-accent: #7aa2f7;  /* выбор, фокус, кнопки, черта перетаскивания */
   /* именованные цвета: точки контейнеров, ссылки, «закрыть» */
   --lumi-blue: #7aa2f7; --lumi-cyan: #7dcfff; --lumi-teal: #73daca; --lumi-green: #9ece6a; --lumi-yellow: #e0af68;
@@ -172,7 +173,7 @@
 
 /* ---------- 4. Выгруженные вкладки — серые ---------- */
 .tabbrowser-tab:is([pending], [discarded]) .tab-content {
-  filter: grayscale(1) brightness(0.6);
+  filter: var(--lumi-pending-filter);
 }
 
 /* ==================== Этап 2: боковая рейка, закрепы, плееры, панель адреса ====================
@@ -301,7 +302,7 @@
   &:hover { box-shadow: var(--lumi-rail-glow); }
   &:focus-visible { outline: 2px solid var(--lumi-accent); }
   &[selected] { border-color: var(--lumi-accent); background: var(--lumi-raised); } /* открыт — окошком или во вкладке */
-  &[pending] img { filter: grayscale(1) brightness(0.6); } /* выгружен — серый, как выгруженные вкладки */
+  &[pending] img { filter: var(--lumi-pending-filter); } /* выгружен — серый, как выгруженные вкладки */
   &[unpinning] { translate: -64px 0; opacity: 0; } /* «Открепить»: улетает влево и гаснет */
 }
 /* перетаскивание: остальные закрепы расступаются (translate ставит js/lumi-rail.uc.js), перетаскиваемый гаснет, черта-указатель не нужна */
@@ -576,7 +577,7 @@ zen-library {
 
   &:hover:not([selected]) { --pill-bg: var(--lumi-surface); }
   &[selected] { color: var(--lumi-fg); --pill-bg: var(--lumi-raised); --pill-line: var(--lumi-accent); }
-  &[pending] > * { filter: grayscale(1) brightness(0.6); } /* выгруженные — серые, как в этапе 1 */
+  &[pending] > * { filter: var(--lumi-pending-filter); } /* выгруженные — серые, как в этапе 1 */
   transition: translate 180ms cubic-bezier(0.2, 0.8, 0.2, 1); /* расступаются при перетаскивании вкладки (js/lumi-tabstrip.uc.js) */
   &[dragging] { opacity: 0; }
   &[busy] .lumi-tab-icon { opacity: 0.5; }
@@ -697,7 +698,7 @@ img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb,
   padding: 0 6px 0 calc(8px + var(--lumi-level, 0) * 14px); border-radius: 8px; color: var(--lumi-muted);
   &:hover { background: var(--lumi-raised); color: var(--lumi-fg); }
   &[selected] { color: var(--lumi-fg); background: var(--lumi-raised); font-weight: 600; box-shadow: inset 2px 0 0 var(--lumi-accent); }
-  &[pending] > :is(.lumi-fr-icon, .lumi-fr-label) { filter: grayscale(1) brightness(0.6); }
+  &[pending] > :is(.lumi-fr-icon, .lumi-fr-label) { filter: var(--lumi-pending-filter); }
   &.lumi-fr-head { color: var(--lumi-dim); font-weight: 600; height: 26px; }
   & > * { flex-shrink: 0; }
   & .lumi-fr-icon { width: 16px; height: 16px; pointer-events: none; }
@@ -756,11 +757,11 @@ img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb,
   & .titlebar-button {
     width: 42px !important; height: var(--lumi-strip-h) !important; padding: 0 !important;
     justify-content: center; align-items: center;
-    border-radius: 0; color: var(--lumi-muted);
+    border-radius: 0; color: var(--lumi-muted) !important; /* !important: иначе родной белый цвет кнопок окна перебивает светлую тему */
     /* значок — глиф шрифта в ::before; пустая подпись рядом сдвигала его влево */
     & > .toolbarbutton-text { display: none !important; }
-    &:hover { background-color: var(--lumi-surface) !important; color: var(--lumi-fg); }
-    &.titlebar-close:hover { background-color: var(--lumi-red) !important; color: var(--lumi-solid); }
+    &:hover { background-color: var(--lumi-surface) !important; color: var(--lumi-fg) !important; }
+    &.titlebar-close:hover { background-color: var(--lumi-red) !important; color: var(--lumi-solid) !important; }
   }
 }
 #nav-bar { padding-inline-end: 8px !important; } /* кнопки окна ушли в полосу — шестерёнке нужен отступ от края */

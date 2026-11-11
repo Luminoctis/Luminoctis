@@ -51,7 +51,7 @@
     return ctx;
   }
 
-  function play(action, { force = false, ignoreFocus = false } = {}) {
+  function play(action, { force = false, ignoreFocus = false, startup = false } = {}) {
     const cfg = ACTIONS[action];
     if (!cfg) return;
     if (!force && !(action === "glitch" ? prefs.getBoolPref(P + "glitch.enabled", true) : master() && prefs.getBoolPref(P + action + ".enabled", true))) return;
@@ -64,7 +64,8 @@
     const volume = Math.min(1, Math.max(0, prefs.getIntPref(P + "volume", 50) / 100 * 0.1 * cfg[0] * jitter(cfg[3])));
     const rate = jitter(cfg[2]);
     // download — в одном окне (последнем активном), даже если браузер не в фокусе; остальное — только в активном окне
-    const mine = ignoreFocus ? (BrowserWindowTracker.getTopWindow() ?? BrowserWindowTracker.orderedWindows[0]) === window : document.hasFocus();
+    // startup (стартовый глитч): первое окно процесса, но BrowserWindowTracker его в этот момент ещё может не знать — окно считаем «своим»
+    const mine = startup || (ignoreFocus ? (BrowserWindowTracker.getTopWindow() ?? BrowserWindowTracker.orderedWindows[0]) === window : document.hasFocus());
     const entry = { action, src: list[0], rate, volume, played: false, ended: false };
     log.push(entry);
     count++;
@@ -85,8 +86,8 @@
         entry.played = true;
       };
       const run = () => ctx.state === "running" ? go() : ctx.resume().then(go, () => {});
-      // файл ещё не декодирован: событие пропускаем (иначе звук запоздает), кроме «▶» в настройках — его ждём
-      if (bufs.has(entry.src)) run(); else if (force) load(entry.src).then(run);
+      // файл ещё не декодирован: событие пропускаем (иначе звук запоздает), кроме «▶» в настройках и стартового глитча — их ждём
+      if (bufs.has(entry.src)) run(); else if (force || startup) load(entry.src).then(run);
       // «▶» и глитч при выключенных общих звуках: потом снова отпустить устройство
       if ((force || action === "glitch") && !master()) setTimeout(() => { if (!master()) ctx?.suspend(); }, 3000);
     } catch {}
@@ -128,10 +129,31 @@
   // глитч (lumi-glitch) решает в своём TabSelect, порядок обработчиков не гарантирован — проверяем после них; при глитче играет только glitch
   gBrowser.tabContainer.addEventListener("TabSelect", () => { if (settled() && performance.now() - openedAt > 200) setTimeout(() => { if (!window.lumiGlitch?.active) play("tab-switch"); }, 0); });
 
-  const HOVER = ".lumi-tab, .lumi-pin";
+  // Кнопки интерфейса: toolbarbutton/button (в т.ч. в popup-панелях и shadow DOM — берём composedPath), плитки мода, расширения в панели расширений.
+  // menuitem и всё внутри menupopup (меню и контекстные меню) — без звука. Из вложенных совпадений берём внешний: вкладка с кнопкой закрытия — один звук.
+  const HOVER = "toolbarbutton, button, moz-button, [role=button], [role=tab], .lumi-tab, .lumi-pin, .lumi-player, unified-extensions-item, .urlbar-page-action, .identity-box-button, .urlbar-go-button";
+  const IFRAME_HOVER = "button, [role=button], [role=tab], .t, .goto, select, a[href]"; // страницы мода в рамках: настройки, окно LumiTime
+  const hoverTarget = (e, sel) => {
+    const path = e.composedPath();
+    if (path.some(n => n.localName === "menupopup")) return null;
+    for (let i = path.length - 1; i >= 0; i--) if (path[i].matches?.(sel) && !path[i].disabled && !path[i].hasAttribute("disabled")) return path[i];
+    return null;
+  };
+  // звук один раз на вход в элемент: пока мышь над тем же элементом (в т.ч. над его детьми) — тишина; ушла на пустое место/за окно — сброс
+  const watchHover = (doc, sel) => {
+    let cur = null;
+    doc.addEventListener("mouseover", e => {
+      const el = hoverTarget(e, sel);
+      if (el !== cur) { cur = el; if (el) play("hover"); }
+    });
+    doc.addEventListener("mouseout", e => { if (!e.relatedTarget) cur = null; });
+  };
+  watchHover(document, HOVER);
+  // рамки с настройками и окном LumiTime: события мыши из них в этот документ не приходят, а load рамки не ловится — подключаемся, когда мышь входит в саму рамку
+  const framed = new WeakSet();
   document.addEventListener("mouseover", e => {
-    const el = e.target.closest?.(HOVER);
-    if (el && !el.contains(e.relatedTarget)) play("hover");
+    const d = e.target.localName === "iframe" && e.target.contentDocument;
+    if (d?.documentElement && !framed.has(d)) { framed.add(d); watchHover(d, IFRAME_HOVER); }
   });
   document.addEventListener("click", e => {
     if (e.target.closest?.("#lumi-rail button, #lumi-rail toolbarbutton, #lumi-rail .lumi-pin, #lumi-pins .lumi-pin")) play("click");

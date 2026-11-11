@@ -451,7 +451,7 @@
     opacity: 1; transition: opacity 150ms ease-out calc(140ms + var(--i, 0) * 35ms);
   }
   & .lumi-player-vol { pointer-events: auto; cursor: default; }
-  & .lumi-player-cover { filter: none; }
+  &.playing .lumi-player-cover { filter: none; } /* серость снимаем только у играющих */
 }
 @media (prefers-reduced-motion: reduce) {
   .lumi-player, .lumi-player * { transition: none !important; }
@@ -1326,4 +1326,14 @@ zen-library {
 @media (prefers-reduced-motion: reduce) {
   :root[lumi-glitch] { animation: none; }
   #lumi-glitch { display: none; }
+}
+
+/* ---------- 22. Glance поверх прозрачного сайта ----------
+ * Zen на время Glance ставит родительскому .browserSidebarContainer класс .zen-glance-background (и полупрозрачность/масштаб инлайном), а самому Glance — .zen-glance-overlay.
+ * Прозрачный сайт под окошком Glance был резким, и тексты смешивались. backdrop-filter чужой процесс не размывает, обычный filter на самом контейнере — размывает целиком.
+ * Размытие плавно появляется и уходит вместе с анимацией Glance (transition на всех контейнерах: класс снимается в конце закрытия, фильтр уходит за те же ~300 мс). */
+#tabbrowser-tabpanels > .browserSidebarContainer { transition: filter 300ms ease; }
+#tabbrowser-tabpanels > .browserSidebarContainer.zen-glance-background:not(.zen-glance-overlay) { filter: blur(16px); }
+@media (prefers-reduced-motion: reduce) {
+  #tabbrowser-tabpanels > .browserSidebarContainer { transition: none; }
 }

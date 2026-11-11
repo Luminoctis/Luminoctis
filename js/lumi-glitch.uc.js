@@ -43,7 +43,7 @@
   // Стартовый глитч: часть загрузки. Раз за запуск Zen, в первом окне (флаг — в default-ветке prefs, в профиль не пишется, живёт на процесс).
   // Zen держит интерфейс на opacity 0 (:root[zen-before-loaded]) до конца восстановления сессии; пока идёт глитч, корень несёт lumi-startup-glitch
   // и chrome.css отменяет это скрытие. Глитч стартует сразу при загрузке окна, идёт быстрыми всплесками по 150 мс и гаснет в конце всплеска после снятия
-  // zen-before-loaded (не короче 300 мс и не дольше 6 с). Звук — в начале (после разбора glitch.ogg, не дольше 400 мс) и ещё раз в конце, если загрузка шла дольше 1,2 с.
+  // zen-before-loaded (не короче 300 мс и не дольше 6 с). Звук — в начале (после разбора glitch.ogg, не дольше 1 с, пока глитч идёт) и ещё раз в конце, если загрузка шла дольше 1,2 с.
   const DONE = "luminoctis.internal.startup-glitch-done", START = "luminoctis.look.startup-glitch", SND = "luminoctis.sounds.glitch.enabled";
   const sleep = ms => new Promise(r => setTimeout(r, ms));
   const startup = async ({ force = false } = {}) => {
@@ -53,11 +53,12 @@
       def.setBoolPref(DONE, true);
     }
     if (!Services.prefs.getBoolPref(START, true) || reduced()) return;
-    const sound = (wait = false) => Services.prefs.getBoolPref(SND, true) && sleep(0).then(async () => {
-      const S = window.lumiSounds; // lumi-sounds грузится после этого скрипта
-      if (wait) await Promise.race([S?.ready("glitch"), sleep(400)]);
-      S?.play("glitch", { ignoreFocus: true }); // окно в момент старта ещё без фокуса
-    });
+    const sound = (wait = false) => Services.prefs.getBoolPref(SND, true) && (async () => {
+      for (let i = 0; i < 20 && !window.lumiSounds; i++) await sleep(50); // lumi-sounds грузится после этого скрипта
+      const S = window.lumiSounds;
+      if (wait) await Promise.race([S?.ready("glitch"), sleep(1000)]); // файл разбирается дольше — звук с опозданием до ~1 с
+      if (S && busy) S.play("glitch", { startup: true }); // глитч уже кончился — тишина; startup: окно ещё без фокуса и может не числиться верхним
+    })();
     const zenDone = new Promise(res => {
       if (!root.hasAttribute("zen-before-loaded")) return res();
       const mo = new MutationObserver(() => { if (!root.hasAttribute("zen-before-loaded")) (mo.disconnect(), res()); });
@@ -66,8 +67,9 @@
     G.startupAt = Date.now(); G.zenAt = G.endAt = 0;
     root.setAttribute("lumi-startup-glitch", "");
     run(6000, { silent: true });
-    sound(true);
+    const soundP = sound(true);
     await Promise.race([zenDone.then(() => { G.zenAt = Date.now(); }), sleep(6000)]); // потолок 6 с
+    if (soundP) await Promise.race([soundP, sleep(Math.max(0, 1000 - (Date.now() - G.startupAt)))]); // быстрый старт Zen: глитч дотягивается до начала звука (не дольше 1 с), звук не теряется
     root.removeAttribute("lumi-startup-glitch");
     const el = Date.now() - G.startupAt, end = Math.max(300, Math.ceil(el / MS) * MS); // не короче 300 мс, гаснем в конце всплеска
     if (el > 1200) sound();

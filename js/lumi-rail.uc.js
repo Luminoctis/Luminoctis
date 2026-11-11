@@ -811,7 +811,8 @@
   function unloadIdleTabs() {
     const minutes = Services.prefs.getIntPref("luminoctis.tabs.unload-minutes", 0);
     if (!minutes) return;
-    for (const tab of gBrowser.tabs) {
+    // gBrowser.tabs у Zen — только вкладки текущего пространства; нужны все (в DOM остальные есть)
+    for (const tab of document.querySelectorAll("tab.tabbrowser-tab")) { // только вкладки браузера, не <tab> других tabbox
       if (tab.selected || tab.hasAttribute("pending") || tab.soundPlaying || tab.pictureinpicture || tab._sharingState?.webRTC ||
         tab.linkedBrowser?.zenModeActive || tab.matches("[zen-empty-tab], [zen-glance-tab], [glance-id]")) continue;
       if (Date.now() - tab.lastAccessed > minutes * 60000) gBrowser.discardBrowser(tab);

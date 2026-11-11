@@ -37,6 +37,7 @@ let onPanelShown = null; // (видна) — для превью часов: с�
     const on = box && !box.hidden && root.hasAttribute("lumi-glass") && root.getAttribute("inDOMFullscreen") != "true";
     const r = box?.getBoundingClientRect(), p = panels.getBoundingClientRect();
     panels.toggleAttribute("lumi-hole", !!on);
+    win.lumiSiteBlur?.set("settings", on ? r : null); // где размытие сайта возможно (корню [lumi-site-blur]), дырка отключена CSS, а под панелью виден размытый сайт
     if (on) for (const [v, n] of [["x", r.left - p.left], ["y", r.top - p.top], ["w", r.width], ["h", r.height]]) panels.style.setProperty(`--lumi-hole-${v}`, n + "px");
   };
   const frame = () => { hole(); if (Date.now() < until) win.requestAnimationFrame(frame); else running = false; };
@@ -46,7 +47,7 @@ let onPanelShown = null; // (видна) — для превью часов: с�
     mo.observe(box, { attributes: true });
     mo.observe(root, { attributes: true, attributeFilter: ["lumi-glass", "inDOMFullscreen"] });
     win.addEventListener("resize", kick);
-    window.addEventListener("unload", () => { mo.disconnect(); win.removeEventListener("resize", kick); panels.removeAttribute("lumi-hole"); }, { once: true });
+    window.addEventListener("unload", () => { mo.disconnect(); win.removeEventListener("resize", kick); panels.removeAttribute("lumi-hole"); win.lumiSiteBlur?.set("settings", null); }, { once: true });
     kick();
   }
 }

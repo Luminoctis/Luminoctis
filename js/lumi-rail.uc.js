@@ -929,6 +929,7 @@
     const sel = gBrowser.selectedTab;
     mini.backdrop.toggleAttribute("lumi-passive", isFull(sel));
     mini.frame.toggleAttribute("lumi-over-site", !isFull(sel) && !sel?.hasAttribute("lumi-home"));
+    window.lumiSiteBlur?.track("time-mini", mini.frame); // стекло: под рамкой размытый сайт (js/lumi-site-blur.uc.js)
     if (isFull(sel)) sel.linkedBrowser.contentWindow?.lumiTime?.place?.(); // панель большого режима стыкуется к рамке
   }
   function openMini(tile) {
@@ -950,7 +951,7 @@
     iframe.addEventListener("load", () => iframe.contentWindow.addEventListener("keydown", esc));
     tabbox().append(backdrop, frame);
     mini = { backdrop, frame, iframe, esc, tile };
-    syncMini();
+    syncMini(); // и ведёт за рамкой размытие сайта, пока она появляется
     tile.setAttribute("open", "");
     iframe.focus();
   }
@@ -963,6 +964,7 @@
       document.removeEventListener("keydown", m.esc);
       m.backdrop.remove();
       m.frame.remove();
+      window.lumiSiteBlur?.track("time-mini", null);
       m.tile.removeAttribute("open");
       mini = null;
       if (full) setTimeout(closeFull); // большой режим без мини-окна не существует (не сразу: см. TabSelect)
@@ -1092,6 +1094,7 @@
           return r && r.left < R && r.right > L && r.top < B && r.bottom > T;
         }) : [];
       uncarve(hit);
+      window.lumiSiteBlur?.set("players", hit.length ? { left: L, top: T, right: R, bottom: B } : null); // над сайтом — размытый сайт вместо дырки (chrome.css §14)
       for (const el of hit) {
         const r = el.getBoundingClientRect();
         el.setAttribute("lumi-hole2", "");

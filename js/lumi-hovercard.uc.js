@@ -55,6 +55,7 @@
       token++;
       card.hidden = true;
       current = null;
+      window.lumiSiteBlur?.track("hovercard", null); // над сайтом под карточкой размытый сайт (js/lumi-site-blur.uc.js)
     };
     const place = el => {
       const r = el.getBoundingClientRect(), c = card.getBoundingClientRect();
@@ -78,6 +79,7 @@
       card.hidden = false;
       current = el;
       place(el);
+      window.lumiSiteBlur?.track("hovercard", card);
     }
 
     document.addEventListener("mouseover", event => {

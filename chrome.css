@@ -390,7 +390,7 @@
   & .lumi-pin-head { flex-shrink: 0; }
   /* под рамкой размытие: Firefox размывает только интерфейс (Home — chrome-страница). Над обычным сайтом (другой процесс) он не размыт, поэтому js ставит [lumi-over-site] и под цветом палитры идёт непрозрачная подложка --lumi-solid, как у #lumi-pin-frame в стекле */
   backdrop-filter: blur(18px);
-  &[lumi-over-site] { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid); backdrop-filter: none; }
+  :root:not([lumi-site-blur]) &[lumi-over-site] { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid); backdrop-filter: none; }
   & .lumi-time-full {
     appearance: none; height: 28px; padding: 0 10px; border: none; border-radius: 8px; background: none;
     font: inherit; font-size: 12px; color: var(--lumi-muted);
@@ -973,9 +973,10 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 
   & :is(#lumi-settings, #lumi-hovercard, #lumi-pin-frame) { border-color: var(--lumi-glass-edge); }
   /* backdrop-filter в Firefox размывает только интерфейс, а сайт (<browser> другого процесса) — нет: сквозь полупрозрачные панели над сайтом
-   * читался текст страницы. Под цветом палитры у них непрозрачная подложка --lumi-solid */
-  & #lumi-hovercard,
-  & #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
+   * читался текст страницы. Под цветом палитры у них непрозрачная подложка --lumi-solid. Где работает размытие сайта (корню [lumi-site-blur],
+   * раздел «Размытие сайта под панелями» ниже), подложка не нужна: сквозь панель виден размытый сайт */
+  &:not([lumi-site-blur]) #lumi-hovercard,
+  &:not([lumi-site-blur]) #urlbar[breakout-extend] .urlbar-background { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid) !important; }
   /* панель настроек — настоящее стекло: свою заливку рисует страница (surface с ползунком прозрачности), рамка прозрачная, а сайт под ней вырезан
    * маской (дырка по живому прямоугольнику панели; js: settings/settings.js, блок «стекло») — сквозь панель видно то же, что за окном */
   /* размыто только то, что лежит под самой панелью (backdrop-filter по её рамке): окно вокруг и сайт справа резкие. Раньше filter: blur на всей области сайта, адресной строке и полосе вкладок размывал и пустое место справа */
@@ -983,8 +984,8 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
   /* тот же вырез — у мини-окна закрепа: js/lumi-rail.uc.js (updateHole) вырезает по рамке окошка панель ПРЕЖНЕЙ вкладки под ним (не всю область: внутри неё
    * лежит и панель самого закрепа), вместо подложки --lumi-solid у #lumi-pin-frame. Переменные выреза — инлайн на самой панели, у настроек — на #tabbrowser-tabpanels */
-  & :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-hole],
-  & #tabbrowser-tabpanels .browserContainer[lumi-hole2] {
+  & #tabbrowser-tabpanels > .browserSidebarContainer[lumi-hole], /* закреп-окошко: дырка остаётся и при размытии сайта (размытие — под панелями из списка в разделе ниже) */
+  &:not([lumi-site-blur]) :is(#tabbrowser-tabpanels[lumi-hole], #tabbrowser-tabpanels .browserContainer[lumi-hole2]) {
     --lumi-hole-rad: var(--lumi-hole-r, var(--lumi-radius));
     mask-image: radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 0 100%, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 100% 0, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 0 0, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)),
       linear-gradient(#000, #000), linear-gradient(#000, #000);
@@ -999,7 +1000,14 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 }
 /* Compacting в стекле: пока панель выехала, сайт под ней не рисуется (js/lumi-compact.uc.js ставит --lumi-cut = inset() по живым прямоугольникам
  * панелей), сквозь неё видно то, что за окном (рабочий стол / в «Обоях» #lumi-home-wall). Без выехавших панелей и в непрозрачном режиме клипа нет */
-:root[lumi-glass]:not([inDOMFullscreen="true"]) #tabbrowser-tabpanels { clip-path: var(--lumi-cut, none); }
+:root[lumi-glass]:not([inDOMFullscreen="true"], [lumi-site-blur]) #tabbrowser-tabpanels { clip-path: var(--lumi-cut, none); }
+/* ---------- 14б. Размытие сайта под панелями (js/lumi-site-blur.uc.js) ----------
+ * backdrop-filter сайт не размывает, а обычный filter на #tabbrowser-tabpanels — да: скрипт держит скрытый <svg> с фильтром #lumi-site-blur (по feGaussianBlur
+ * с подобластью на каждую открытую над сайтом панель) и вешает его на область сайтов, только пока такая панель есть. Корню он ставит [lumi-site-blur],
+ * пока размытие возможно (стекло, не fullscreen, не reduced-transparency, включён gfx.webrender.svg-filter-effects, выбран настоящий сайт, pref
+ * luminoctis.look.site-blur). Тогда выше в разделе 14 не действуют дырки под настройками и карточкой плеера, вырез --lumi-cut в Compacting и сплошные
+ * подложки у карточки при наведении, строки адреса и мини-окна LumiTime: сквозь панель виден размытый сайт. Без атрибута — прежнее поведение.
+ * Закреп-окошко размытия не получает: его панель лежит в той же области сайтов, и прямоугольник размыл бы сам закреп. */
 /* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
  * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
 :root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {

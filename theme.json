@@ -119,6 +119,12 @@
     "js/lumi-strict.sys.mjs": {
       "name": "lumi-strict"
     },
+    "js/lumi-site-blur.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-site-blur"
+    },
     "js/lumi-sounds.uc.js": {
       "include": [
         "chrome://browser/content/browser.xhtml"

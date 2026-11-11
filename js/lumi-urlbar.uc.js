@@ -122,6 +122,11 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   header.removeAttribute("data-l10n-id");
   header.textContent = "Поиск по умолчанию:";
   let holdFloating = false;
+  // Стекло: раскрытая строка (результаты, плавающая строка Zen) над сайтом размывает его под собой (js/lumi-site-blur.uc.js, chrome.css §14)
+  const ubBg = gURLBar.querySelector(".urlbar-background");
+  const ubBlur = () => window.lumiSiteBlur?.track("urlbar", gURLBar.hasAttribute("breakout-extend") ? ubBg : null);
+  new MutationObserver(ubBlur).observe(gURLBar, { attributes: true, attributeFilter: ["breakout-extend"] });
+  new ResizeObserver(ubBlur).observe(gURLBar);
   const { view } = gURLBar;
   const { close } = view;
   view.close = function (...args) { return holdFloating ? undefined : close.apply(this, args); };

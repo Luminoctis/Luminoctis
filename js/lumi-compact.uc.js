@@ -58,15 +58,19 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
   // Сайт не двигается и не перерисовывается. Размер реза считаем по живым прямоугольникам панелей на каждом кадре, пока идёт их
   // анимация (transitionrun / атрибуты) — клип едет синхронно с выездом, любое сочетание панелей и reduced-motion обходятся одинаково.
   // chrome.css, раздел 14: clip-path: var(--lumi-cut); вне стекла и в fullscreen переменная не действует.
+  // Где работает размытие сайта (js/lumi-site-blur.uc.js, корню [lumi-site-blur]), клип не нужен: те же прямоугольники отдаются фильтру — под панелью виден размытый сайт.
   const nav = document.getElementById("zen-appcontent-navbar-wrapper"), panels = document.getElementById("tabbrowser-tabpanels");
   let cutUntil = 0, running = false, last = "";
   const cut = () => {
-    let l = 0, t = 0;
+    let l = 0, t = 0, tp;
     if (root.hasAttribute("lumi-glass") && root.getAttribute("inDOMFullscreen") !== "true") {
-      const tp = panels.getBoundingClientRect(), n = nav.getBoundingClientRect();
+      tp = panels.getBoundingClientRect();
+      const n = nav.getBoundingClientRect();
       l = rail.getBoundingClientRect().right - tp.left;
       t = Math.max(strip.getBoundingClientRect().bottom, n.height > 20 ? n.bottom : 0) - tp.top; // свёрнутая строка (8px) — лишь невидимая зона показа
     }
+    window.lumiSiteBlur?.set("compact-rail", l >= 1 ? { left: tp.left, top: tp.top, right: tp.left + l, bottom: tp.bottom } : null);
+    window.lumiSiteBlur?.set("compact-top", t >= 1 ? { left: tp.left, top: tp.top, right: tp.right, bottom: tp.top + t } : null);
     const value = l >= 1 || t >= 1 ? `inset(${Math.max(t, 0)}px 0 0 ${Math.max(l, 0)}px)` : "";
     if (value != last) { last = value; value ? panels.style.setProperty("--lumi-cut", value) : panels.style.removeProperty("--lumi-cut"); }
   };

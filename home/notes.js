@@ -71,8 +71,18 @@ function flush(b) {
   return b.saving;
 }
 const flushAll = () => Promise.all(boards.map(flush));
-let lp = Promise.resolve(); // записи раскладки идут цепочкой
-const saveLayout = () => (lp = lp.then(() => md.writeLayout(layout)).then(() => (lastSig = null)).catch(e => fail(e, "сохранить раскладку")));
+let lp = Promise.resolve(), layoutBase; // записи раскладки идут цепочкой; layoutBase — текст boards.json, на котором стоит наша раскладка
+// на диске уже другая раскладка (записала другая страница) — не затираем её: перечитываем и просим повторить правку
+const saveLayout = () => (lp = lp.then(async () => {
+  const text = await md.writeLayout(layout, layoutBase);
+  lastSig = null;
+  if (text != null) return void (layoutBase = text);
+  reload().then(() => {
+    errBox.classList.add("calm");
+    errBox.textContent = "Раскладка изменилась в другом окне — правка не сохранена, повтори её";
+    errBox.hidden = false;
+  });
+}).catch(e => fail(e, "сохранить раскладку")));
 const sync = () => { boards = layout.rows.flatMap(r => r.sheets).map(m => byMeta.get(m)); }; // плоский список — по раскладке
 const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 
@@ -86,7 +96,7 @@ async function load() {
   try {
     await lp;
     let lay = await md.readLayout();
-    if (!lay.rows.some(r => r.sheets.length)) { await md.seedDefaults(); lay = await md.readLayout(); }
+    if (!lay.rows.some(r => r.sheets.length) && await md.seedDefaults()) lay = await md.readLayout(); // пусто из-за сбоя чтения — ничего не создаём
     const old = new Map(boards.map(b => [b.name, b])), map = new Map();
     const raws = new Map(await Promise.all(lay.rows.flatMap(r => r.sheets).map(async m => [m.name, await md.readRaw(m.name)])));
     const sig = JSON.stringify([lay, [...raws]]);
@@ -102,6 +112,7 @@ async function load() {
       map.set(meta, b ? Object.assign(b, { cards: same ? b.cards : cards, meta }) : { name: meta.name, meta, cards });
     }));
     layout = lay;
+    layoutBase = md.baseOf(lay);
     byMeta = map;
     sync();
   } catch (e) { return fail(e, "прочитать заметки"); }
@@ -525,7 +536,7 @@ function openRename(b) {
         try {
           await flush(b);
           await lp;
-          await md.renameSheet(b.name, name); // сам обновляет boards.json на диске
+          layoutBase = md.baseOf(await md.renameSheet(b.name, name)); // сам обновляет boards.json на диске
           b.name = b.meta.name = name;
         } catch (e) { fail(e, `переименовать «${b.name}»`); }
       }
@@ -601,7 +612,7 @@ async function deleteSheet(b) { // файл — в Корзину Windows (md.tr
   const row = rowOf(b), rowIndex = layout.rows.indexOf(row), index = row.sheets.indexOf(b.meta), meta = { ...b.meta };
   clearTimeout(b.timer);
   let text;
-  try { b.dirty = true; await flush(b); await b.saving; await lp; text = await md.readRaw(b.name); await md.removeSheet(b.name); }
+  try { b.dirty = true; await flush(b); await b.saving; await lp; text = await md.readRaw(b.name); layoutBase = md.baseOf(await md.removeSheet(b.name)); }
   catch (e) { b.confirm = false; render(); return fail(e, `удалить «${b.name}»`); }
   b.dirty = false;
   for (const r of layout.rows) r.sheets = r.sheets.filter(m => m != b.meta);

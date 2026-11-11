@@ -176,22 +176,57 @@ export async function writeRaw(name, text) {
   Services.obs.notifyObservers(null, SAVED, name);
 }
 export const writeSheet = (name, items) => writeRaw(name, serialize(items));
-export const writeLayout = layout => store.writeJSON(ORDER, layout);
-
-// три листа по умолчанию, если ни одного нет (зовёт страница Home, чтение раскладки файлов не создаёт)
-export async function seedDefaults() {
-  await writeSheet(DEFAULTS[0], [{ text: "Нажми на текст, чтобы изменить; новый пункт — внизу листа", check: false, children: [] }]);
-  for (const n of DEFAULTS.slice(1)) await writeSheet(n, []);
-  await writeLayout(normalizeLayout(DEFAULTS, DEFAULTS)); // порядок по умолчанию, не по алфавиту
+const PREV = "notes/boards.prev.json"; // прежняя раскладка: запасная, если boards.json повреждён
+const parseJSON = t => { try { return JSON.parse(t); } catch { return null; } };
+const usable = raw => Array.isArray(raw) || Array.isArray(raw?.rows);
+const sheetsIn = raw => (Array.isArray(raw) ? raw : Array.isArray(raw?.rows) ? raw.rows.flatMap(r => (Array.isArray(r?.sheets) ? r.sheets : [])) : [])
+  .map(s => (typeof s == "string" ? s : s?.name)).filter(n => typeof n == "string");
+const bases = new WeakMap(); // раскладка из readLayout → текст boards.json, который лежал на диске при чтении
+export const baseOf = layout => bases.get(layout);
+// Запись раскладки. base — текст boards.json, который читал вызывающий (null — файла не было): если на диске уже другой, не пишем
+// и возвращаем null (устаревшая страница не затирает новую раскладку; вызывающий перечитывает). base не задан — пишем безусловно.
+// Прежняя раскладка, если разборчива, перед заменой копируется в boards.prev.json. Возвращает записанный текст.
+// shortcut: проверка и запись не атомарны (миллисекунды между чтением и заменой), upgrade — файловая блокировка, если понадобится
+export async function writeLayout(layout, base) {
+  const cur = await store.readText(ORDER, null); // сбой чтения бросает — раскладку не трогаем
+  const text = JSON.stringify(layout);
+  if (base !== undefined && cur !== base) return null;
+  if (cur === text) return text;
+  if (cur != null && usable(parseJSON(cur))) await store.writeText(PREV, cur);
+  await store.writeText(ORDER, text);
+  return text;
 }
-// раскладка по файлам: старый/битый boards.json переписывается; нет ни папки, ни листов — пустая раскладка, ничего не создаётся
-export async function readLayout() {
+
+// три листа по умолчанию, только если папка действительно пуста: ни одного .md и раскладка не помнит листов (иначе список файлов просто не прочитался;
+// так затирались «Дела»/«Идеи» и раскладка схлопывалась в один ряд). Существующие файлы листов не трогает. Зовёт страница Home; true — создано
+export async function seedDefaults() {
+  if ((await store.list(DIR)).some(f => /\.md$/i.test(f))) return false;
+  const text = await store.readText(ORDER, null);
+  if (sheetsIn(parseJSON(text)).length) return false;
+  for (const n of DEFAULTS) if ((await store.readText(file(n), null)) == null) await writeSheet(n, n == DEFAULTS[0] ? [{ text: "Нажми на текст, чтобы изменить; новый пункт — внизу листа", check: false, children: [] }] : []);
+  return (await writeLayout(normalizeLayout(DEFAULTS, DEFAULTS), text)) != null; // порядок по умолчанию, не по алфавиту
+}
+// раскладка по файлам: старая (массив) переписывается, новые файлы дописываются; нет ни папки, ни листов — пустая раскладка, ничего не создаётся.
+// Сбой чтения boards.json (занят, нет доступа) бросает ошибку и ничего не пишет; повреждённый — берётся boards.prev.json. На диск уходит раскладка
+// без выбрасывания листов, чьих файлов сейчас не видно (список файлов мог прийти неполным); из возвращаемой раскладки они выбрасываются
+export async function readLayout(retry = true) {
   const files = (await store.list(DIR)).filter(f => /\.md$/i.test(f)).map(f => f.slice(0, -3));
-  if (!files.length) return normalizeLayout(null, []);
-  let raw = null;
-  try { raw = await store.readJSON(ORDER, null); } catch {} // битый JSON — не страшно, соберём из файлов
-  const layout = normalizeLayout(raw, files);
-  if (JSON.stringify(raw) != JSON.stringify(layout)) await writeLayout(layout);
+  if (!files.length) { // раскладка помнит листы, а файлов нет — папка сейчас не читается: ошибка, а не пустая доска (иначе новый лист затёр бы раскладку)
+    if (sheetsIn(parseJSON(await store.readText(ORDER, null))).length) throw new DOMException("список листов пуст, а раскладка помнит листы", "InvalidStateError");
+    return normalizeLayout(null, []);
+  }
+  const text = await store.readText(ORDER, null);
+  let raw = text == null ? null : parseJSON(text);
+  const broken = text != null && !usable(raw);
+  if (broken) raw = parseJSON(await store.readText(PREV, null));
+  if (!usable(raw)) raw = null;
+  const layout = normalizeLayout(raw, files), keep = normalizeLayout(raw, [...files, ...sheetsIn(raw)]);
+  let base = text;
+  if (broken || JSON.stringify(raw) != JSON.stringify(keep)) {
+    base = await writeLayout(keep, text);
+    if (base == null) return retry ? readLayout(false) : layout; // пока считали, раскладку записал кто-то другой
+  }
+  bases.set(layout, base);
   return layout;
 }
 export const boardNames = async () => sheetNames(await readLayout());
@@ -201,7 +236,7 @@ export async function renameSheet(from, to) {
   const layout = await readLayout(); // до переноса файла, иначе порядок потеряется
   await IOUtils.move(store.path(file(from)), store.path(file(to)), { noOverwrite: true });
   for (const r of layout.rows) for (const s of r.sheets) if (s.name == from) s.name = to;
-  await writeLayout(layout);
+  bases.set(layout, await writeLayout(layout));
   return layout;
 }
 // файл листа — в Корзину Windows (у Firefox нет своего вызова: PowerShell + Microsoft.VisualBasic SendToRecycleBin через Subprocess; путь — в переменной окружения,
@@ -231,7 +266,7 @@ export async function removeSheet(name, hard = false) { // hard — стерет
   for (const r of layout.rows) r.sheets = r.sheets.filter(s => s.name != name);
   layout.rows = layout.rows.filter(r => r.sheets.length);
   if (!layout.rows.length) layout.rows.push({ color: null, fill: false, sheets: [] });
-  await writeLayout(layout);
+  bases.set(layout, await writeLayout(layout));
   Services.obs.notifyObservers(null, SAVED, name);
   return layout;
 }

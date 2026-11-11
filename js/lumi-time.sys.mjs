@@ -11,9 +11,11 @@
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 import { pageUrl } from "./lumi-paths.sys.mjs";
+import { shiftDate, emptyDaily, normDaily, applyMark, dailyStats } from "./lumi-time-daily.sys.mjs"; // ежедневные задачи: чистая логика отдельно (проверка в node)
+export { shiftDate, dailyStats, cycleMark, toggleMark } from "./lumi-time-daily.sys.mjs";
 const STORE_URL = pageUrl("home/store.js");
 const store = () => ChromeUtils.importESModule(STORE_URL);
-const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json" };
+const FILES = { settings: "time/settings.json", state: "time/state.json", journal: "time/journal.json", daily: "time/daily.json" };
 export const dayFile = date => `time/days/${date}.json`;
 const MIN = 60000;
 const STATE_VERSION = 3;
@@ -207,6 +209,7 @@ const DEFAULT_SETTINGS = {
   monthGoalsEnabled: false, monthGoalHours: null, topicMonthGoals: [],
   weekGoalsEnabled: false, weekGoalHours: null, topicWeekGoals: [],
   streakGoalsEnabled: false, streakGoalHours: null, topicStreakGoals: [],
+  dailyEnabled: true, // блок «Каждый день»
   // блок сайтов: у каждого пресета свой (presets[].block = { enabled, sites, breaks }); верхние поля — для режима «Свой» (без пресета)
   blockEnabled: false, blockSites: [], blockBreaks: false, // breaks: блокировать и в перерывах («строгий режим»)
 };
@@ -245,6 +248,7 @@ export function loadSettings(data) {
     monthGoalsEnabled: bool("monthGoalsEnabled"), monthGoalHours: hours("monthGoalHours"), topicMonthGoals: topicGoals(raw.topicMonthGoals),
     weekGoalsEnabled: bool("weekGoalsEnabled"), weekGoalHours: hours("weekGoalHours"), topicWeekGoals: topicGoals(raw.topicWeekGoals),
     streakGoalsEnabled: bool("streakGoalsEnabled"), streakGoalHours: hours("streakGoalHours"), topicStreakGoals: topicGoals(raw.topicStreakGoals),
+    dailyEnabled: bool("dailyEnabled"),
     blockEnabled: bool("blockEnabled"), blockBreaks: bool("blockBreaks"),
     blockSites: sites(raw.blockSites),
   };
@@ -252,11 +256,6 @@ export function loadSettings(data) {
 
 // ---------- даты, статистика (statistics.ts, log.ts) ----------
 export const localDate = t => { const d = new Date(t); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
-export function shiftDate(date, days) {
-  const v = new Date(`${date}T00:00:00Z`);
-  v.setUTCDate(v.getUTCDate() + days);
-  return v.toISOString().slice(0, 10);
-}
 // интервалы по дням (полночь делит сессию между днями; день — по поясу начала записи)
 function addByDate(target, list, offset) {
   for (const [a, b] of list) {
@@ -383,7 +382,8 @@ export function journalDays(records = data.records) {
 // ---------- состояние движка ----------
 // data.state — идущий цикл; data.selection — выбор в панели (пара, длинный перерыв, «каждые N», пресет, тема)
 export const data = { loaded: false, settings: loadSettings(null), state: idleState(), selection: null, timerMode: "Countdown",
-  records: [], resets: [], foreign: [], journalError: null, writeError: null, rev: 0 };
+  records: [], resets: [], foreign: [], journalError: null, writeError: null, rev: 0,
+  daily: emptyDaily(), dailyError: null, dailyWriteError: null }; // ежедневные задачи (time/daily.json)
 const dirty = new Map();   // записи, ещё не записанные в journal.json (лежат и в state.json — не пропадут)
 let allowed = new Set();   // «всё равно открыть» — до конца текущего фокуса
 let queue = Promise.resolve(), alarm = null, saver = null, loading = null, gen = 0;
@@ -415,14 +415,16 @@ async function load() {
   const my = ++gen, st = store();
   clearTimeout(alarm); clearTimeout(saver);
   await queue; // дописать начатое в прежнюю папку
-  let settingsRaw = null, saved = null, journal = null, journalError = null;
+  let settingsRaw = null, saved = null, journal = null, journalError = null, daily = emptyDaily(), dailyError = null;
   try { settingsRaw = await st.readJSON(FILES.settings, null); } catch (e) { console.error("LumiTime settings:", e); }
   try { saved = await st.readJSON(FILES.state, null); } catch (e) { console.error("LumiTime state:", e); }
   try {
     journal = await st.readJSON(FILES.journal, null);
     if (journal && !Array.isArray(journal.records)) throw new Error("нет списка records");
   } catch (e) { journalError = `Журнал не читается (${FILES.journal}): ${e.message ?? e}. Записи не теряются — ждут исправления файла.`; }
+  try { daily = normDaily(await st.readJSON(FILES.daily, null)); } catch (e) { dailyError = `Файл «Каждый день» не читается (${FILES.daily}): ${e.message ?? e}. Он не будет перезаписан.`; }
   if (my != gen) return;
+  data.daily = daily; data.dailyError = dailyError; data.dailyWriteError = null;
   data.settings = loadSettings(settingsRaw);
   data.selection = initialSelection(saved?.selection);
   data.state = saved?.version === 1 ? restoreTimerState(saved.state) ?? idleState() : idleState();
@@ -600,6 +602,38 @@ export async function addTopic(name) {
   changeSelection({});
   return true;
 }
+
+// ---------- ежедневные задачи (home/time.js, блок «Каждый день»; логика — lumi-time-daily.sys.mjs) ----------
+// Данные общие для всех окон и Home (движок один), интерфейс обновляется по bump("daily"). Нечитаемый файл не перезаписываем (dailyError).
+function dailySet(next) {
+  if (!data.loaded || data.dailyError) return false;
+  data.daily = next; data.dailyWriteError = null;
+  bump("daily");
+  write(FILES.daily, next).catch(e => { data.dailyWriteError = String(e.message ?? e); console.error("LumiTime daily:", e); bump("daily"); });
+  return true;
+}
+export const dailyToday = () => localDate(now());
+export function dailyAdd(name) {
+  const text = String(name).trim().slice(0, 200);
+  return !!text && dailySet({ ...data.daily, tasks: [...data.daily.tasks, { id: uuid(), name: text, created: dailyToday() }] });
+}
+export function dailyRename(id, name) {
+  const text = String(name).trim().slice(0, 200);
+  return !!text && data.daily.tasks.some(t => t.id == id) && dailySet({ ...data.daily, tasks: data.daily.tasks.map(t => (t.id == id ? { ...t, name: text } : t)) });
+}
+// удаление стирает и историю отметок задачи
+export function dailyRemove(id) {
+  if (!data.daily.tasks.some(t => t.id == id)) return false;
+  const marks = {};
+  for (const [date, m] of Object.entries(data.daily.marks)) { const { [id]: _, ...rest } = m; if (Object.keys(rest).length) marks[date] = rest; }
+  return dailySet({ ...data.daily, tasks: data.daily.tasks.filter(t => t.id != id), marks });
+}
+// value: 1 сделал | 0 не сделал | null снять; date — день от создания задачи до сегодня
+export function dailyMark(id, date, value) {
+  const next = applyMark(data.daily, id, date, value, dailyToday());
+  return !!next && dailySet(next);
+}
+export const dailyStatsOf = (id, today = dailyToday()) => dailyStats(data.daily, id, today);
 
 // ---------- сводки ----------
 let cache = { key: "", value: null };

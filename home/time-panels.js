@@ -68,6 +68,67 @@ export function goalsBlock(period, title) {
       h("div", { class: "lt-goal-fill", style: `width:${Math.min(100, Math.max(0, r.percent))}%` })))));
 }
 
+// ---------- «Каждый день»: ежедневные задачи (движок: E.daily*, логика и формат — js/lumi-time-daily.sys.mjs) ----------
+let dailyEdit = false, dailyRefocus = false;
+// всё, от чего зависит вид блока в столбце (time.js перерисовывает блок, только когда это изменилось; в том числе в полночь — меняется день)
+export const dailyKey = () => JSON.stringify([E.data.daily, E.dailyToday(), dailyEdit, E.data.dailyError, E.data.dailyWriteError, E.data.settings.dailyEnabled]);
+// блок в столбце: на сегодня ✓ сделал / ✗ не сделал (повторный клик по той же кнопке снимает), «Изменить» — переименование и удаление; refresh перерисовывает блок
+export function dailyBlock(refresh) {
+  const { daily, dailyError, dailyWriteError, settings } = E.data;
+  if (!settings.dailyEnabled) return null;
+  const today = E.dailyToday(), tasks = daily.tasks, mark = t => daily.marks[today]?.[t.id];
+  const done = tasks.filter(t => mark(t) === 1).length;
+  const add = h("input", { type: "text", class: "lt-daily-new", placeholder: "+ Новая задача — Enter", maxLength: 200, "aria-label": "Новая ежедневная задача",
+    on: { keydown: e => { if (e.key == "Enter" && e.target.value.trim()) { dailyRefocus = true; E.dailyAdd(e.target.value); } } } });
+  if (dailyRefocus) { dailyRefocus = false; queueMicrotask(() => add.focus()); } // после Enter блок пересобирается — вернуть курсор в поле
+  return h("div", { class: "lt-daily" },
+    h("div", { class: "lt-today-head" }, h("h4", { text: "Каждый день" + (tasks.length ? ` · ${done}/${tasks.length}` : "") }),
+      tasks.length > 0 && !dailyError && h("button", { class: "lt-add-btn", text: dailyEdit ? "Готово" : "Изменить", title: "Переименовать или удалить задачи",
+        on: { click: () => { dailyEdit = !dailyEdit; refresh(); } } })),
+    dailyError && h("p", { class: "lt-error", text: dailyError }),
+    dailyWriteError && h("p", { class: "lt-error", text: `Не сохранилось: ${dailyWriteError}` }),
+    !tasks.length && !dailyError && h("div", { class: "lt-dim", text: "Задач нет — добавь то, что повторяется каждый день" }),
+    tasks.map(t => {
+      if (dailyEdit) {
+        const del = confirmButton("×", "Стереть?", () => E.dailyRemove(t.id), "lt-x");
+        del.title = "Удалить задачу вместе с историей отметок (нажми дважды)";
+        return h("div", { class: "lt-daily-row" }, h("input", { type: "text", class: "lt-grow", value: t.name, maxLength: 200, "aria-label": "Название задачи",
+          on: { change: e => { if (!E.dailyRename(t.id, e.target.value)) e.target.value = t.name; } } }), del);
+      }
+      const m = mark(t), streak = E.dailyStatsOf(t.id).current;
+      return h("div", { class: "lt-daily-row" }, h("span", { class: "lt-daily-name", text: t.name, title: t.name }),
+        streak > 0 && h("small", { class: "lt-dim", text: `${streak} дн`, title: "Серия дней подряд" }),
+        h("button", { class: "lt-daily-yes", text: "✓", title: "Сделал (ещё раз — снять отметку)", "aria-label": "Сделал", "aria-pressed": String(m === 1),
+          on: { click: () => E.dailyMark(t.id, today, E.toggleMark(m, 1)) } }),
+        h("button", { class: "lt-daily-no", text: "✗", title: "Не сделал (ещё раз — снять отметку)", "aria-label": "Не сделал", "aria-pressed": String(m === 0),
+          on: { click: () => E.dailyMark(t.id, today, E.toggleMark(m, 0)) } }));
+    }),
+    !dailyEdit && !dailyError && add);
+}
+// статистика по каждой задаче: серия, лучшая серия, % за 30 дней и за всё время, календарь последних 12 недель (клик по прошлому дню меняет отметку: пусто → ✓ → ✗ → пусто)
+function dailyStatsBlock() {
+  const { daily, settings } = E.data;
+  if (!settings.dailyEnabled || !daily.tasks.length) return null;
+  const today = E.dailyToday(), WEEKS = 12, pct = v => (v === null ? "—" : `${v}%`);
+  const monday = E.shiftDate(today, -((new Date(`${today}T12:00:00`).getDay() + 6) % 7)), first = E.shiftDate(monday, -7 * (WEEKS - 1));
+  const dates = Array.from({ length: WEEKS * 7 }, (_, i) => E.shiftDate(first, i)); // по неделям: 7 подряд — пн…вс
+  return [h("h3", { text: "Каждый день" }), daily.tasks.map(t => {
+    const st = E.dailyStatsOf(t.id);
+    return h("div", { class: "lt-daily-stat" },
+      h("div", { class: "lt-daily-stat-head" }, h("b", { text: t.name }), h("small", { class: "lt-dim", text: `с ${dateTitle(t.created, { day: "numeric", month: "long" })} · сделано ${st.doneAll} из ${st.days}` })),
+      h("div", { class: "lt-cards" }, [["Серия", `${st.current} дн`], ["Лучшая серия", `${st.best} дн`], ["За 30 дней", pct(st.pct30)], ["За всё время", pct(st.pctAll)]]
+        .map(([k, v], i) => h("div", { class: `lt-card${i == 0 ? " lt-card-main" : ""}` }, h("small", { text: k }), h("b", { text: v })))),
+      h("div", { class: "lt-cal" },
+        h("div", { class: "lt-cal-days" }, ["Пн", "", "Ср", "", "Пт", "", "Вс"].map(d => h("span", { text: d }))),
+        h("div", { class: "lt-cal-grid", role: "group", "aria-label": `Отметки: ${t.name}` }, dates.map(date => {
+          const m = daily.marks[date]?.[t.id];
+          return h("button", { class: `lt-cell${m === 1 ? " lt-cell-yes" : m === 0 ? " lt-cell-no" : ""}${date == today ? " lt-cell-today" : ""}`, text: m === 1 ? "✓" : m === 0 ? "✗" : "",
+            disabled: date < t.created || date > today, title: `${dateTitle(date)} — ${m === 1 ? "сделал" : m === 0 ? "не сделал" : "не отмечено"}`,
+            on: { click: () => E.dailyMark(t.id, date, E.cycleMark(m)) } });
+        }))));
+  })];
+}
+
 // ---------- каркас панели ----------
 const TITLES = { settings: "Настройки LumiTime", stats: "Статистика", journal: "Журнал", day: "День" };
 let panel = null, body = null, current = null, view = null;
@@ -183,11 +244,14 @@ function settingsView(root) {
         h("button", { text: "Проверить уведомление", on: { click: () => E.notify("Уведомления LumiTime работают.") } })),
       toggle("Системные уведомления", S.systemNotifications, v => save(n => (n.systemNotifications = v)), "Когда время фокуса или перерыва вышло"),
 
-      goalSettings("Цели на месяц", "monthGoalsEnabled", "monthGoalHours", "topicMonthGoals"),
-      goalSettings("Цели на неделю (пн–вс)", "weekGoalsEnabled", "weekGoalHours", "topicWeekGoals"),
       goalSettings("Цели на серию дней", "streakGoalsEnabled", "streakGoalHours", "topicStreakGoals"),
       h("div", { class: "lt-row" }, h("span", { class: "lt-dim", text: "Серия — дни подряд с фокусом." }),
         confirmButton("Сбросить серию", "Точно сбросить?", () => { E.endStreak(); render(); })),
+      goalSettings("Цели на неделю (пн–вс)", "weekGoalsEnabled", "weekGoalHours", "topicWeekGoals"),
+      goalSettings("Цели на месяц", "monthGoalsEnabled", "monthGoalHours", "topicMonthGoals"),
+
+      h("h3", { text: "Каждый день" }),
+      toggle("Показывать «Каждый день»", S.dailyEnabled, v => save(n => (n.dailyEnabled = v)), "Ежедневные задачи в окне LumiTime и их статистика. Задачи добавляются и меняются в самом блоке"),
 
       h("h3", { text: "Блок сайтов без пресета" }),
       h("p", { class: "lt-dim", text: "Блок настраивается у каждого пресета (выше, «Блок сайтов»). Здесь — для таймера «Свой», когда длительности выбраны вручную." }),
@@ -280,7 +344,8 @@ function statsView(root) {
         h("span", { text: t }), h("span", { class: "lt-dim", text: `${clockOf(ms)} · ${Math.round(ms / st.focusMs * 100)}%` }),
         h("div", { class: "lt-goal-track" }, h("div", { class: "lt-goal-fill", style: `width:${ms / maxTopic * 100}%` })))))
         : h("p", { class: "lt-dim", text: "За этот период фокуса нет." }),
-      goalsBlock("month", "Цели на месяц"), goalsBlock("week", "Цели на неделю"), goalsBlock("streak", "Цели на серию"),
+      goalsBlock("streak", "Цели на серию"), goalsBlock("week", "Цели на неделю"), goalsBlock("month", "Цели на месяц"),
+      dailyStatsBlock(),
       E.data.journalError && h("p", { class: "lt-error", text: E.data.journalError }),
     );
   }

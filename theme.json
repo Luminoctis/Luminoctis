@@ -134,6 +134,9 @@
     "js/lumi-time.sys.mjs": {
       "name": "lumi-time"
     },
+    "js/lumi-time-daily.sys.mjs": {
+      "name": "lumi-time-daily"
+    },
     "js/lumi-toolbar.sys.mjs": {
       "name": "lumi-toolbar"
     },

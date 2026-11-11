@@ -221,3 +221,28 @@ body.lt-block {
     &[aria-pressed="true"] { background: color-mix(in srgb, var(--lumi-accent) 25%, var(--lumi-raised)); } } }
   & .lt-add-actions { display: flex; gap: 6px; & .lt-primary { flex: 1 1 0; } }
 }
+
+/* ---------- «Каждый день»: ежедневные задачи (столбец и статистика) ---------- */
+.lt-daily { padding-top: 8px; border-top: 1px solid var(--lt-line); display: flex; flex-direction: column; gap: 4px; }
+.lt-daily-row { display: flex; align-items: center; gap: 6px; min-height: 30px;
+  & .lt-daily-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  & .lt-grow { flex: 1; min-width: 0; }
+  & small { font-size: 11px; font-variant-numeric: tabular-nums; }
+}
+#lumi-time .lt-daily-row button:is(.lt-daily-yes, .lt-daily-no) { flex: none; width: 32px; padding: 0; font-size: 15px; line-height: 1; color: var(--lumi-muted); }
+#lumi-time .lt-daily-row .lt-daily-yes[aria-pressed="true"] { background: var(--lumi-green) !important; color: var(--lumi-bg0); font-weight: 700; }
+#lumi-time .lt-daily-row .lt-daily-no[aria-pressed="true"] { background: var(--lumi-red) !important; color: var(--lumi-bg0); font-weight: 700; }
+#lumi-time .lt-daily-row .lt-x { width: auto; min-width: 30px; padding: 0 8px !important; }
+#lumi-time .lt-daily-new { width: 100%; margin-top: 2px; }
+
+.lt-daily-stat { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--lumi-raised) 35%, transparent); }
+.lt-daily-stat-head { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 10px; flex-wrap: wrap; }
+.lt-cal { display: flex; align-items: flex-start; gap: 6px; }
+.lt-cal-days { display: grid; grid-template-rows: repeat(7, 20px); gap: 3px; font-size: 10px; line-height: 20px; color: var(--lumi-dim); }
+.lt-cal-grid { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 20px); grid-auto-columns: 20px; gap: 3px; }
+#lumi-time-panel .lt-cell { width: 20px; height: 20px; min-height: 0; padding: 0; border-radius: 5px; font-size: 12px; font-weight: 700; line-height: 1; color: var(--lumi-bg0);
+  background: color-mix(in srgb, var(--lumi-raised) 70%, transparent); }
+#lumi-time-panel .lt-cell:disabled { opacity: .25; cursor: default; }
+#lumi-time-panel .lt-cell-yes { background: var(--lumi-green) !important; }
+#lumi-time-panel .lt-cell-no { background: var(--lumi-red) !important; }
+#lumi-time-panel .lt-cell-today { outline: 1px solid var(--lumi-accent); outline-offset: 1px; }

@@ -3,7 +3,7 @@
 // страница только рисует: перерисовка по событиям движка, тик раз в секунду — пока вкладка видна.
 import { JS } from "./paths.js";
 import * as store from "./store.js";
-import { E, h, s, clockOf, goalsBlock, openPanel, closePanel, panelName, refreshPanel } from "./time-panels.js";
+import { E, h, s, clockOf, goalsBlock, dailyBlock, dailyKey, openPanel, closePanel, panelName, refreshPanel } from "./time-panels.js";
 
 ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
 const root = document.getElementById("lumi-time");
@@ -109,13 +109,14 @@ function build() {
     els.count = h("div", { class: "lt-count" }),
     h("div", { class: "lt-today" }, h("div", { class: "lt-today-head" }, h("h4", { text: "Сегодня" }),
       h("button", { class: "lt-add-btn", text: "+ Добавить время", title: "Записать время в журнал вручную", on: { click: e => toggleAdd(e.currentTarget) } })), els.today = h("div", { class: "lt-today-list" })),
+    els.daily = h("div"),
     els.goals = h("div"),
     els.status = h("div", { class: "lt-status" }),
     h("nav", { class: "lt-nav" }, [["settings", "Настройки"], ["stats", "Статистика"], ["journal", "Журнал"], ["day", "День"]].map(([p, t]) =>
       h("button", { "data-panel": p, text: t, "aria-pressed": String(panelName() == p),
       on: { click: () => (mini ? window.browsingContext.topChromeWindow.luminoctis.openTime(p) : openPanel(p)) } }))), // в мини-окне панель открывает большой LumiTime (скрытая вкладка)
   );
-  buttonsKey = "";
+  buttonsKey = ""; goalsKey = ""; dailyShown = "";
   update();
 }
 
@@ -165,7 +166,7 @@ function button(label, action, cls = "") {
   return h("button", { class: cls, text: label, on: { click: () => E.act(action) } });
 }
 
-let goalsKey = "";
+let goalsKey = "", dailyShown = "";
 function update() {
   if (!els.main) return;
   const { state: st, settings: S, selection: sel, timerMode } = D(), t = E.now(), info = E.display(st, t), idle = st.phase == "idle";
@@ -218,10 +219,15 @@ function update() {
       h("span", { text: k }), h("span", { text: clockOf(ms) + (k == liveTopic && liveToday > 0 ? " ●" : ""), title: k == liveTopic && liveToday > 0 ? `в том числе идёт сейчас: ${clockOf(liveToday)}` : "" })))
       : [h("div", { class: "lt-dim", text: "Сегодня фокуса ещё не было" })]));
   }
-  const g = JSON.stringify(["month", "week", "streak"].map(p => E.goalRows(p)));
+  const dk = dailyKey(); // «Каждый день» между «Сегодня» и целями; перерисовывается только при изменении данных/дня
+  if (dk != dailyShown) {
+    dailyShown = dk;
+    els.daily.replaceChildren(...[dailyBlock(() => { dailyShown = ""; update(); })].filter(Boolean));
+  }
+  const g = JSON.stringify(["streak", "week", "month"].map(p => E.goalRows(p)));
   if (g != goalsKey) {
     goalsKey = g;
-    els.goals.replaceChildren(...[goalsBlock("month", "Цели на месяц"), goalsBlock("week", "Цели на неделю"), goalsBlock("streak", "Цели на серию")].filter(Boolean));
+    els.goals.replaceChildren(...[goalsBlock("streak", "Цели на серию"), goalsBlock("week", "Цели на неделю"), goalsBlock("month", "Цели на месяц")].filter(Boolean));
   }
   const status = D().journalError || (D().writeError ? `Запись журнала не удалась — ${E.pendingCount()} ждут (Журнал → «Повторить»)` : "");
   if (els.status.textContent != status) els.status.textContent = status;

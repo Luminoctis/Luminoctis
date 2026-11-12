@@ -985,8 +985,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
   /* тот же вырез — у мини-окна закрепа: js/lumi-rail.uc.js (updateHole) вырезает по рамке окошка панель ПРЕЖНЕЙ вкладки под ним (не всю область: внутри неё
    * лежит и панель самого закрепа), вместо подложки --lumi-solid у #lumi-pin-frame. Переменные выреза — инлайн на самой панели, у настроек — на #tabbrowser-tabpanels */
-  & #tabbrowser-tabpanels > .browserSidebarContainer[lumi-hole], /* закреп-окошко: дырка остаётся и при размытии сайта (размытие — под панелями из списка в разделе ниже) */
-  &:not([lumi-site-blur]) :is(#tabbrowser-tabpanels[lumi-hole], #tabbrowser-tabpanels .browserContainer[lumi-hole2]) {
+  &:not([lumi-site-blur]) :is(#tabbrowser-tabpanels[lumi-hole], #tabbrowser-tabpanels > .browserSidebarContainer[lumi-hole], #tabbrowser-tabpanels .browserContainer[lumi-hole2]) { /* где работает размытие сайта, дырок нет: под закрепом (как и под настройками) размытая вкладка, раздел 14б */
     --lumi-hole-rad: var(--lumi-hole-r, var(--lumi-radius));
     mask-image: radial-gradient(circle at 100% 100%, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 0 100%, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 100% 0, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)), radial-gradient(circle at 0 0, transparent calc(var(--lumi-hole-rad) - 0.5px), #000 var(--lumi-hole-rad)),
       linear-gradient(#000, #000), linear-gradient(#000, #000);
@@ -1008,10 +1007,11 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
  * пока размытие возможно (стекло, не fullscreen, не reduced-transparency, включён gfx.webrender.svg-filter-effects, выбран настоящий сайт, pref
  * luminoctis.look.site-blur). Тогда выше в разделе 14 не действуют дырки под настройками и карточкой плеера, вырез --lumi-cut в Compacting и сплошные
  * подложки у карточки при наведении, строки адреса и мини-окна LumiTime: сквозь панель виден размытый сайт. Без атрибута — прежнее поведение.
- * Закреп-окошко размытия не получает: его панель лежит в той же области сайтов, и прямоугольник размыл бы сам закреп. */
+ * Закреп-окошко: его панель лежит в той же области сайтов, и фильтр на ней размыл бы сам закреп, поэтому пока окошко открыто, фильтр висит на панели вкладки под ним
+ * (js/lumi-site-blur.uc.js, behind), а подобласть — рамка окошка (js/lumi-rail.uc.js). Панель закрепа остаётся вне фильтра и резкой. */
 /* Длинная загрузка Zen — бесконечная анимация внутри области сайтов (а у Home с застрявшим progress — вечная): под фильтром она перерисовывает всю область каждый кадр
  * (замер 0.7.3: Home + настройки 50% GPU, на паузе 0%). Пока на области висит фильтр ([lumi-site-blurred] ставит js/lumi-site-blur.uc.js), полоска стоит */
-#tabbrowser-tabpanels[lumi-site-blurred] #zen-loading-progress-bar, #tabbrowser-tabpanels[lumi-site-blurred] #zen-loading-progress-bar::before { animation-play-state: paused !important; } 
+:is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-site-blurred] #zen-loading-progress-bar, :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-site-blurred] #zen-loading-progress-bar::before { animation-play-state: paused !important; } 
 /* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
  * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
 :root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {

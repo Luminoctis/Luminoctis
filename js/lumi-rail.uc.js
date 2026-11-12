@@ -298,8 +298,14 @@
 
   // Стекло (chrome.css §14): панель ПРЕЖНЕЙ вкладки под окошком вырезается по рамке (маска [lumi-hole], как дырка под панелью настроек) — сквозь прозрачную
   // рамку и прозрачный сайт закрепа виден фон окна, а не резкий сайт под ним. Вырез — в координатах самой панели; translate анимации появления вычитаем.
+  // Где работает размытие сайта (js/lumi-site-blur.uc.js, chrome.css §14б), вместо выреза под окошком размыта вкладка под ним: фильтр висит на её панели (behind), рамка окошка — подобласть.
   let holed;
+  const blurBehind = tab => {
+    window.lumiSiteBlur?.behind(tab);
+    window.lumiSiteBlur?.track("pin", tab ? frame : null);
+  };
   const clearHole = () => {
+    blurBehind(null);
     if (!holed) return;
     holed.removeAttribute("lumi-hole");
     for (const v of ["x", "y", "w", "h"]) holed.style.removeProperty(`--lumi-hole-${v}`);
@@ -309,6 +315,7 @@
     const behind = shown?.mini && !leaving && !frame.hidden && document.documentElement.hasAttribute("lumi-glass") ? panelOf(shown.prev) : null;
     if (holed && holed !== behind) clearHole();
     if (!behind) return;
+    blurBehind(window.lumiSiteBlur?.possible() ? shown.prev : null);
     const r = frame.getBoundingClientRect(), p = behind.getBoundingClientRect(), [tx = 0, ty = 0] = getComputedStyle(frame).translate.split(" ").map(n => parseFloat(n) || 0);
     holed = behind;
     behind.setAttribute("lumi-hole", "");

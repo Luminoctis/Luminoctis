@@ -10,6 +10,8 @@
 // Всё, что внутри #tabbrowser-tabpanels и перерисовывается каждый кадр (страница с анимацией, бесконечная полоска загрузки Zen #zen-loading-progress-bar), заставляет
 // пересчитывать весь фильтр на область: на Home с застрявшей загрузкой это 50% GPU (замер 0.7.3), на паузе — 0%. Полоску ставит на паузу CSS по [lumi-site-blurred].
 // Фильтр на #tabbrowser-tabpanels висит, только пока над сайтом открыта хотя бы одна панель (он отключает субпиксельное сглаживание текста и стоит GPU).
+// Закреп-окошко (js/lumi-rail.uc.js) лежит в той же области сайтов и резким, поэтому пока оно открыто, фильтр — тот же, но на панели вкладки под ним (.browserSidebarContainer):
+// lumiSiteBlur.behind(вкладка) переводит его туда, а панель закрепа остаётся вне фильтра. Остальные панели в это время тоже размывают только вкладку под окошком.
 // Панели сообщают прямоугольник (client px окна): window.lumiSiteBlur.set(ключ, rect|null) или .track(ключ, элемент) — следит за рамкой, пока идёт анимация.
 // Корню ставится [lumi-site-blur], пока размытие возможно (chrome.css §14: тогда дырки и сплошные подложки под панелями не нужны). Возможно, когда:
 // включён pref luminoctis.look.site-blur (скрытый, по умолчанию true), окно в стекле, не DOM-fullscreen, нет prefers-reduced-transparency, включён
@@ -27,30 +29,33 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   root.append(make("svg", { "aria-hidden": "true", style: "position:fixed;width:0;height:0;pointer-events:none" }, filter));
   const reduced = matchMedia("(prefers-reduced-transparency: reduce)");
   const rects = new Map(), loops = new Map(); // ключ панели → { left, top, right, bottom }; ключ → id кадра слежения
-  let boxes = [], sig = "";
+  let boxes = [], sig = "", under = null, applied = null; // under — вкладка под закреп-окошком; applied — элемент, на котором сейчас висит фильтр
+  const hostOf = () => { const el = under?.linkedBrowser?.closest(".browserSidebarContainer"); return el?.isConnected ? el : panels; };
+  const unhost = el => { el?.style.removeProperty("filter"); el?.removeAttribute("lumi-site-blurred"); };
 
   const possible = () => Services.prefs.getBoolPref(PREF, true) && Services.prefs.getBoolPref(SVG_PREF, true) && root.hasAttribute("lumi-glass") &&
     root.getAttribute("inDOMFullscreen") != "true" && !reduced.matches;
   // Настоящий сайт на сплошной подложке --lumi-solid (без прозрачных сайтов): страница непрозрачна, и фильтру хватает одного размытия на панель.
   // Иначе (Home и большой LumiTime — тоже удалённые <browser>, но страница прозрачная насквозь; сайты при allow_transparent_browser) — «честный» вариант, он на несколько примитивов длиннее
-  const solidPage = () => !!gBrowser.selectedBrowser?.isRemoteBrowser && !Services.prefs.getBoolPref(TRANSPARENT, false) && !root.hasAttribute("lumi-home-live") &&
-    !gBrowser.selectedTab.hasAttribute("lumi-home") && !gBrowser.selectedTab.hasAttribute("lumi-time-full");
+  const solidPage = () => { const tab = under?.isConnected ? under : gBrowser.selectedTab; // под закрепом — вкладка под ним, а не сам закреп
+    return !!tab.linkedBrowser?.isRemoteBrowser && !Services.prefs.getBoolPref(TRANSPARENT, false) && !root.hasAttribute("lumi-home-live") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("lumi-time-full"); };
 
   function apply() {
     const on = possible();
     root.toggleAttribute("lumi-site-blur", on);
-    const p = on && rects.size ? panels.getBoundingClientRect() : null; // без панелей лишнего пересчёта раскладки нет
+    const host = hostOf(), p = on && rects.size ? host.getBoundingClientRect() : null; // без панелей лишнего пересчёта раскладки нет
     boxes = [];
     if (p) for (const r of rects.values()) { // подобласть — часть панели над сайтом, в координатах #tabbrowser-tabpanels
       const x = Math.max(r.left - p.left, 0), y = Math.max(r.top - p.top, 0), w = Math.min(r.right - p.left, p.width) - x, h = Math.min(r.bottom - p.top, p.height) - y;
       if (w >= 1 && h >= 1) boxes.push([x, y, w, h].map(n => Math.round(n * 100) / 100));
     }
     const solid = solidPage(), now = boxes.length ? boxes.join("|") + "|" + p.width + "x" + p.height + (solid ? "s" : "t") : ""; // размер области — в подписи: от него зависят полосы у краёв
-    if (now == sig) return;
+    if (now == sig && (!now || host == applied)) return;
     sig = now;
+    if (applied != host) unhost(applied); // фильтр перешёл с области сайтов на панель под закрепом или обратно
+    applied = null;
     if (!boxes.length) {
-      panels.style.removeProperty("filter");
-      panels.removeAttribute("lumi-site-blurred");
+      unhost(host);
       filter.replaceChildren();
       return;
     }
@@ -72,8 +77,9 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const masks = boxes.map((_, i) => `m${i}`);
     filter.replaceChildren(...prims, ...(solid ? [merge(["SourceGraphic", ...top])] : [...(masks.length > 1 ? [merge(masks, "m")] : []),
       make("feComposite", { in: "SourceGraphic", in2: masks.length > 1 ? "m" : masks[0], operator: "out", result: "cut" }), merge(["cut", ...top])]));
-    panels.style.filter = "url(#lumi-site-blur)";
-    panels.setAttribute("lumi-site-blurred", ""); // chrome.css §14б: бесконечные анимации внутри области под фильтром ставятся на паузу
+    host.style.filter = "url(#lumi-site-blur)";
+    host.setAttribute("lumi-site-blurred", ""); // chrome.css §14б: бесконечные анимации внутри области под фильтром ставятся на паузу
+    applied = host;
   }
 
   const set = (key, r) => {
@@ -98,5 +104,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   for (const type of ["TabSelect", "TabRemotenessChange"]) gBrowser.tabContainer.addEventListener(type, apply);
   window.addEventListener("unload", () => { for (const name of prefs) Services.prefs.removeObserver(name, apply); }, { once: true });
 
-  window.lumiSiteBlur = { set, track, apply, possible, get boxes() { return boxes; } };
+  // вкладка под закреп-окошком (null — окошка нет): фильтр висит на её панели, а не на всей области сайтов
+  const behind = tab => { if (under == tab) return; under = tab; apply(); };
+
+  window.lumiSiteBlur = { set, track, behind, apply, possible, get boxes() { return boxes; }, get host() { return applied; } };
 });

@@ -247,7 +247,7 @@ function settingsView(root) {
 
       h("h3", { text: t("Звук и уведомления") }),
       toggle(t("Звук"), S.sound, v => save(n => (n.sound = v))),
-      field(t("Сигнал"), select([["classic", t("Двойной сигнал")], ["bell", t("Колокол")], ["chime", t("Перезвон")]], S.soundPreset, v => save(n => (n.soundPreset = v)))),
+      field(t("Сигнал"), select(E.SOUND_PRESETS.map(k => [k, t("Сигнал {0}", k)]), S.soundPreset, v => save(n => (n.soundPreset = v)))),
       h("div", { class: "lt-field" }, h("span", { text: t("Свой файл (заменяет сигнал)") }),
         h("div", { class: "lt-row" },
           h("span", { class: "lt-file", title: S.soundFile, text: S.soundFile ? S.soundFile.split(/[\\/]/).pop() : t("не выбран") }),
@@ -255,7 +255,7 @@ function settingsView(root) {
           S.soundFile && h("button", { class: "lt-x", title: t("Убрать файл"), text: "×", on: { click: () => save(n => (n.soundFile = "")).then(render) } }))),
       field(t("Громкость: {0}%", S.volume), h("input", { type: "range", min: 0, max: 100, step: 5, value: S.volume,
         on: { input: e => (e.target.previousSibling.textContent = t("Громкость: {0}%", e.target.value)), change: e => save(n => (n.volume = Number(e.target.value))) } })),
-      h("div", { class: "lt-row" }, h("button", { text: t("▶ Проверить звук"), on: { click: () => E.playSound() } }),
+      h("div", { class: "lt-row" }, h("button", { text: t("▶ Проверить звук"), on: { click: () => E.playSound() } }), // играет выбранный сигнал
         h("button", { text: t("Проверить уведомление"), on: { click: () => E.notify(t("Уведомления LumiTime работают.")) } })),
       toggle(t("Системные уведомления"), S.systemNotifications, v => save(n => (n.systemNotifications = v)), t("Когда время фокуса или перерыва вышло")),
 

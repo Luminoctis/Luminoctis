@@ -9,3 +9,10 @@ They are released under the same license as the Luminoctis mod (MPL-2.0).
 
 glitch.ogg (also gx/glitch.ogg): "glitch-11.wav" by Bonion_, Freesound https://freesound.org/s/548180/, CC0 1.0. Converted to ogg and normalized in volume only.
 The original wav is kept in the repository as src/548180__bonion__glitch-11.wav; it is not shipped by the installer or the release archive.
+
+Folder lumitime/ (LumiTime cycle-end signals 1-5), from Freesound, converted to ogg (Vorbis), otherwise unchanged. Originals are kept in src/ (not shipped):
+  1.ogg  "UI Completed Status Alert Notification SFX002" by Headphaze, https://freesound.org/s/277032/, CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)
+  2.ogg  "SFX-Success" by lewisitoo, https://freesound.org/s/712851/, CC BY-NC 4.0 (https://creativecommons.org/licenses/by-nc/4.0/) - non-commercial use only
+  3.ogg  "Acquire" by Kenneth_Cooney, https://freesound.org/s/781199/, CC0 1.0
+  4.ogg  "Success.wav" by Kagateni, https://freesound.org/s/404358/, CC0 1.0
+  5.ogg  "success2" by Kenneth_Cooney, https://freesound.org/s/779817/, CC0 1.0

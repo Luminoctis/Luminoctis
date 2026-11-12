@@ -1154,38 +1154,16 @@
     "ja": "通知音",
     "de": "Signalton"
   },
-  "Двойной сигнал": {
-    "en": "Double beep",
-    "zh": "双响提示",
-    "es": "Doble pitido",
-    "ar": "نغمة مزدوجة",
-    "pt": "Bipe duplo",
-    "id": "Bip ganda",
-    "fr": "Double bip",
-    "ja": "ダブルビープ",
-    "de": "Doppelton"
-  },
-  "Колокол": {
-    "en": "Bell",
-    "zh": "钟声",
-    "es": "Campana",
-    "ar": "جرس",
-    "pt": "Sino",
-    "id": "Lonceng",
-    "fr": "Cloche",
-    "ja": "ベル",
-    "de": "Glocke"
-  },
-  "Перезвон": {
-    "en": "Chime",
-    "zh": "风铃声",
-    "es": "Carillón",
-    "ar": "رنين",
-    "pt": "Carrilhão",
-    "id": "Denting",
-    "fr": "Carillon",
-    "ja": "チャイム",
-    "de": "Glockenspiel"
+  "Сигнал {0}": {
+    "en": "Sound {0}",
+    "zh": "提示音 {0}",
+    "es": "Sonido {0}",
+    "ar": "النغمة {0}",
+    "pt": "Som {0}",
+    "id": "Suara {0}",
+    "fr": "Son {0}",
+    "ja": "サウンド {0}",
+    "de": "Ton {0}"
   },
   "Свой файл (заменяет сигнал)": {
     "en": "Custom file (replaces the tone)",

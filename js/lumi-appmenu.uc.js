@@ -3,6 +3,9 @@
 // @description    Родное меню Zen/Firefox открывает своя кнопка-виджет «⋯» (по умолчанию в панели адреса слева от шестерёнки); пункты меню прячутся по настройке luminoctis.appmenu.hidden, пункты меню вкладки — по luminoctis.tabmenu.hidden.
 // ==/UserScript==
 
+(() => {
+  const { t } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-i18n.sys.mjs"));
+
 UC_API.Windows.waitWindowLoading(window).then(() => {
   // «⋯» — свой виджет lumi-appmenu-button (js/lumi-toolbar.sys.mjs), настраивается как любая кнопка. Меню открывает родной PanelUI:
   // подменяем PanelUI.menuButton на нашу кнопку (якорь панели, подсветка [open], значки уведомлений — всё родное) и повторяем
@@ -18,8 +21,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const btn = widget();
     if (btn) {
       btn.removeAttribute("data-l10n-id");
-      btn.setAttribute("label", "Меню");
-      btn.setAttribute("tooltiptext", "Меню");
+      btn.setAttribute("label", t("Меню"));
+      btn.setAttribute("tooltiptext", t("Меню"));
     }
   };
   const isDots = event => event.target.closest?.("#lumi-appmenu-button");
@@ -125,3 +128,4 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       .map(el => ({ id: el.id, label: el.getAttribute("label") }));
   };
 });
+})();

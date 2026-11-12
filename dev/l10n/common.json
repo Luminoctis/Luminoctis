@@ -1,0 +1,123 @@
+{
+  "Готово": {
+    "en": "Done",
+    "zh": "完成",
+    "es": "Listo",
+    "ar": "تم",
+    "pt": "Concluído",
+    "id": "Selesai",
+    "fr": "Terminé",
+    "ja": "完了",
+    "de": "Fertig"
+  },
+  "Отмена": {
+    "en": "Cancel",
+    "zh": "取消",
+    "es": "Cancelar",
+    "ar": "إلغاء",
+    "pt": "Cancelar",
+    "id": "Batal",
+    "fr": "Annuler",
+    "ja": "キャンセル",
+    "de": "Abbrechen"
+  },
+  "Удалить": {
+    "en": "Delete",
+    "zh": "删除",
+    "es": "Eliminar",
+    "ar": "حذف",
+    "pt": "Excluir",
+    "id": "Hapus",
+    "fr": "Supprimer",
+    "ja": "削除",
+    "de": "Löschen"
+  },
+  "Переименовать": {
+    "en": "Rename",
+    "zh": "重命名",
+    "es": "Cambiar nombre",
+    "ar": "إعادة تسمية",
+    "pt": "Renomear",
+    "id": "Ganti nama",
+    "fr": "Renommer",
+    "ja": "名前を変更",
+    "de": "Umbenennen"
+  },
+  "Добавить": {
+    "en": "Add",
+    "zh": "添加",
+    "es": "Añadir",
+    "ar": "إضافة",
+    "pt": "Adicionar",
+    "id": "Tambah",
+    "fr": "Ajouter",
+    "ja": "追加",
+    "de": "Hinzufügen"
+  },
+  "Изменить": {
+    "en": "Edit",
+    "zh": "编辑",
+    "es": "Editar",
+    "ar": "تعديل",
+    "pt": "Editar",
+    "id": "Ubah",
+    "fr": "Modifier",
+    "ja": "編集",
+    "de": "Bearbeiten"
+  },
+  "Сбросить": {
+    "en": "Reset",
+    "zh": "重置",
+    "es": "Restablecer",
+    "ar": "إعادة تعيين",
+    "pt": "Redefinir",
+    "id": "Setel ulang",
+    "fr": "Réinitialiser",
+    "ja": "リセット",
+    "de": "Zurücksetzen"
+  },
+  "Настройки": {
+    "en": "Settings",
+    "zh": "设置",
+    "es": "Ajustes",
+    "ar": "الإعدادات",
+    "pt": "Configurações",
+    "id": "Pengaturan",
+    "fr": "Paramètres",
+    "ja": "設定",
+    "de": "Einstellungen"
+  },
+  "Закрыть": {
+    "en": "Close",
+    "zh": "关闭",
+    "es": "Cerrar",
+    "ar": "إغلاق",
+    "pt": "Fechar",
+    "id": "Tutup",
+    "fr": "Fermer",
+    "ja": "閉じる",
+    "de": "Schließen"
+  },
+  "Сохранить": {
+    "en": "Save",
+    "zh": "保存",
+    "es": "Guardar",
+    "ar": "حفظ",
+    "pt": "Salvar",
+    "id": "Simpan",
+    "fr": "Enregistrer",
+    "ja": "保存",
+    "de": "Speichern"
+  },
+  "Главная": {
+    "en": "Home",
+    "zh": "主页",
+    "es": "Inicio",
+    "ar": "الرئيسية",
+    "pt": "Início",
+    "id": "Beranda",
+    "fr": "Accueil",
+    "ja": "ホーム",
+    "de": "Startseite"
+  }
+}

@@ -92,8 +92,38 @@
     "js/lumi-glass.sys.mjs": {
       "name": "lumi-glass"
     },
+    "js/lumi-i18n.sys.mjs": {
+      "name": "lumi-i18n"
+    },
     "js/lumi-keys.sys.mjs": {
       "name": "lumi-keys"
+    },
+    "js/lumi-l10n-ar.sys.mjs": {
+      "name": "lumi-l10n-ar"
+    },
+    "js/lumi-l10n-de.sys.mjs": {
+      "name": "lumi-l10n-de"
+    },
+    "js/lumi-l10n-en.sys.mjs": {
+      "name": "lumi-l10n-en"
+    },
+    "js/lumi-l10n-es.sys.mjs": {
+      "name": "lumi-l10n-es"
+    },
+    "js/lumi-l10n-fr.sys.mjs": {
+      "name": "lumi-l10n-fr"
+    },
+    "js/lumi-l10n-id.sys.mjs": {
+      "name": "lumi-l10n-id"
+    },
+    "js/lumi-l10n-ja.sys.mjs": {
+      "name": "lumi-l10n-ja"
+    },
+    "js/lumi-l10n-pt.sys.mjs": {
+      "name": "lumi-l10n-pt"
+    },
+    "js/lumi-l10n-zh.sys.mjs": {
+      "name": "lumi-l10n-zh"
     },
     "js/lumi-lens.sys.mjs": {
       "name": "lumi-lens"

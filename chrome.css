@@ -1009,6 +1009,9 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
  * luminoctis.look.site-blur). Тогда выше в разделе 14 не действуют дырки под настройками и карточкой плеера, вырез --lumi-cut в Compacting и сплошные
  * подложки у карточки при наведении, строки адреса и мини-окна LumiTime: сквозь панель виден размытый сайт. Без атрибута — прежнее поведение.
  * Закреп-окошко размытия не получает: его панель лежит в той же области сайтов, и прямоугольник размыл бы сам закреп. */
+/* Длинная загрузка Zen — бесконечная анимация внутри области сайтов (а у Home с застрявшим progress — вечная): под фильтром она перерисовывает всю область каждый кадр
+ * (замер 0.7.3: Home + настройки 50% GPU, на паузе 0%). Пока на области висит фильтр ([lumi-site-blurred] ставит js/lumi-site-blur.uc.js), полоска стоит */
+#tabbrowser-tabpanels[lumi-site-blurred] #zen-loading-progress-bar, #tabbrowser-tabpanels[lumi-site-blurred] #zen-loading-progress-bar::before { animation-play-state: paused !important; } 
 /* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
  * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
 :root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {

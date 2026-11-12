@@ -2374,5 +2374,71 @@
     "fr": "Couleur du sujet",
     "ja": "トピックの色",
     "de": "Themenfarbe"
+  },
+  "Ежедневные задачи в окне LumiTime и их статистика": {
+    "en": "Daily tasks in the LumiTime window and their statistics",
+    "zh": "LumiTime 窗口中的每日任务及其统计",
+    "es": "Tareas diarias en la ventana de LumiTime y sus estadísticas",
+    "ar": "المهام اليومية في نافذة LumiTime وإحصاءاتها",
+    "pt": "Tarefas diárias na janela do LumiTime e as suas estatísticas",
+    "id": "Tugas harian di jendela LumiTime dan statistiknya",
+    "fr": "Tâches quotidiennes dans la fenêtre LumiTime et leurs statistiques",
+    "ja": "LumiTime ウィンドウの毎日のタスクとその統計",
+    "de": "Tägliche Aufgaben im LumiTime-Fenster und ihre Statistik"
+  },
+  "Значок задачи": {
+    "en": "Task icon",
+    "zh": "任务图标",
+    "es": "Icono de la tarea",
+    "ar": "أيقونة المهمة",
+    "pt": "Ícone da tarefa",
+    "id": "Ikon tugas",
+    "fr": "Icône de la tâche",
+    "ja": "タスクのアイコン",
+    "de": "Aufgaben-Symbol"
+  },
+  "Без значка": {
+    "en": "No icon",
+    "zh": "无图标",
+    "es": "Sin icono",
+    "ar": "بدون أيقونة",
+    "pt": "Sem ícone",
+    "id": "Tanpa ikon",
+    "fr": "Sans icône",
+    "ja": "アイコンなし",
+    "de": "Ohne Symbol"
+  },
+  "Перетащи, чтобы изменить порядок": {
+    "en": "Drag to change the order",
+    "zh": "拖动以调整顺序",
+    "es": "Arrastra para cambiar el orden",
+    "ar": "اسحب لتغيير الترتيب",
+    "pt": "Arraste para mudar a ordem",
+    "id": "Seret untuk mengubah urutan",
+    "fr": "Glisse pour changer l'ordre",
+    "ja": "ドラッグして順番を変更",
+    "de": "Ziehen, um die Reihenfolge zu ändern"
+  },
+  "Открыть настройки ежедневных задач": {
+    "en": "Open daily task settings",
+    "zh": "打开每日任务设置",
+    "es": "Abrir ajustes de tareas diarias",
+    "ar": "فتح إعدادات المهام اليومية",
+    "pt": "Abrir as definições das tarefas diárias",
+    "id": "Buka pengaturan tugas harian",
+    "fr": "Ouvrir les réglages des tâches quotidiennes",
+    "ja": "毎日のタスクの設定を開く",
+    "de": "Einstellungen für tägliche Aufgaben öffnen"
+  },
+  "Задач нет — добавь их в настройках": {
+    "en": "No tasks — add them in settings",
+    "zh": "暂无任务——请在设置中添加",
+    "es": "Sin tareas: añádelas en los ajustes",
+    "ar": "لا توجد مهام — أضفها في الإعدادات",
+    "pt": "Sem tarefas — adicione-as nas definições",
+    "id": "Belum ada tugas — tambahkan di pengaturan",
+    "fr": "Aucune tâche — ajoutez-en dans les réglages",
+    "ja": "タスクがありません — 設定で追加してください",
+    "de": "Keine Aufgaben — in den Einstellungen hinzufügen"
   }
 }

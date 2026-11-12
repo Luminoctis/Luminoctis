@@ -12,7 +12,7 @@ import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 import { pageUrl } from "./lumi-paths.sys.mjs";
 const { t, locale } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
-import { shiftDate, emptyDaily, normDaily, applyMark, dailyStats } from "./lumi-time-daily.sys.mjs"; // ежедневные задачи: чистая логика отдельно (проверка в node)
+import { shiftDate, emptyDaily, normDaily, applyMark, dailyStats, moveTask, setTaskIcon } from "./lumi-time-daily.sys.mjs"; // ежедневные задачи: чистая логика отдельно (проверка в node)
 export { shiftDate, dailyStats, cycleMark, toggleMark } from "./lumi-time-daily.sys.mjs";
 const STORE_URL = pageUrl("home/store.js");
 const store = () => ChromeUtils.importESModule(STORE_URL);
@@ -634,6 +634,8 @@ export function dailyRemove(id) {
   return dailySet({ ...data.daily, tasks: data.daily.tasks.filter(t => t.id != id), marks });
 }
 // value: 1 сделал | 0 не сделал | null снять; date — день от создания задачи до сегодня
+export const dailyReorder = (id, index) => { const next = moveTask(data.daily, id, index); return !!next && dailySet(next); };
+export const dailySetIcon = (id, icon) => { const next = setTaskIcon(data.daily, id, icon); return !!next && dailySet(next); };
 export function dailyMark(id, date, value) {
   const next = applyMark(data.daily, id, date, value, dailyToday());
   return !!next && dailySet(next);

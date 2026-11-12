@@ -4,6 +4,7 @@
 import { JS } from "./paths.js";
 import * as store from "./store.js";
 import { COLORS } from "./notes-md.mjs";
+import { ICONS } from "./time-icons.mjs";
 export const E = ChromeUtils.importESModule(JS("lumi-time.sys.mjs"));
 const { t, locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
@@ -80,41 +81,31 @@ export function goalsBlock(period, title) {
 }
 
 // ---------- «Каждый день»: ежедневные задачи (движок: E.daily*, логика и формат — js/lumi-time-daily.sys.mjs) ----------
-let dailyEdit = false, dailyRefocus = false;
+// значок задачи (линейный, home/time-icons.mjs); неизвестный id или «без значка» — null
+export const dailyIcon = id => (ICONS[id] ? s("svg", { viewBox: "0 0 24 24", class: "lt-ico", "aria-hidden": "true" }, ICONS[id].map(d => s("path", { d }))) : null);
 // всё, от чего зависит вид блока в столбце (time.js перерисовывает блок, только когда это изменилось; в том числе в полночь — меняется день)
-export const dailyKey = () => JSON.stringify([E.data.daily, E.dailyToday(), dailyEdit, E.data.dailyError, E.data.dailyWriteError, E.data.settings.dailyEnabled]);
-// блок в столбце: на сегодня ✓ сделал / ✗ не сделал (повторный клик по той же кнопке снимает), «Изменить» — переименование и удаление; refresh перерисовывает блок
-export function dailyBlock(refresh) {
+export const dailyKey = () => JSON.stringify([E.data.daily, E.dailyToday(), E.data.dailyError, E.data.dailyWriteError, E.data.settings.dailyEnabled]);
+// блок в столбце: на сегодня ✓ сделал / ✗ не сделал (повторный клик по той же кнопке снимает); задачи правятся в настройках большого LumiTime («Изменить», onEdit)
+export function dailyBlock(onEdit) {
   const { daily, dailyError, dailyWriteError, settings } = E.data;
   if (!settings.dailyEnabled) return null;
   const today = E.dailyToday(), tasks = daily.tasks, mark = k => daily.marks[today]?.[k.id];
   const done = tasks.filter(k => mark(k) === 1).length;
-  const add = h("input", { type: "text", class: "lt-daily-new", placeholder: t("+ Новая задача — Enter"), maxLength: 200, "aria-label": t("Новая ежедневная задача"),
-    on: { keydown: e => { if (e.key == "Enter" && e.target.value.trim()) { dailyRefocus = true; E.dailyAdd(e.target.value); } } } });
-  if (dailyRefocus) { dailyRefocus = false; queueMicrotask(() => add.focus()); } // после Enter блок пересобирается — вернуть курсор в поле
   return h("div", { class: "lt-daily" },
     h("div", { class: "lt-today-head" }, h("h4", { text: t("Каждый день") + (tasks.length ? ` · ${done}/${tasks.length}` : "") }),
-      tasks.length > 0 && !dailyError && h("button", { class: "lt-add-btn", text: dailyEdit ? t("Готово") : t("Изменить"), title: t("Переименовать или удалить задачи"),
-        on: { click: () => { dailyEdit = !dailyEdit; refresh(); } } })),
+      !dailyError && h("button", { class: "lt-add-btn", text: t("Изменить"), title: t("Открыть настройки ежедневных задач"), on: { click: onEdit } })),
     dailyError && h("p", { class: "lt-error", text: dailyError }),
     dailyWriteError && h("p", { class: "lt-error", text: t("Не сохранилось: {0}", dailyWriteError) }),
-    !tasks.length && !dailyError && h("div", { class: "lt-dim", text: t("Задач нет — добавь то, что повторяется каждый день") }),
+    !tasks.length && !dailyError && h("button", { class: "lt-link lt-daily-empty", text: t("Задач нет — добавь их в настройках"), on: { click: onEdit } }),
     tasks.map(k => {
-      if (dailyEdit) {
-        const del = confirmButton("×", t("Стереть?"), () => E.dailyRemove(k.id), "lt-x");
-        del.title = t("Удалить задачу вместе с историей отметок (нажми дважды)");
-        return h("div", { class: "lt-daily-row" }, h("input", { type: "text", class: "lt-grow", value: k.name, maxLength: 200, "aria-label": t("Название задачи"),
-          on: { change: e => { if (!E.dailyRename(k.id, e.target.value)) e.target.value = k.name; } } }), del);
-      }
       const m = mark(k), streak = E.dailyStatsOf(k.id).current;
-      return h("div", { class: "lt-daily-row" }, h("span", { class: "lt-daily-name", text: k.name, title: k.name }),
+      return h("div", { class: "lt-daily-row" }, dailyIcon(k.icon), h("span", { class: "lt-daily-name", text: k.name, title: k.name }),
         streak > 0 && h("small", { class: "lt-dim", text: t("{0} дн", streak), title: t("Серия дней подряд") }),
         h("button", { class: "lt-daily-yes", text: "✓", title: t("Сделал (ещё раз — снять отметку)"), "aria-label": t("Сделал"), "aria-pressed": String(m === 1),
           on: { click: () => E.dailyMark(k.id, today, E.toggleMark(m, 1)) } }),
         h("button", { class: "lt-daily-no", text: "✗", title: t("Не сделал (ещё раз — снять отметку)"), "aria-label": t("Не сделал"), "aria-pressed": String(m === 0),
           on: { click: () => E.dailyMark(k.id, today, E.toggleMark(m, 0)) } }));
-    }),
-    !dailyEdit && !dailyError && add);
+    }));
 }
 // статистика по каждой задаче: серия, лучшая серия, % за 30 дней и за всё время, календарь последних 12 недель (клик по прошлому дню меняет отметку: пусто → ✓ → ✗ → пусто)
 function dailyStatsBlock() {
@@ -127,7 +118,7 @@ function dailyStatsBlock() {
   return [h("h3", { text: t("Каждый день") }), daily.tasks.map(k => {
     const st = E.dailyStatsOf(k.id);
     return h("div", { class: "lt-daily-stat" },
-      h("div", { class: "lt-daily-stat-head" }, h("b", { text: k.name }), h("small", { class: "lt-dim", text: t("с {0} · сделано {1} из {2}", dateTitle(k.created, { day: "numeric", month: "long" }), st.doneAll, st.days) })),
+      h("div", { class: "lt-daily-stat-head" }, h("b", {}, dailyIcon(k.icon), k.name), h("small", { class: "lt-dim", text: t("с {0} · сделано {1} из {2}", dateTitle(k.created, { day: "numeric", month: "long" }), st.doneAll, st.days) })),
       h("div", { class: "lt-cards" }, [[t("Серия"), t("{0} дн", st.current)], [t("Лучшая серия"), t("{0} дн", st.best)], [t("За 30 дней"), pct(st.pct30)], [t("За всё время"), pct(st.pctAll)]]
         .map(([k, v], i) => h("div", { class: `lt-card${i == 0 ? " lt-card-main" : ""}` }, h("small", { text: k }), h("b", { text: v })))),
       h("div", { class: "lt-cal" },
@@ -153,9 +144,11 @@ function ensure() {
   document.addEventListener("keydown", e => { if (e.key == "Escape" && current && !e.defaultPrevented) { e.preventDefault(); closePanel(); } });
 }
 export const panelName = () => current;
-export function openPanel(name) {
+// section — якорь внутри панели (data-section), к которому прокрутить: «Изменить» в мини-окне ведёт на настройки → «Каждый день»
+const toSection = section => section && body.querySelector(`[data-section="${CSS.escape(section)}"]`)?.scrollIntoView({ block: "start" });
+export function openPanel(name, section) {
   ensure();
-  if (current == name) return document.body.hasAttribute("lumi-full") ? undefined : closePanel(); // в большом режиме панель всегда открыта: повтор клика ничего не делает
+  if (current == name) return document.body.hasAttribute("lumi-full") ? toSection(section) : closePanel(); // в большом режиме панель всегда открыта: повтор клика ничего не делает
   current = name;
   const title = TITLES()[name];
   panel.querySelector("h2").textContent = title;
@@ -164,6 +157,7 @@ export function openPanel(name) {
   body.replaceChildren();
   body.scrollTop = 0;
   view = VIEWS[name](body);
+  toSection(section);
   panel.inert = false;
   document.body.setAttribute("lumi-time-panel", name);
   document.dispatchEvent(new CustomEvent("lumi-time-panel", { detail: name }));
@@ -190,6 +184,7 @@ function settingsView(root) {
   const list = (value, valid, onchange) => h("input", { type: "text", value: value.join(", "),
     on: { change: e => { const v = [...new Set(e.target.value.split(",").map(x => Number(x.trim())))]; const ok = v.length && v.every(valid); e.target.classList.toggle("lt-bad", !ok); if (ok) onchange(v); } } });
 
+  let dailyBox = null;
   function render() {
     const S = E.data.settings;
     fill(root, 
@@ -270,8 +265,9 @@ function settingsView(root) {
       goalSettings(t("Цели на неделю (пн–вс)"), "weekGoalsEnabled", "weekGoalHours", "topicWeekGoals"),
       goalSettings(t("Цели на месяц"), "monthGoalsEnabled", "monthGoalHours", "topicMonthGoals"),
 
-      h("h3", { text: t("Каждый день") }),
-      toggle(t("Показывать «Каждый день»"), S.dailyEnabled, v => save(n => (n.dailyEnabled = v)), t("Ежедневные задачи в окне LumiTime и их статистика. Задачи добавляются и меняются в самом блоке")),
+      h("h3", { text: t("Каждый день"), "data-section": "daily" }),
+      toggle(t("Показывать «Каждый день»"), S.dailyEnabled, v => save(n => (n.dailyEnabled = v)), t("Ежедневные задачи в окне LumiTime и их статистика")),
+      dailyBox = h("div", { class: "lt-dl" }),
 
       h("h3", { text: t("Блок сайтов без пресета") }),
       h("p", { class: "lt-dim", text: t("Блок настраивается у каждого пресета (выше, «Блок сайтов»). Здесь — для таймера «Свой», когда длительности выбраны вручную.") }),
@@ -320,8 +316,74 @@ function settingsView(root) {
     fp.appendFilter(t("Аудио"), "*.mp3;*.wav;*.ogg;*.oga;*.m4a;*.aac;*.flac;*.opus;*.webm");
     fp.open(rv => { if (rv == Ci.nsIFilePicker.returnOK && fp.file) save(n => (n.soundFile = fp.file.path)).then(render); });
   }
+  const renderDaily = () => { closeIconPicker(); dailyEditor(dailyBox); };
   render();
-  return { update(kind) { if (kind == "load") render(); } };
+  renderDaily();
+  return { update(kind) { if (kind == "load") { render(); renderDaily(); } else if (kind == "daily") renderDaily(); } };
+}
+
+// ---------- Настройки: «Каждый день» (список задач: добавить, переименовать, удалить, порядок перетаскиванием, значок) ----------
+function dailyEditor(box) {
+  const { daily, dailyError, dailyWriteError } = E.data;
+  const hadFocus = box.querySelector(".lt-daily-new") == document.activeElement;
+  const add = h("input", { type: "text", class: "lt-daily-new", placeholder: t("Новая задача — Enter"), maxLength: 200, "aria-label": t("Новая ежедневная задача"),
+    on: { keydown: e => { if (e.key == "Enter" && e.target.value.trim()) E.dailyAdd(e.target.value); } } });
+  const list = h("div", { class: "lt-dl-list" }, daily.tasks.map(k => {
+    const del = confirmButton("×", t("Стереть?"), () => E.dailyRemove(k.id), "lt-x");
+    del.title = t("Удалить задачу вместе с историей отметок (нажми дважды)");
+    const slot = h("button", { class: "lt-dl-icon", title: t("Значок задачи"), "aria-label": t("Значок задачи"), on: { click: () => iconPicker(slot, k) } },
+      dailyIcon(k.icon) ?? h("span", { class: "lt-dl-noicon" }));
+    const grip = h("span", { class: "lt-dl-grip", text: "⋮⋮", title: t("Перетащи, чтобы изменить порядок") });
+    grip.addEventListener("pointerdown", e => dragRow(e, row, list, k.id));
+    const row = h("div", { class: "lt-row lt-dl-row", "data-id": k.id }, grip, slot,
+      h("input", { type: "text", class: "lt-grow", value: k.name, maxLength: 200, "aria-label": t("Название задачи"),
+        on: { change: e => { if (!E.dailyRename(k.id, e.target.value)) e.target.value = k.name; } } }), del);
+    return row;
+  }));
+  box.replaceChildren(...[dailyError && h("p", { class: "lt-error", text: dailyError }), dailyWriteError && h("p", { class: "lt-error", text: t("Не сохранилось: {0}", dailyWriteError) }),
+    !daily.tasks.length && !dailyError && h("p", { class: "lt-dim", text: t("Задач нет — добавь то, что повторяется каждый день") }), list, !dailyError && add].filter(Boolean));
+  if (hadFocus) add.focus();
+}
+// перетаскивание за ручку: строка двигается в списке прямо по ходу (DOM), в движок порядок пишется один раз при отпускании
+function dragRow(e, row, list, id) {
+  if (e.button) return;
+  e.preventDefault();
+  const doc = row.ownerDocument, from = [...list.children].indexOf(row); // слушаем документ, а не ручку: курсор уходит за её пределы
+  row.classList.add("lt-dl-drag");
+  const move = ev => {
+    const others = [...list.children].filter(r => r != row);
+    const next = others.find(r => { const b = r.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+    if (next) list.insertBefore(row, next); else list.append(row);
+  };
+  const end = ev => {
+    doc.removeEventListener("pointermove", move); doc.removeEventListener("pointerup", end); doc.removeEventListener("pointercancel", end);
+    row.classList.remove("lt-dl-drag");
+    const to = [...list.children].indexOf(row);
+    if (ev.type != "pointercancel" && to != from) E.dailyReorder(id, to);
+  };
+  doc.addEventListener("pointermove", move); doc.addEventListener("pointerup", end); doc.addEventListener("pointercancel", end);
+}
+// выбор значка: небольшое окошко-сетка у кнопки; клик мимо и Esc закрывают
+let iconPop = null;
+function closeIconPicker() {
+  iconPop?.remove(); iconPop = null;
+  document.removeEventListener("pointerdown", iconOutside, true); document.removeEventListener("keydown", iconEsc, true);
+}
+const iconOutside = e => { if (iconPop && !iconPop.contains(e.target)) closeIconPicker(); };
+const iconEsc = e => { if (e.key == "Escape" && iconPop) { e.preventDefault(); e.stopPropagation(); closeIconPicker(); } };
+function iconPicker(anchor, task) {
+  const was = iconPop && iconPop.dataset.id == task.id;
+  closeIconPicker();
+  if (was) return;
+  const pick = id => { closeIconPicker(); E.dailySetIcon(task.id, id); };
+  iconPop = h("div", { class: "lt-icon-pop", role: "dialog", "aria-label": t("Значок задачи"), "data-id": task.id },
+    h("button", { class: "lt-icon-none" + (task.icon ? "" : " on"), text: t("Без значка"), on: { click: () => pick("") } }),
+    h("div", { class: "lt-icon-grid" }, Object.keys(ICONS).map(id => h("button", { class: "lt-icon-cell" + (task.icon == id ? " on" : ""), "data-icon": id, "aria-label": id, /* без title: id — английское имя, подсказка без перевода хуже, чем никакой */ on: { click: () => pick(id) } }, dailyIcon(id)))));
+  document.body.append(iconPop);
+  const r = anchor.getBoundingClientRect(), w = iconPop.offsetWidth, hh = iconPop.offsetHeight;
+  iconPop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
+  iconPop.style.top = Math.max(8, r.bottom + 6 + hh > innerHeight - 8 ? r.top - hh - 6 : r.bottom + 6) + "px";
+  document.addEventListener("pointerdown", iconOutside, true); document.addEventListener("keydown", iconEsc, true);
 }
 
 // ---------- Статистика ----------

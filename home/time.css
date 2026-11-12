@@ -235,6 +235,24 @@ body.lt-block {
 #lumi-time .lt-daily-row .lt-daily-yes[aria-pressed="true"] { background: var(--lumi-green) !important; color: var(--lumi-bg0); font-weight: 700; }
 #lumi-time .lt-daily-row .lt-daily-no[aria-pressed="true"] { background: var(--lumi-red) !important; color: var(--lumi-bg0); font-weight: 700; }
 #lumi-time .lt-daily-row .lt-x { width: auto; min-width: 30px; padding: 0 8px !important; }
+.lt-ico { flex: none; width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; vertical-align: -3px; margin-inline-end: 6px; }
+.lt-daily-row > .lt-ico { margin-inline-end: 0; color: var(--lumi-accent); }
+#lumi-time .lt-daily-empty { align-self: flex-start; padding: 4px 0; text-align: start; }
+
+/* «Каждый день» в настройках: список с ручкой перетаскивания, значком, названием и удалением */
+.lt-dl-list { display: flex; flex-direction: column; gap: 4px; }
+.lt-dl-row { align-items: center; &.lt-dl-drag { background: color-mix(in srgb, var(--lumi-accent) 18%, transparent); border-radius: 8px; } }
+.lt-dl-grip { flex: none; width: 18px; text-align: center; cursor: grab; touch-action: none; user-select: none; color: var(--lumi-dim); letter-spacing: -2px; }
+.lt-dl-drag .lt-dl-grip { cursor: grabbing; }
+#lumi-time-panel .lt-dl-icon { flex: none; width: 32px; height: 32px; min-height: 0; padding: 0; display: grid; place-items: center; border-radius: 8px; color: var(--lumi-accent); & .lt-ico { margin: 0; width: 20px; height: 20px; } }
+.lt-dl-noicon { width: 14px; height: 14px; border-radius: 50%; border: 1.5px dashed var(--lumi-dim); }
+.lt-icon-pop { position: fixed; z-index: 30; width: 236px; padding: 8px; display: flex; flex-direction: column; gap: 6px; border-radius: 12px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 88%, transparent); backdrop-filter: blur(24px); border: 1px solid var(--lt-line); box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
+.lt-icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
+.lt-icon-pop button { min-height: 0; padding: 0; border-radius: 8px; }
+.lt-icon-cell { height: 32px; display: grid; place-items: center; color: var(--lumi-fg); & .lt-ico { margin: 0; width: 20px; height: 20px; } }
+.lt-icon-cell.on, .lt-icon-none.on { background: color-mix(in srgb, var(--lumi-accent) 30%, var(--lumi-raised)) !important; }
+.lt-icon-none { height: 28px; font-size: 12px; }
 #lumi-time .lt-daily-new { width: 100%; margin-top: 2px; }
 
 .lt-daily-stat { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--lumi-raised) 35%, transparent); }

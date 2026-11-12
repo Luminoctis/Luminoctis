@@ -913,17 +913,17 @@
     if (SessionStore.getCustomTabValue(tab, TIME_FULL) == "1") setTimeout(() => !tab.closing && gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }));
   });
   // панель: settings|stats|journal|day (по умолчанию — Статистика). Вкладка есть — выбираем её и переключаем панель страницей (без пересоздания)
-  function openTime(panel) {
+  function openTime(panel, section) { // section — якорь внутри панели (напр. "daily" в настройках)
     if (full && !full.closing && isFull(full)) {
       gBrowser.selectedTab = full;
       if (!mini && miniTile) openMini(miniTile); // большой режим = мини-окно + панель справа от него
       const page = full.linkedBrowser.contentWindow?.lumiTime;
-      if (panel && page) { if (page.panelName() != panel) page.openPanel(panel); }
-      else if (panel) full.linkedBrowser.loadURI(Services.io.newURI(`${TIME_URL}?full=1&panel=${panel}`), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); // страница ещё грузится
+      if (panel && page) page.openPanel(panel, section);
+      else if (panel) full.linkedBrowser.loadURI(Services.io.newURI(`${TIME_URL}?full=1&panel=${panel}${section ? `&section=${section}` : ""}`), { triggeringPrincipal: Services.scriptSecurityManager.getSystemPrincipal() }); // страница ещё грузится
       return;
     }
     opening = true;
-    try { gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + "?full=1" + (panel ? `&panel=${panel}` : ""), { skipAnimation: true }); } finally { opening = false; }
+    try { gBrowser.selectedTab = gBrowser.addTrustedTab(TIME_URL + "?full=1" + (panel ? `&panel=${panel}` : "") + (section ? `&section=${section}` : ""), { skipAnimation: true }); } finally { opening = false; }
     SessionStore.setCustomTabValue(full, TIME_FULL, "1");
     if (!mini && miniTile) openMini(miniTile);
   }
@@ -933,6 +933,8 @@
     const sel = gBrowser.selectedTab;
     mini.backdrop.toggleAttribute("lumi-passive", isFull(sel));
     mini.frame.toggleAttribute("lumi-passive", isFull(sel));
+    const fb = mini.frame.querySelector(".lumi-time-full");
+    if (fb) fb.textContent = isFull(sel) ? t("Закрыть целиком") : t("Открыть целиком");
     mini.frame.querySelector("iframe")?.contentDocument?.documentElement?.toggleAttribute("lumi-passive", isFull(sel)); // столбец внутри тоже стеклом
     mini.frame.toggleAttribute("lumi-over-site", !isFull(sel) && !sel?.hasAttribute("lumi-home"));
     window.lumiSiteBlur?.track("time-mini", mini.frame); // стекло: под рамкой размытый сайт (js/lumi-site-blur.uc.js)
@@ -945,7 +947,7 @@
     frame.setAttribute("role", "dialog");
     frame.setAttribute("aria-label", t("Таймер LumiTime"));
     const fullBtn = h("button", "lumi-time-full", { textContent: t("Открыть целиком") });
-    fullBtn.addEventListener("click", () => openTime());
+    fullBtn.addEventListener("click", () => (isFull(gBrowser.selectedTab) ? closeFull() : openTime())); // пока большой LumiTime открыт, кнопка его закрывает (подпись — syncMini)
     const head = h("div", "lumi-pin-head");
     head.append(h("span", "lumi-pin-title", { textContent: "LumiTime" }), fullBtn);
     // страница создаётся на каждое открытие и убирается при закрытии: пока окна нет, она не тикает

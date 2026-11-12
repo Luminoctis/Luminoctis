@@ -1,6 +1,7 @@
 // LumiTime: ежедневные задачи («Каждый день») — чистая логика без диска и без браузера (проверка: dev/check-time-daily.mjs).
-// Файл данных time/daily.json: { version:1, tasks:[{ id, name, created: "гггг-мм-дд" }], marks:{ "гггг-мм-дд": { id: 1 (сделал) | 0 (не сделал) } } }.
+// Файл данных time/daily.json: { version:1, tasks:[{ id, name, created: "гггг-мм-дд", icon?: "id значка" }], marks:{ "гггг-мм-дд": { id: 1 (сделал) | 0 (не сделал) } } }.
 // Нет отметки = не отмечено. Даты — местные (граница дня как у остального LumiTime — местная полночь).
+const ICON_RE = /^[a-z0-9-]{1,24}$/; // id значка из набора home/time-icons.mjs; неизвестный id страница просто не рисует
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 export const dailyDate = t => { const d = new Date(t); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
 export function shiftDate(date, days) {
@@ -20,7 +21,7 @@ export function normDaily(raw) {
     const name = typeof t?.name == "string" ? t.name.trim().slice(0, 200) : "";
     if (!name || typeof t.id != "string" || !t.id || ids.has(t.id) || !DATE_RE.test(t.created)) continue;
     ids.add(t.id);
-    tasks.push({ id: t.id, name, created: t.created });
+    tasks.push(typeof t.icon == "string" && ICON_RE.test(t.icon) ? { id: t.id, name, created: t.created, icon: t.icon } : { id: t.id, name, created: t.created }); // старые данные без значка — как есть; порядок = порядок в файле
   }
   const marks = {};
   for (const [date, m] of Object.entries(raw.marks ?? {})) {
@@ -28,6 +29,19 @@ export function normDaily(raw) {
     for (const [id, v] of Object.entries(m)) if (ids.has(id) && (v === 1 || v === 0)) (marks[date] ??= {})[id] = v;
   }
   return { version: 1, tasks, marks };
+}
+
+// порядок и значок: новая модель, неизвестная задача — null. index зажимается в 0..длина-1; icon "" или null — без значка
+export function moveTask(daily, id, index) {
+  const from = daily.tasks.findIndex(t => t.id == id);
+  if (from < 0 || !Number.isInteger(index)) return null;
+  const tasks = [...daily.tasks], [task] = tasks.splice(from, 1);
+  tasks.splice(Math.max(0, Math.min(index, tasks.length)), 0, task);
+  return { ...daily, tasks };
+}
+export function setTaskIcon(daily, id, icon) {
+  if (!daily.tasks.some(t => t.id == id) || (icon && !ICON_RE.test(icon))) return null;
+  return { ...daily, tasks: daily.tasks.map(t => { if (t.id != id) return t; const { icon: _, ...rest } = t; return icon ? { ...rest, icon } : rest; }) };
 }
 
 // отметка задачи за день: ставит 1 | 0, null снимает. Новая модель; даты вне created..today и неизвестная задача — null (ничего не меняется)

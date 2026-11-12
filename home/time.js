@@ -225,7 +225,7 @@ function update() {
   const dk = dailyKey(); // «Каждый день» между «Сегодня» и целями; перерисовывается только при изменении данных/дня
   if (dk != dailyShown) {
     dailyShown = dk;
-    els.daily.replaceChildren(...[dailyBlock(() => { dailyShown = ""; update(); })].filter(Boolean));
+    els.daily.replaceChildren(...[dailyBlock(() => (mini ? window.browsingContext.topChromeWindow.luminoctis.openTime("settings", "daily") : openPanel("settings", "daily")))].filter(Boolean));
   }
   const g = JSON.stringify(["streak", "week", "month"].map(p => E.goalRows(p)));
   if (g != goalsKey) {
@@ -258,7 +258,7 @@ document.addEventListener("visibilitychange", run);
 window.addEventListener("unload", () => { off(); closeAdd(); clearInterval(timer); });
 build();
 run();
-if (!mini) openPanel(["settings", "stats", "journal", "day"].includes(q.get("panel")) ? q.get("panel") : "stats");
+if (!mini) openPanel(["settings", "stats", "journal", "day"].includes(q.get("panel")) ? q.get("panel") : "stats", q.get("section"));
 // большой режим: панель встаёт справа от мини-окна рейки (#lumi-time-frame в окне браузера) — позицию берём из него, offset* не зависит от анимации появления
 function place() {
   const fr = window.browsingContext?.topChromeWindow?.document.getElementById("lumi-time-frame"), br = window.browsingContext?.embedderElement;

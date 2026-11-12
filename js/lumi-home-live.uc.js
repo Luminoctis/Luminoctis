@@ -107,7 +107,7 @@
   const selTab = () => { const t = gBrowser.selectedTab; return window.gZenGlanceManager?.getTabOrGlanceParent?.(t) ?? t; };
   const homeTab = from => {
     const sel = selTab();
-    if (sel?.hasAttribute("lumi-home")) return sel;
+    if (sel?.hasAttribute("lumi-home") || sel?.hasAttribute("lumi-time-full")) return sel; // большой LumiTime — тот же вид «насквозь», что у Home (иначе под страницей сплошной bg0)
     if (from?.hasAttribute("lumi-home") && !from.closing && sel?.hasAttribute("zen-essential")) return from;
     if (!document.getElementById(sel?.linkedPanel)?.classList.contains("lumi-pin-window")) return null;
     return gBrowser.tabs.find(t => t.hasAttribute("lumi-home") && document.getElementById(t.linkedPanel)?.classList.contains("deck-selected")) ?? null;
@@ -141,7 +141,7 @@
     setThrough(tab && wantDesktop() && mica.matches && window.windowState != window.STATE_MINIMIZED && api() ? tab : null);
     site = !through && !tab && siteWant(); // Home (и непрозрачная) рисует себя сама
     if (!through) site ? document.documentElement.setAttribute("lumi-home-live", "site") : document.documentElement.removeAttribute("lumi-home-live"); // "site" — дыра под обычным сайтом (chrome.css раздел 15)
-    if (site) holeRect();
+    if (site || through?.hasAttribute("lumi-time-full")) holeRect(); // у большого LumiTime стену под интерфейсом (маска вне вкладки) задаёт не страница Home, а мы
     applyAccent();
   }
 
@@ -172,7 +172,7 @@
     },
   }));
   // область сайта меняется от Compacting, рейки и размера окна — дыра следует за ней
-  UC_API.Windows.waitWindowLoading(window).then(() => { const p = panels(); if (p) new ResizeObserver(() => { if (site) holeRect(); }).observe(p); });
+  UC_API.Windows.waitWindowLoading(window).then(() => { const p = panels(); if (p) new ResizeObserver(() => { if (site || through?.hasAttribute("lumi-time-full")) holeRect(); }).observe(p); });
   // Стекло — сразу, до первого показа окна: Windows решает, как выводить развёрнутое на весь экран окно, при показе, и если стекла ещё нет,
   // окно остаётся чёрным до смены режима «в окно ↔ на весь экран» (у Windhawk стекло ставится при создании окна). Полная проверка — после загрузки
   try { if (windowMode(window) == "transparent" && api()) accent(wantKind(true)); } catch (e) { console.warn("Luminoctis: раннее стекло окна", e); } /* l10n-skip */

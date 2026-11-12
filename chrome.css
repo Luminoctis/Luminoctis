@@ -382,7 +382,7 @@
 
 /* Мини-окно таймера LumiTime (js/lumi-rail.uc.js, openMini): рамка и затемнение — как у мини-окна закрепа (общие правила выше), внутри — home/time.html?mini=1.
  * Над скрытой вкладкой LumiTime целиком ([lumi-passive]) затемнения нет и клики проходят к большой странице. */
-#lumi-time-backdrop[lumi-passive] { background: none; pointer-events: none; animation: none; }
+:root[lumi-glass] #lumi-time-backdrop[lumi-passive], #lumi-time-backdrop[lumi-passive] { background: none; pointer-events: none; animation: none; } /* :root[lumi-glass] — иначе стекловое правило (30% тёмного) выше по специфичности и большой LumiTime затемнён */
 #lumi-time-frame[lumi-passive] { background: color-mix(in srgb, var(--lumi-surface) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); } /* над большой страницей LumiTime — стекло, без затемнения */
 #lumi-time-frame {
   bottom: auto; width: 340px; height: min(940px, calc(100% - 2 * var(--lumi-pin-y))); /* почти вдвое выше прежних 486px: внутри весь главный вид LumiTime, лишнее прокручивается */
@@ -1044,10 +1044,11 @@ zen-library :is(tab[lumi-home], tab[lumi-time-full]) { display: none !important;
   position: absolute; inset: -80px; width: calc(100% + 160px); height: calc(100% + 160px);
   filter: blur(var(--lumi-home-blur, 24px));
 }
-:root[lumi-home-wall][lumi-glass]:not([inDOMFullscreen="true"]) #lumi-home-wall { display: block; }
+/* [lumi-home-live] в стекле — и большой LumiTime насквозь (js/lumi-home-live.uc.js): тон окна вне вкладки держит тот же слой, что на Home */
+:root:is([lumi-home-wall], [lumi-home-live]:not([lumi-home-live="site"]))[lumi-glass]:not([inDOMFullscreen="true"]) #lumi-home-wall { display: block; }
 /* стекло окна (bg0 #zen-main-app-wrapper с ползунком «Прозрачность интерфейса») лежит под обоями — повторяем его над ними,
  * иначе на Home полосы и адрес — голые обои и ползунок их не меняет. Прозрачность обоев — только у холста (wallpaper.js), тон — как везде */
-:root[lumi-home-wall][lumi-glass] #lumi-home-wall::after { content: ""; position: absolute; inset: 0; background: var(--lumi-bg0); }
+:root:is([lumi-home-wall], [lumi-home-live]:not([lumi-home-live="site"]))[lumi-glass] #lumi-home-wall::after { content: ""; position: absolute; inset: 0; background: var(--lumi-bg0); }
 :root[lumi-home-live]:not([inDOMFullscreen="true"]) {
   background: transparent !important;
   & :is(#browser, #tabbrowser-tabbox, #tabbrowser-tabpanels, .browserSidebarContainer, .browserStack, .browserContainer,

@@ -878,5 +878,16 @@
     "fr": "L'archive ne contient pas installer\\update.ps1",
     "ja": "アーカイブに installer\\update.ps1 がありません",
     "de": "Im Archiv fehlt installer\\update.ps1"
+  },
+  "Закрыть целиком": {
+    "en": "Close full view",
+    "zh": "关闭完整视图",
+    "es": "Cerrar completo",
+    "ar": "إغلاق العرض الكامل",
+    "pt": "Fechar completo",
+    "id": "Tutup penuh",
+    "fr": "Fermer en entier",
+    "ja": "全体を閉じる",
+    "de": "Vollständig schließen"
   }
 }

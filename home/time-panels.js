@@ -398,9 +398,10 @@ function statsView(root) {
         s("text", { x: L - 6, y: y(tk * 3600000) + 4, "text-anchor": "end", class: "lt-axis" }, t("{0} ч", tk)))),
       st.buckets.map((b, i) => {
         const x = L + i * bw + gap / 2, w = bw - gap;
+        let acc = 0; const segs = st.topics.filter(([tp]) => b.topics[tp] > 0).map(([tp]) => [tp, b.topics[tp]]);
         return s("g", { class: "lt-bar" },
-          s("title", {}, t("{0}: фокус {1}, перерывы {2}", b.label, hm(b.focusMs), hm(b.breakMs))),
-          b.focusMs > 0 && s("rect", { x, width: w, y: y(b.focusMs), height: H - B - y(b.focusMs), rx: 3, class: "lt-bar-focus" }),
+          s("title", {}, [t("{0}: фокус {1}, перерывы {2}", b.label, hm(b.focusMs), hm(b.breakMs)), ...segs.map(([tp, ms]) => topicName(tp) + ": " + hm(ms))].join("\n")),
+          segs.map(([tp, ms]) => { const y0 = y(acc), y1 = y(acc += ms); return s("rect", { x, width: w, y: y1, height: y0 - y1, class: "lt-bar-focus", style: "fill:" + (topicColor(tp) ?? "var(--lumi-accent)") }); }),
           b.breakMs > 0 && s("rect", { x, width: w, y: y(b.focusMs + b.breakMs), height: y(b.focusMs) - y(b.focusMs + b.breakMs), rx: 3, class: "lt-bar-break" }),
           (period != "month" || i % 2 == 0 || st.buckets.length < 20) && s("text", { x: x + w / 2, y: H - 6, "text-anchor": "middle", class: "lt-axis" }, b.label));
       }));
@@ -420,7 +421,7 @@ function statsView(root) {
           [t("Средняя сессия"), clockOf(st.averageFocusMs)], [t("Дней с фокусом"), String(st.focusDays)]]
           .map(([k, v], i) => h("div", { class: `lt-card${i == 0 ? " lt-card-main" : ""}` }, h("small", { text: k }), h("b", { text: v })))),
       chart(st),
-      h("div", { class: "lt-legend" }, h("span", { class: "lt-key-focus", text: t("Фокус") }), h("span", { class: "lt-key-break", text: t("Перерывы") })),
+      h("div", { class: "lt-legend" }, st.topics.map(([tp]) => h("span", { class: "lt-key-focus", style: `--kc:${topicColor(tp) ?? "var(--lumi-accent)"}`, text: topicName(tp) })), h("span", { class: "lt-key-break", text: t("Перерывы") })),
       h("h3", { text: t("По темам") }),
       st.topics.length ? h("div", { class: "lt-topics" }, st.topics.map(([tp, ms]) => h("div", { class: "lt-topic" },
         topicTag(tp), h("span", { class: "lt-dim", text: `${clockOf(ms)} · ${Math.round(ms / st.focusMs * 100)}%` }),

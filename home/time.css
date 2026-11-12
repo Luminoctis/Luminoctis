@@ -162,9 +162,9 @@ body[lumi-time-panel] #lumi-time-panel { translate: 0 0; opacity: 1; }
   & .lt-grid { stroke: var(--lt-line); stroke-width: 1; } & .lt-axis { fill: var(--lumi-dim); font-size: 10px; }
   & .lt-bar-focus { fill: var(--lumi-accent); } & .lt-bar-break { fill: color-mix(in srgb, var(--lumi-muted) 45%, transparent); }
   & .lt-bar:hover rect { filter: brightness(1.2); } }
-.lt-legend { display: flex; gap: 16px; font-size: 12px; color: var(--lumi-muted);
+.lt-legend { display: flex; flex-wrap: wrap; gap: 16px; font-size: 12px; color: var(--lumi-muted);
   & span::before { content: ""; display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
-  & .lt-key-focus::before { background: var(--lumi-accent); } & .lt-key-break::before { background: color-mix(in srgb, var(--lumi-muted) 45%, transparent); } }
+  & .lt-key-focus::before { background: var(--kc, var(--lumi-accent)); } & .lt-key-break::before { background: color-mix(in srgb, var(--lumi-muted) 45%, transparent); } }
 .lt-topics { display: flex; flex-direction: column; gap: 8px; }
 .lt-topic { display: grid; grid-template-columns: 1fr auto; gap: 2px 10px; & .lt-goal-track { grid-column: 1 / -1; } }
 

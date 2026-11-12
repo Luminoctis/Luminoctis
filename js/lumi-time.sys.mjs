@@ -341,7 +341,7 @@ function calendar(period, at) {
 }
 export function buildStatistics(records, period, at = new Date(now())) {
   const range = calendar(period, at);
-  const buckets = range.buckets.map(b => ({ ...b, focusMs: 0, breakMs: 0 }));
+  const buckets = range.buckets.map(b => ({ ...b, focusMs: 0, breakMs: 0, topics: {} }));
   const byKey = new Map(buckets.map(b => [b.key, b]));
   const unique = new Map(records.map(r => [r.id, r]));
   const topics = new Map(), focusDays = new Set(), sessions = new Set();
@@ -357,7 +357,7 @@ export function buildStatistics(records, period, at = new Date(now())) {
       if (r.kind == "Focus") {
         b.focusMs += ms; focusMs += ms; focusDays.add(date);
         const tp = r.topic.trim() || "Фокус"; // l10n-skip
-        topics.set(tp, (topics.get(tp) ?? 0) + ms);
+        topics.set(tp, (topics.get(tp) ?? 0) + ms); b.topics[tp] = (b.topics[tp] ?? 0) + ms;
         counts = true;
       } else { b.breakMs += ms; breakMs += ms; }
     }

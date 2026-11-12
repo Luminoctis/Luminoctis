@@ -194,7 +194,9 @@
     const FULL = "lumi-time-full", ownUrl = (tab, spec) => { const s = spec.split(/[?#]/)[0]; return s == "about:blank" || s == (isHome(tab) ? URL : pageUrl("home/time.html")); };
     gBrowser.addTabsProgressListener({
       onLocationChange(browser, webProgress, request, location, flags) {
-        if (!webProgress.isTopLevel || flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) return;
+        // смена адреса при восстановлении из сессии (SESSION_STORE) — не уход со страницы: Home из сессии разбирают find()/repair()
+        const L = Ci.nsIWebProgressListener;
+        if (!webProgress.isTopLevel || flags & (L.LOCATION_CHANGE_SAME_DOCUMENT | (L.LOCATION_CHANGE_SESSION_STORE ?? 16))) return;
         const tab = gBrowser.getTabForBrowser(browser);
         if (!tab || !(isHome(tab) || isFull(tab)) || ownUrl(tab, location.spec)) return;
         const key = isHome(tab) ? KEY : FULL;

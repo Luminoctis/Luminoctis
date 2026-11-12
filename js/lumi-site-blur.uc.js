@@ -15,7 +15,7 @@
 // включён pref luminoctis.look.site-blur (скрытый, по умолчанию true), окно в стекле, не DOM-fullscreen, нет prefers-reduced-transparency, включён
 // gfx.webrender.svg-filter-effects (иначе страница с фильтром пропадает целиком). Home и большой LumiTime (chrome-страницы) размываются так же, как сайты.
 UC_API.Windows.waitWindowLoading(window).then(() => {
-  const NS = "http://www.w3.org/2000/svg", PREF = "luminoctis.look.site-blur", SVG_PREF = "gfx.webrender.svg-filter-effects", TRANSPARENT = "browser.tabs.allow_transparent_browser", RADIUS = 24, EDGE = RADIUS * 3, EDGE_SLOPE = 3;
+  const NS = "http://www.w3.org/2000/svg", PREF = "luminoctis.look.site-blur", SVG_PREF = "gfx.webrender.svg-filter-effects", TRANSPARENT = "browser.tabs.allow_transparent_browser", RADIUS = 24;
   const root = document.documentElement, panels = document.getElementById("tabbrowser-tabpanels");
   const make = (tag, attrs = {}, ...kids) => {
     const el = document.createElementNS(NS, tag);
@@ -59,17 +59,15 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     // честным средним. Фильтр на анимированной странице стоит GPU за каждый примитив на всю область (замер 0.7.3), поэтому два пути:
     // · сплошная страница: слой = m (g с альфой ×8) непрозрачен во всей подобласти, резкая страница под ним не видна — вырезать её не нужно (как в 0.7.1);
     // · иначе страница может быть прозрачной (Home насквозь, прозрачные сайты): слой — «честный» g (белый текст на прозрачном фоне не превращается в сплошное
-    //   белое пятно, как при ×8), резкая страница вырезается по маскам m (×255), подъём ×3 — только в полосе в 3 радиуса у края области.
+    //   белое пятно, как при ×8), резкая страница вырезается по маскам m (×255). Подъёма у края здесь нет: полоса с ×3 у полупрозрачного сайта
+    //   была плотнее соседнего слоя — светлая полоса с резкой границей слева под рейкой и снизу (0.7.3); без неё слой у края просто плавно тает.
     const rect = ([x, y, width, height]) => ({ x, y, width, height }), merge = (nodes, result) => make("feMerge", result ? { result } : {}, ...nodes.map(n => make("feMergeNode", { in: n })));
     const ct = (src, box, slope, result) => make("feComponentTransfer", { in: src, ...rect(box), result }, make("feFuncA", { type: "linear", slope }));
-    const edges = ([x, y, w, h]) => [x < EDGE && [x, y, Math.min(EDGE - x, w), h], y < EDGE && [x, y, w, Math.min(EDGE - y, h)],
-      p.width - x - w < EDGE && [Math.max(x, p.width - EDGE), y, x + w - Math.max(x, p.width - EDGE), h], p.height - y - h < EDGE && [x, Math.max(y, p.height - EDGE), w, y + h - Math.max(y, p.height - EDGE)]].filter(Boolean);
     const prims = [], top = []; // примитивы и слои, которые кладутся поверх страницы
     boxes.forEach((box, i) => {
       prims.push(make("feGaussianBlur", { in: "SourceGraphic", stdDeviation: RADIUS, ...rect(box), result: `g${i}` }), ct(`g${i}`, box, solid ? 8 : 255, `m${i}`));
       if (solid) return top.push(`m${i}`);
       top.push(`g${i}`);
-      edges(box).forEach((e, j) => { prims.push(ct(`g${i}`, e, EDGE_SLOPE, `e${i}_${j}`)); top.push(`e${i}_${j}`); });
     });
     const masks = boxes.map((_, i) => `m${i}`);
     filter.replaceChildren(...prims, ...(solid ? [merge(["SourceGraphic", ...top])] : [...(masks.length > 1 ? [merge(masks, "m")] : []),

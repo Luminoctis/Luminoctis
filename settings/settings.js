@@ -2,6 +2,8 @@
 // js/lumi-rail.uc.js). Страница привилегированная: читает и пишет настройки Firefox напрямую,
 // закрепы (родные Essentials Zen) — через win.luminoctis, пространства — через gZenWorkspaces окна.
 import { JS } from "../home/paths.js";
+const { t, localize, locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
+localize(document); // до всего, что строится из текста страницы (плитки, чипы, поиск)
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow; // окно браузера с этой панелью
 const { ContextualIdentityService } = win;
@@ -52,36 +54,155 @@ let onPanelShown = null; // (видна) — для превью часов: с�
   }
 }
 
-// ---------- разделы: ряд вкладок сверху, открытый раздел — в адресе (settings.html#look) ----------
+// ---------- разделы: колонка плиток слева, открытый раздел — в адресе (settings.html#look или #раздел/группа) ----------
 const tabButtons = [...document.querySelectorAll(".tabs [data-tab]")];
-// старые разделы (запомненные в luminoctis.settings.tab, ссылки) → новые (схема 2026-11-01: panels→tabs, menu и keys→control; sidebar теперь «Рейка»)
-const RENAMED = { panels: "tabs", menu: "control", keys: "control" };
+const sections = [...document.querySelectorAll("main > section")];
+const mainEl = $("main");
+// плитка: полное название в title (если в разметке нет своего), связь вкладки и раздела для скринридеров
+for (const b of tabButtons) {
+  b.id = "tab-" + b.dataset.tab;
+  b.title ||= b.querySelector("span").textContent;
+  document.getElementById(b.dataset.tab).setAttribute("aria-labelledby", b.id);
+}
+// старые имена разделов (запомненные в luminoctis.settings.tab, внешние вызовы openSettings) → раздел[/группа]
+// схема 2026-11-01: panels→tabs, menu и keys→control; схема 2026-11-12: «Строгий режим» и «Звуки» стали группами других разделов
+const ALIASES = { panels: "tabs", menu: "control", keys: "control", strict: "tabs/g-strict", sounds: "look/g-sounds" };
+const calm = () => matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// ---------- поиск по настройкам ----------
+// Ищет по видимому тексту (textContent) строк, их подсказок-title и заголовков групп; словаря нет, поэтому работает на любом языке.
+// Строка (блок) = прямой потомок раздела (или обёртки #glass-options / details); подходит, если все слова запроса есть в «заголовок группы + текст + title».
+// Регистр и диакритика не важны (ё = е). Раздел с совпадениями показывается со своим заголовком (.res-head), остальное прячет класс .nomatch.
+const finder = $("#find"), findEmpty = $("#find-empty");
+const norm = s => s.toLocaleLowerCase().normalize("NFD").replace(/\p{M}/gu, "");
+const searching = () => document.body.classList.contains("searching");
+let scrollBeforeFind = 0;
+for (const section of sections) {
+  const head = el("button", { className: "res-head", type: "button" }, el("span"));
+  head.insertAdjacentHTML("beforeend", '<svg viewBox="0 0 12 12" aria-hidden="true"><path d="m4 2 4 4-4 4"/></svg>');
+  head.addEventListener("click", () => openSection(section.id));
+  section.prepend(head);
+}
+function clearFind(restoreScroll) {
+  finder.value = "";
+  if (!searching()) return;
+  document.body.classList.remove("searching");
+  for (const n of document.querySelectorAll(".nomatch")) n.classList.remove("nomatch");
+  for (const d of document.querySelectorAll("main details")) { d.open = d.dataset.wasOpen == "1"; delete d.dataset.wasOpen; }
+  findEmpty.hidden = true;
+  mainEl.scrollTop = restoreScroll ? scrollBeforeFind : 0;
+}
+function runFind() {
+  const q = norm(finder.value.trim());
+  if (!q) return clearFind(true);
+  if (!searching()) { scrollBeforeFind = mainEl.scrollTop; document.body.classList.add("searching"); }
+  const words = q.split(/\s+/);
+  for (const n of document.querySelectorAll(".nomatch")) n.classList.remove("nomatch");
+  for (const d of document.querySelectorAll("main details")) { d.dataset.wasOpen ??= d.open ? "1" : ""; d.open = true; } // свёрнутое «Ещё» тоже ищется
+  let total = 0;
+  for (const section of sections) {
+    const groups = [], rows = []; // группа: заголовок h2 и её блоки; rows — все блоки раздела с признаком совпадения
+    let cur = { h2: null, blocks: [] };
+    groups.push(cur);
+    const walk = parent => {
+      for (const c of parent.children) {
+        if (c.matches("h2")) { cur = { h2: c, blocks: [] }; groups.push(cur); }
+        else if (c.matches(".chips, .res-head, .reset-wrap, .note, summary, p.hint")) continue;
+        else if (c.matches("#glass-options, details")) walk(c);
+        else cur.blocks.push(c);
+      }
+    };
+    walk(section);
+    let any = false;
+    for (const g of groups) {
+      const title = g.h2 ? g.h2.textContent : "";
+      let hit = false;
+      for (const b of g.blocks) {
+        const text = norm(title + " " + b.textContent + " " + (b.title || ""));
+        const ok = b.getClientRects().length > 0 && words.every(w => text.includes(w));
+        rows.push([b, ok]);
+        hit ||= ok;
+      }
+      if (g.h2 && !hit) g.h2.classList.add("nomatch");
+      any ||= hit;
+    }
+    for (const [b, ok] of rows) if (!ok) b.classList.add("nomatch");
+    for (const d of section.querySelectorAll("details")) if (!d.querySelector(":scope > :not(summary):not(.nomatch)")) d.classList.add("nomatch");
+    section.classList.toggle("nomatch", !any);
+    if (any) { total++; section.querySelector(".res-head span").textContent = tabButtons.find(t => t.dataset.tab == section.id).querySelector("span").textContent; }
+  }
+  findEmpty.hidden = total > 0;
+  mainEl.scrollTop = 0;
+}
+finder.addEventListener("input", runFind);
+
+// ---------- оглавление длинного раздела: чипы-группы (из h2, без .hint), липнут к верху ----------
+for (const section of sections) {
+  const heads = [...section.querySelectorAll(":scope > h2")];
+  if (heads.length < 4 || "nochips" in section.dataset) continue;
+  const chips = el("div", { className: "chips" });
+  for (const h of heads) {
+    const copy = h.cloneNode(true);
+    copy.querySelector(".hint")?.remove();
+    const chip = el("button", { type: "button", textContent: copy.textContent.trim() });
+    chip.addEventListener("click", () => scrollToGroup(h, calm() ? "auto" : "smooth"));
+    chips.append(chip);
+  }
+  section.prepend(chips);
+  section.dataset.chips = "";
+}
+function scrollToGroup(h, behavior = "auto") {
+  const chips = h.parentNode.querySelector(":scope > .chips");
+  if (chips) h.parentNode.style.setProperty("--chips-h", chips.offsetHeight + 6 + "px"); // чипы могут занять две строки
+  h.scrollIntoView({ block: "start", behavior });
+}
+
 const showTab = () => {
-  let wanted = location.hash.slice(1); // #раздел
-  wanted = RENAMED[wanted] ?? wanted;
-  const name = tabButtons.some(b => b.dataset.tab == wanted) ? wanted : "look";
-  for (const b of tabButtons) b.setAttribute("aria-selected", b.dataset.tab == name);
-  for (const s of document.querySelectorAll("main > section")) s.classList.toggle("shown", s.id == name);
-  document.querySelector("main").scrollTop = 0;
+  clearFind();
+  const [hashName, hashGroup] = location.hash.slice(1).split("/");
+  const [aliasName, aliasGroup] = (ALIASES[hashName] ?? hashName).split("/");
+  const name = tabButtons.some(b => b.dataset.tab == aliasName) ? aliasName : "look";
+  for (const b of tabButtons) { b.setAttribute("aria-selected", b.dataset.tab == name); b.tabIndex = b.dataset.tab == name ? 0 : -1; }
+  for (const s of sections) s.classList.toggle("shown", s.id == name);
+  mainEl.scrollTop = 0;
+  const group = document.getElementById(hashGroup ?? aliasGroup);
+  if (group?.parentNode.id == name) scrollToGroup(group); // «#strict» → раздел «Вкладки», сразу к блокировке сайтов
   Services.prefs.setStringPref("luminoctis.settings.tab", name); // панель откроется на нём и после перезапуска
 };
 window.lumiShowTab = showTab; // для js/lumi-rail.uc.js: тот же адрес hashchange не шлёт
-for (const b of tabButtons) b.addEventListener("click", () => location.replace("#" + b.dataset.tab)); // без записи в историю
+// открыть раздел: replaceState, а не location.replace — переход к «#якорю» сбрасывал бы фокус с плитки (стрелки по колонке); hashchange при этом не приходит, показываем сами
+function openSection(name) {
+  const changed = location.hash != "#" + name;
+  history.replaceState(null, "", "#" + name);
+  if (changed || searching()) showTab();
+}
+for (const b of tabButtons) b.addEventListener("click", () => openSection(b.dataset.tab));
+// стрелки вверх/вниз по колонке разделов (по кругу), Home/End — первый/последний
+$(".tabs").addEventListener("keydown", event => {
+  const i = tabButtons.indexOf(document.activeElement), n = tabButtons.length;
+  const to = { ArrowDown: i + 1, ArrowUp: i - 1, Home: 0, End: n - 1 }[event.key];
+  if (i < 0 || to === undefined) return;
+  event.preventDefault();
+  const b = tabButtons[(to + n) % n];
+  b.focus();
+  b.click();
+});
 window.addEventListener("hashchange", showTab);
 // ссылки «Настроить обои →» и т.п.: data-goto="раздел"
 document.addEventListener("click", event => {
   const a = event.target.closest("[data-goto]");
   if (!a) return;
   event.preventDefault();
-  location.replace("#" + a.dataset.goto);
+  openSection(a.dataset.goto);
 });
 showTab();
 
-// «Готово» и Esc закрывают панель; клик мимо — нет, рейкой можно пользоваться и при открытых настройках
+// «Готово» и Esc закрывают панель; клик мимо — нет, рейкой можно пользоваться и при открытых настройках. Esc при непустом поиске сначала очищает его
 const close = () => win.luminoctis.closeSettings();
 $("#done").addEventListener("click", close);
 window.addEventListener("keydown", event => {
-  if (event.key == "Escape" && !event.defaultPrevented) close();
+  if (event.key != "Escape" || event.defaultPrevented) return;
+  if (searching()) { event.preventDefault(); clearFind(true); } else close();
 });
 
 // ---------- флажки, привязанные к настройкам (data-pref, data-inverted — флажок означает «не») ----------
@@ -117,7 +238,7 @@ for (const seg of document.querySelectorAll("div[data-pref]")) {
     document.body.dataset.mode = m == "transparent" || m == "wallpaper" ? m : "opaque";
     const ok = pr.getStringPref(MODE, "wallpaper") == "wallpaper";
     btn.disabled = !ok;
-    btn.title = ok ? "" : "Нужен режим Home «Обои»";
+    btn.title = ok ? "" : t("Нужен режим «Обои» у Главной");
   };
   for (const n of [WIN, MODE]) watchPref(n, show);
 }
@@ -170,14 +291,14 @@ function sortable(list, onMove) {
     list.querySelector(".dragging")?.classList.remove("dragging");
   });
 }
-const grip = () => el("span", { className: "grip", draggable: true, textContent: "⠿", title: "Перетащите, чтобы поменять порядок" });
+const grip = () => el("span", { className: "grip", draggable: true, textContent: "⠿", title: t("Перетащите, чтобы поменять порядок") });
 
 // ---------- рабочие пространства ----------
 function renderSpaces() {
   const spaces = win.gZenWorkspaces.getWorkspaces();
   const identities = ContextualIdentityService.getPublicIdentities();
   $("#spaces").replaceChildren(...spaces.map(ws => {
-    const icon = el("button", { className: "icon", title: "Сменить иконку" });
+    const icon = el("button", { className: "icon", title: t("Сменить иконку") });
     if (ws.icon?.endsWith(".svg")) icon.append(el("img", { src: ws.icon }));
     else icon.textContent = ws.icon || "•";
     // родной выбор иконки Zen, рядом с кнопкой пространства в рейке
@@ -191,7 +312,7 @@ function renderSpaces() {
       });
       win.focus();
     });
-    const name = el("input", { className: "name", type: "text", value: ws.name, title: "Название" });
+    const name = el("input", { className: "name", type: "text", value: ws.name, title: t("Название") });
     name.addEventListener("change", () => {
       ws.name = name.value.trim() || ws.name;
       win.gZenWorkspaces.saveWorkspace(ws);
@@ -199,8 +320,8 @@ function renderSpaces() {
     const color = identities.find(i => i.userContextId == ws.containerTabId)?.color;
     const dot = el("span", { className: "dot" });
     dot.style.background = DOT[color] ? `var(--lumi-${DOT[color]})` : "transparent";
-    const container = el("select", { title: "Контейнер: новые вкладки пространства открываются в нём" },
-      el("option", { value: 0, textContent: "Без контейнера" }),
+    const container = el("select", { title: t("Контейнер: новые вкладки пространства открываются в нём") },
+      el("option", { value: 0, textContent: t("Без контейнера") }),
       ...identities.map(i => el("option", { value: i.userContextId, textContent: ContextualIdentityService.getUserContextLabel(i.userContextId) })));
     container.value = ws.containerTabId || 0;
     if (container.selectedIndex < 0) container.value = 0; // контейнер удалён — иначе список пустой
@@ -210,14 +331,14 @@ function renderSpaces() {
     });
     // удалить — родным removeWorkspace Zen (вкладки пространства закрываются), после подтверждения под строкой; последнее — нельзя
     const remove = el("button", { className: "small remove", textContent: "×", disabled: spaces.length < 2,
-      title: spaces.length < 2 ? "Последнее пространство удалить нельзя" : "Удалить пространство" });
+      title: spaces.length < 2 ? t("Последнее пространство удалить нельзя") : t("Удалить пространство") });
     const row = el("div", { className: "item" }, grip(), icon, name, dot, container, remove);
     remove.addEventListener("click", () => {
       if (row.nextElementSibling?.classList.contains("confirm")) return row.nextElementSibling.remove();
-      const yes = el("button", { className: "danger", textContent: "Удалить" });
-      const no = el("button", { textContent: "Отмена" });
+      const yes = el("button", { className: "danger", textContent: t("Удалить") });
+      const no = el("button", { textContent: t("Отмена") });
       const ask = el("div", { className: "confirm" },
-        el("span", { textContent: `Удалить «${ws.name}»? Его вкладки закроются.` }), yes, no);
+        el("span", { textContent: t("Удалить «{0}»? Его вкладки закроются.", ws.name) }), yes, no);
       yes.addEventListener("click", () => {
         if (win.gZenWorkspaces.getWorkspaces().length > 1) win.gZenWorkspaces.removeWorkspace(ws.uuid);
         ask.remove();
@@ -231,7 +352,7 @@ function renderSpaces() {
 }
 // новое — родным createAndSaveWorkspace Zen, в конце списка, без переключения на него; сразу можно ввести название
 $("#space-add").addEventListener("click", async () => {
-  await win.gZenWorkspaces.createAndSaveWorkspace("Новое пространство", undefined, true);
+  await win.gZenWorkspaces.createAndSaveWorkspace(t("Новое пространство"), undefined, true);
   renderSpaces();
   const name = $("#spaces .item:last-child .name");
   name?.focus();
@@ -255,12 +376,12 @@ const site = (title, url) => el("span", { className: "site", title: url },
 function renderPins() {
   const pins = lumi.pins();
   $("#pins").replaceChildren(...(pins.length ? pins.map(tab => {
-    const remove = el("button", { className: "small remove", textContent: "×", title: "Открепить" });
+    const remove = el("button", { className: "small remove", textContent: "×", title: t("Открепить") });
     remove.addEventListener("click", () => lumi.unpin(tab)); // как «Открепить» в меню закрепа: вкладка закрывается
     return el("div", { className: "item" }, grip(),
       el("span", { className: "icon" }, el("img", { src: win.gBrowser.getIcon(tab) || `page-icon:${urlOf(tab)}` })),
       site(tab.label, urlOf(tab)), remove);
-  }) : [el("div", { className: "empty", textContent: "Закрепов нет — добавьте сайт кнопкой ниже" })]));
+  }) : [el("div", { className: "empty", textContent: t("Закрепов нет — добавьте сайт кнопкой ниже") })]));
 }
 sortable($("#pins"), (from, to) => lumi.movePin(lumi.pins()[from], to));
 // перерисовка — только когда меняются сами закрепы (TabAttrModified у загружающихся вкладок идёт постоянно)
@@ -283,7 +404,7 @@ const current = $("#pin-current");
 const showCurrent = () => {
   const tab = lastSite();
   current.disabled = !tab;
-  current.textContent = tab ? `+ Текущий сайт: ${tab.label}` : "+ Текущий сайт";
+  current.textContent = tab ? t("+ Текущий сайт: {0}", tab.label) : t("+ Текущий сайт");
 };
 current.addEventListener("click", () => {
   const tab = lastSite();
@@ -303,7 +424,7 @@ const findBookmarks = async () => {
   const pinned = new Set(lumi.pins().map(urlOf));
   const found = query.length < 2 ? [] : (await PlacesUtils.bookmarks.search(query)).filter(b => b.url && !pinned.has(b.url.href)).slice(0, 8);
   $("#pin-results").replaceChildren(...found.map(b => {
-    const add = el("button", { textContent: "Добавить" });
+    const add = el("button", { textContent: t("Добавить") });
     add.addEventListener("click", () => {
       lumi.addPin(b.url.href, b.title);
       findBookmarks(); // добавленная пропадает из результатов
@@ -328,7 +449,7 @@ async function renderMenuList(list, pref, getItems) {
     });
     return el("label", { className: "row slim" }, el("span", { textContent: label }), box);
   }));
-  // настройку поменяли не флажком (например «Сбросить вкладку») — обновить флажки на месте
+  // настройку поменяли не флажком (например «Сбросить раздел») — обновить флажки на месте
   watchPref(pref, () => { const h = hiddenItems(); for (const b of list.querySelectorAll("input")) b.checked = !h.includes(b.dataset.item); });
 }
 renderMenuList($("#appmenu"), "luminoctis.appmenu.hidden", () => lumi.appMenuItems());
@@ -354,7 +475,7 @@ function record(name) {
   const bind = document.querySelector(`[data-key="${name}"] .bind`);
   recording = { name, bind };
   bind.classList.add("recording");
-  bind.textContent = "Нажмите…"; // подсказка — в описании строки
+  bind.textContent = t("Нажмите…"); // подсказка — в описании строки
 }
 for (const row of document.querySelectorAll("[data-key]")) {
   const name = row.dataset.key;
@@ -433,9 +554,9 @@ function renderPresets() {
     const row = el(mine ? "div" : "button", { className: "preset" + (key == id ? " on" : "") + (mine ? " mine" : "") });
     const renaming = mine && pending?.mode == "rename" && pending.id == key;
     row.append(renaming ? nameInput(name, v => palette.renameTheme(key, v)) : el("span", { className: "name", textContent: name }));
-    if (palette.edited(key).length) row.append(el("span", { className: "badge", textContent: "изменена" }));
-    if (mine && !renaming) row.append(small("✎", "Переименовать", () => { pending = { mode: "rename", id: key }; renderPresets(); }),
-      small("🗑", "Удалить тему", () => { pending = { mode: "delete", id: key }; renderPresets(); }));
+    if (palette.edited(key).length) row.append(el("span", { className: "badge", textContent: t("изменена") }));
+    if (mine && !renaming) row.append(small("✎", t("Переименовать"), () => { pending = { mode: "rename", id: key }; renderPresets(); }),
+      small("🗑", t("Удалить тему оформления"), () => { pending = { mode: "delete", id: key }; renderPresets(); }));
     row.append(chips(palette.colors(key)));
     row.dataset.preset = key;
     row.setAttribute("aria-pressed", key == id);
@@ -443,10 +564,10 @@ function renderPresets() {
     row.addEventListener("click", () => palette.choose(key));
     items.push(row);
     if (mine && pending?.mode == "delete" && pending.id == key) {
-      const yes = el("button", { className: "danger", textContent: "Удалить" }), no = el("button", { textContent: "Отмена" });
+      const yes = el("button", { className: "danger", textContent: t("Удалить") }), no = el("button", { textContent: t("Отмена") });
       yes.addEventListener("click", () => { pending = null; palette.deleteTheme(key); });
       no.addEventListener("click", () => { pending = null; renderPresets(); });
-      items.push(el("div", { className: "confirm" }, el("span", { textContent: `Удалить тему «${name}»?` }), yes, no));
+      items.push(el("div", { className: "confirm" }, el("span", { textContent: t("Удалить тему «{0}»?", name) }), yes, no));
     }
   }
   if (pending?.mode == "create") {
@@ -455,8 +576,8 @@ function renderPresets() {
   $("#presets").replaceChildren(...items);
   const edits = !palette.isCustom(id) && palette.edited().length > 0;
   $("#theme-create").hidden = !!pending?.mode && pending.mode == "create";
-  $("#theme-create").textContent = edits ? "Сохранить правки как свою тему" : "+ Создать тему";
-  $("#theme-create").title = "Копия текущих цветов станет вашей темой";
+  $("#theme-create").textContent = edits ? t("Сохранить правки как свою тему") : t("+ Создать тему");
+  $("#theme-create").title = t("Копия текущих цветов станет вашей темой");
   $("#theme-save-hint").hidden = !edits;
 }
 $("#theme-create").addEventListener("click", () => { pending = { mode: "create" }; renderPresets(); });
@@ -494,12 +615,12 @@ function openEditor(token) {
 }
 function makeEditor(token) {
   const sv = el("div", { className: "sv", tabIndex: 0 }, el("div", { className: "mark" }));
-  sv.setAttribute("aria-label", "Насыщенность и яркость");
-  const hue = el("input", { className: "hue", type: "range", min: 0, max: 360, step: 1, title: "Оттенок" });
-  hue.setAttribute("aria-label", "Оттенок");
-  const hexIn = el("input", { className: "hexin", type: "text", spellcheck: false, title: "Цвет: #rrggbb или #rgb" });
+  sv.setAttribute("aria-label", t("Насыщенность и яркость"));
+  const hue = el("input", { className: "hue", type: "range", min: 0, max: 360, step: 1, title: t("Оттенок") });
+  hue.setAttribute("aria-label", t("Оттенок"));
+  const hexIn = el("input", { className: "hexin", type: "text", spellcheck: false, title: t("Цвет: #rrggbb или #rgb") });
   const rgbIn = [0, 1, 2].map(() => el("input", { type: "number", min: 0, max: 255 }));
-  const reset = el("button", { textContent: "Сбросить", title: "Вернуть цвет палитры" });
+  const reset = el("button", { textContent: t("Сбросить"), title: t("Вернуть цвет палитры") });
   const node = el("div", { className: "editor" }, sv, hue,
     el("div", { className: "fields" }, hexIn, ...rgbIn.map((input, i) => el("label", {}, "RGB"[i], input)), reset));
   const ed = { token, node, hex: "", hsv: [0, 0, 0], frame: 0 };
@@ -563,9 +684,9 @@ const colorRows = [];
 for (const [group, labels] of palette.GROUPS) {
   colorRows.push(el("div", { className: "group", textContent: group }));
   for (const [token, label] of Object.entries(labels)) {
-    const undo = el("button", { className: "small", textContent: "↺", title: "Вернуть цвет палитры" });
+    const undo = el("button", { className: "small", textContent: "↺", title: t("Вернуть цвет палитры") });
     undo.addEventListener("click", event => { event.stopPropagation(); palette.resetColor(token); });
-    const row = el("div", { className: "color", tabIndex: 0, title: "Изменить цвет" },
+    const row = el("div", { className: "color", tabIndex: 0, title: t("Изменить цвет") },
       el("span", { className: "chip" }), el("span", { className: "label", textContent: label }), el("span", { className: "hex" }), undo);
     row.dataset.token = token;
     row.setAttribute("role", "button");
@@ -631,7 +752,13 @@ renderPalette();
   window.lumiSettingsClocks = () => clockPrev.filter(p => p.clock).length; // для проверок
   onPanelShown = setPreviews;
   setPreviews(!(window.frameElement?.parentNode?.hidden));
-  for (const p of document.querySelectorAll(".sc-prev")) p.append(...["Почта", "Видео", "Карты", "Игры"].map(t => el("span", { className: "sc-pv" }, el("i"), el("b", { textContent: t })))); // превью стилей ярлыков (settings.css)
+  for (const p of document.querySelectorAll(".sc-prev")) p.append(...[t("Почта"), t("Видео"), t("Карты"), t("Игры")].map(name => el("span", { className: "sc-pv" }, el("i"), el("b", { textContent: name })))); // превью стилей ярлыков (settings.css)
+  // подписи форматов даты — пример на языке интерфейса (те же параметры, что у home/clock.js)
+  for (const [v, o] of Object.entries({ long: { weekday: "long", day: "numeric", month: "long" }, medium: { weekday: "short", day: "numeric", month: "short" }, short: { day: "2-digit", month: "2-digit", year: "numeric" } })) {
+    const text = new Date(2026, 9, 31).toLocaleDateString(locale, o); // 31 октября 2026 — суббота
+    $(`[data-pref="luminoctis.home.clock.datefmt"] [data-value="${v}"]`).textContent = v == "long" ? text.replace(/^./u, c => c.toLocaleUpperCase(locale)) : text;
+  }
+
   // числа: ползунки (рядом <output>) и списки
   for (const input of document.querySelectorAll("[data-int-pref]")) {
     const pref = input.dataset.intPref, out = input.nextElementSibling?.matches("output") ? input.nextElementSibling : null;
@@ -655,7 +782,7 @@ renderPalette();
   }
   $("#wp-pick").addEventListener("click", () => {
     const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    fp.init(window.browsingContext, "Папка с обоями", Ci.nsIFilePicker.modeGetFolder);
+    fp.init(window.browsingContext, t("Папка с обоями"), Ci.nsIFilePicker.modeGetFolder);
     fp.open(r => {
       if (r != Ci.nsIFilePicker.returnOK) return;
       Services.prefs.setStringPref("luminoctis.home.wallpaper.folder", fp.file.path);
@@ -675,7 +802,7 @@ renderPalette();
   for (const box of document.querySelectorAll('input[data-pref*="wallpaper.src."]')) {
     const url = HOMES[box.dataset.pref.split(".src.")[1]];
     if (!url) continue;
-    const a = el("a", { className: "src-link", href: url, title: "Открыть сайт", role: "button", tabIndex: 0 });
+    const a = el("a", { className: "src-link", href: url, title: t("Открыть сайт"), role: "button", tabIndex: 0 });
     a.dataset.src = box.dataset.pref.split(".src.")[1];
     a.innerHTML = ARROW;
     a.addEventListener("click", event => { event.preventDefault(); event.stopPropagation(); win.openTrustedLinkIn(url, "tab"); });
@@ -686,15 +813,15 @@ renderPalette();
   const nsfwHint = () => {
     const on = Services.prefs.getBoolPref(NS, false), hasKey = !!Services.prefs.getStringPref(WP + "key.wallhaven", "").trim();
     nsfw.checked = on;
-    $("#nsfw-hint").textContent = on && !hasKey ? "Wallhaven покажет 18+ только с ключом доступа (в «Ещё»). Yande.re и Konachan — без ключа" : "Не показывается в приватном окне и в режиме окна «Обои»";
+    $("#nsfw-hint").textContent = on && !hasKey ? t("Wallhaven покажет 18+ только с ключом доступа (в «Ещё»). Yande.re и Konachan — без ключа") : t("Не показывается в приватном окне и в режиме окна «Обои»");
   };
   nsfw.addEventListener("change", () => {
     if (!nsfw.checked) return Services.prefs.clearUserPref(NS);
     nsfw.checked = false; // пока не подтвердили — выключен
-    const yes = el("button", { id: "nsfw-yes", className: "danger", textContent: "Включить" }), no = el("button", { id: "nsfw-no", textContent: "Отмена" });
+    const yes = el("button", { id: "nsfw-yes", className: "danger", textContent: t("Включить") }), no = el("button", { id: "nsfw-no", textContent: t("Отмена") });
     yes.addEventListener("click", () => { nsfwBox.replaceChildren(); Services.prefs.setBoolPref(NS, true); });
     no.addEventListener("click", () => nsfwBox.replaceChildren());
-    nsfwBox.replaceChildren(el("div", { className: "confirm" }, el("span", { textContent: "Обои 18+. Включить?" }), yes, no));
+    nsfwBox.replaceChildren(el("div", { className: "confirm" }, el("span", { textContent: t("Обои 18+. Включить?") }), yes, no));
   });
   watchPref(NS, nsfwHint);
   watchPref(WP + "key.wallhaven", nsfwHint);
@@ -708,13 +835,13 @@ renderPalette();
     if (sig == seen) return;
     seen = sig;
     grid.replaceChildren();
-    info.textContent = files ? `${dir} — файлов: ${files.length}` : `Папки нет: ${dir}. «Открыть в проводнике» создаст её`;
+    info.textContent = files ? t("{0} — файлов: {1}", dir, files.length) : t("Папки нет: {0}. «Открыть в проводнике» создаст её", dir);
     for (const f of files?.slice(0, 30) ?? []) {
       const name = PathUtils.filename(f);
       grid.append(VID.test(f) ? el("span", { className: "wp-video", title: name, textContent: "▶ " + name })
         : el("img", { src: PathUtils.toFileURI(f), title: name, loading: "lazy", decoding: "async", alt: "" }));
     }
-    if (files?.length > 30) grid.append(el("span", { className: "wp-video", textContent: `+ ещё ${files.length - 30}` }));
+    if (files?.length > 30) grid.append(el("span", { className: "wp-video", textContent: t("+ ещё {0}", files.length - 30) }));
   };
   watchPref(WP + "folder", previews);
   window.addEventListener("focus", previews); // вернулись из проводника — список обновился
@@ -743,7 +870,7 @@ renderPalette();
   });
 
   const SC = "luminoctis.home.shortcuts.folder", sel = $("#shortcuts-folder");
-  const B = PlacesUtils.bookmarks, ROOT = { [B.toolbarGuid]: "Панель закладок", [B.menuGuid]: "Меню закладок", [B.unfiledGuid]: "Другие закладки" }; // у корневых папок название внутреннее
+  const B = PlacesUtils.bookmarks, ROOT = { [B.toolbarGuid]: t("Панель закладок"), [B.menuGuid]: t("Меню закладок"), [B.unfiledGuid]: t("Другие закладки") }; // у корневых папок название внутреннее
   const folders = (node, depth, out) => { // все папки закладок деревом (кроме мобильных)
     for (const c of node.children ?? []) {
       if (c.type != PlacesUtils.TYPE_X_MOZ_PLACE_CONTAINER || c.guid == PlacesUtils.bookmarks.mobileGuid) continue;
@@ -778,22 +905,22 @@ $("#update-page").addEventListener("click", event => {
   if (/^https?:/.test(url)) win.openTrustedLinkIn(url, "tab");
 });
 $("#update-check").addEventListener("click", async () => {
-  updStatus("Проверяю…");
+  updStatus(t("Проверяю…"));
   const r = await upd.check();
-  updStatus(r.error ? "Не удалось проверить: " + r.error : r.available ? "" : "Установлена последняя версия");
+  updStatus(r.error ? t("Не удалось проверить: {0}", r.error) : r.available ? "" : t("Установлена последняя версия"));
 });
 $("#update-apply").addEventListener("click", async event => {
   event.target.disabled = true;
-  updStatus("Скачиваю и проверяю…");
-  try { await upd.apply(); updStatus("Перезапускаю Zen…"); }
-  catch (e) { updStatus("Ошибка: " + e.message); event.target.disabled = false; }
+  updStatus(t("Скачиваю и проверяю…"));
+  try { await upd.apply(); updStatus(t("Перезапускаю Zen…")); }
+  catch (e) { updStatus(t("Ошибка: {0}", e.message)); event.target.disabled = false; }
 });
 for (const a of document.querySelectorAll("#about a.row.link")) a.addEventListener("click", event => { // ссылка — вкладкой браузера, а не внутри панели
   event.preventDefault();
   win.openTrustedLinkIn(event.currentTarget.href, "tab");
 });
 upd.installedVersion().then(v => {
-  $("#about-version").textContent = v ? "v" + v : "не определена";
+  $("#about-version").textContent = v ? "v" + v : t("не определена");
   // самообновление — только у мода, поставленного установщиком (под Sine обновляет сам Sine)
   $("#update-none").hidden = !!v;
   if (!v) for (const el of [$("#update-title"), $("#update-row"), $("#update-auto").closest("label")]) el.style.display = "none";
@@ -824,21 +951,21 @@ upd.installedVersion().then(v => {
     },
     async saveTo(path) {
       await IOUtils.writeUTF8(path, JSON.stringify(await backup.build(), null, 2));
-      status("Сохранено: " + path);
+      status(t("Сохранено: {0}", path));
     },
     // проверка формата и типов; ошибка — понятная строка
     parse(text) {
       let data;
-      try { data = JSON.parse(text); } catch { return { error: "Это не файл настроек Luminoctis: не читается как JSON" }; }
+      try { data = JSON.parse(text); } catch { return { error: t("Это не файл настроек Luminoctis: не читается как JSON") }; }
       if (!data || typeof data != "object" || !("luminoctis" in data) || !data.prefs || typeof data.prefs != "object" || Array.isArray(data.prefs))
-        return { error: "Это не файл настроек Luminoctis: нет раздела prefs" };
+        return { error: t("Это не файл настроек Luminoctis: нет раздела prefs") };
       const prefs = {};
       for (const [name, v] of Object.entries(data.prefs)) {
-        if (!allowed(name)) return { error: "В файле неизвестная настройка: " + name };
-        const t = pr.getPrefType(name), type = typeof v;
-        const ok = t == pr.PREF_BOOL ? type == "boolean" : t == pr.PREF_INT ? Number.isInteger(v) : t == pr.PREF_STRING ? type == "string"
+        if (!allowed(name)) return { error: t("В файле неизвестная настройка: {0}", name) };
+        const kind = pr.getPrefType(name), type = typeof v;
+        const ok = kind == pr.PREF_BOOL ? type == "boolean" : kind == pr.PREF_INT ? Number.isInteger(v) : kind == pr.PREF_STRING ? type == "string"
           : type == "boolean" || Number.isInteger(v) || (type == "string" && v.length < 100000);
-        if (!ok) return { error: "Неверный тип значения у настройки " + name };
+        if (!ok) return { error: t("Неверный тип значения у настройки {0}", name) };
         prefs[name] = v;
       }
       return { prefs };
@@ -846,38 +973,38 @@ upd.installedVersion().then(v => {
     async loadFrom(path) {
       confirmBox.replaceChildren();
       let text;
-      try { text = await IOUtils.readUTF8(path); } catch { return status("Не удалось прочитать файл"); }
+      try { text = await IOUtils.readUTF8(path); } catch { return status(t("Не удалось прочитать файл")); }
       const r = backup.parse(text);
       if (r.error) return status(r.error);
       status("");
-      const yes = el("button", { id: "backup-yes", className: "danger", textContent: "Заменить" }), no = el("button", { id: "backup-no", textContent: "Отмена" });
+      const yes = el("button", { id: "backup-yes", className: "danger", textContent: t("Заменить") }), no = el("button", { id: "backup-no", textContent: t("Отмена") });
       yes.addEventListener("click", () => { confirmBox.replaceChildren(); backup.apply(r.prefs); });
       no.addEventListener("click", () => confirmBox.replaceChildren());
-      confirmBox.replaceChildren(el("div", { className: "confirm" }, el("span", { textContent: `Заменить текущие настройки? В файле: ${Object.keys(r.prefs).length}` }), yes, no));
+      confirmBox.replaceChildren(el("div", { className: "confirm" }, el("span", { textContent: t("Заменить текущие настройки? В файле: {0}", Object.keys(r.prefs).length) }), yes, no));
     },
     apply(prefs) { // чего в файле нет — возвращается к значению по умолчанию; страница сама подхватывает новые значения (наблюдатели настроек)
       for (const n of mine()) if (!(n in prefs)) pr.clearUserPref(n);
       for (const [n, v] of Object.entries(prefs)) typeof v == "boolean" ? pr.setBoolPref(n, v) : typeof v == "number" ? pr.setIntPref(n, v) : pr.setStringPref(n, v);
-      status(`Загружено настроек: ${Object.keys(prefs).length}`);
+      status(t("Загружено настроек: {0}", Object.keys(prefs).length));
     },
   };
   const pick = (save, done) => {
     const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    fp.init(window.browsingContext, save ? "Сохранить настройки Luminoctis" : "Загрузить настройки Luminoctis", save ? Ci.nsIFilePicker.modeSave : Ci.nsIFilePicker.modeOpen);
-    fp.appendFilter("Настройки Luminoctis (*.json)", "*.json");
+    fp.init(window.browsingContext, save ? t("Сохранить настройки Luminoctis") : t("Загрузить настройки Luminoctis"), save ? Ci.nsIFilePicker.modeSave : Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter(t("Настройки Luminoctis (*.json)"), "*.json");
     fp.defaultString = "luminoctis-settings.json"; fp.defaultExtension = "json";
     fp.open(r => { if (r == Ci.nsIFilePicker.returnOK || r == Ci.nsIFilePicker.returnReplace) done(fp.file.path); });
   };
   $("#open-debug").addEventListener("click", () => win.lumiDebug?.open());
-  $("#backup-save").addEventListener("click", () => pick(true, p => backup.saveTo(p).catch(e => status("Ошибка: " + e.message))));
+  $("#backup-save").addEventListener("click", () => pick(true, p => backup.saveTo(p).catch(e => status(t("Ошибка: {0}", e.message)))));
   $("#backup-load").addEventListener("click", () => pick(false, p => backup.loadFrom(p)));
 }
 
 // ---------- «Строгий режим»: списки сайтов по расписанию (js/lumi-strict.sys.mjs), сохраняются сразу ----------
 {
   const strict = ChromeUtils.importESModule(JS("lumi-strict.sys.mjs"));
-  const DAYS = ["Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "Вс"];
-  const FOCUS = { off: "Нет", focus: "Фокус", "focus+breaks": "Фокус и перерывы" };
+  const DAYS = [...Array(7).keys()].map(i => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" }).replace(/^./u, c => c.toLocaleUpperCase(locale))); // 1 января 2024 — понедельник
+  const FOCUS = { off: t("Нет"), focus: t("Фокус"), "focus+breaks": t("Фокус и перерывы") };
   const box = $("#strict-lists");
   const render = () => {
     box.replaceChildren(...strict.lists().map(l => {
@@ -897,21 +1024,22 @@ upd.installedVersion().then(v => {
         card.querySelector("textarea").value = saved.sites.join("\n");
         card.classList.toggle("off", !saved.on);
       };
-      const name = el("input", { type: "text", className: "name", value: l.name, placeholder: "Название списка", spellcheck: false });
-      const on = el("input", { type: "checkbox", className: "on", checked: l.on, title: "Список включён" });
-      const del = el("button", { className: "remove", textContent: "✕", title: "Удалить список" });
+      const name = el("input", { type: "text", className: "name", value: l.name, placeholder: t("Название списка"), spellcheck: false });
+      const on = el("input", { type: "checkbox", className: "on", checked: l.on, title: t("Список включён") });
+      const del = el("button", { className: "remove", textContent: "✕", title: t("Удалить список") });
       del.addEventListener("click", () => { strict.save(strict.lists().filter(x => x.id != l.id)); render(); });
-      const sites = el("textarea", { value: l.sites.join("\n"), placeholder: "youtube.com\nreddit.com", spellcheck: false, rows: 4, title: "Сайты по одному в строке; поддомены закрываются тоже" });
+      const sites = el("textarea", { value: l.sites.join("\n"), placeholder: "youtube.com\nreddit.com", spellcheck: false, rows: 4, title: t("Сайты по одному в строке; поддомены закрываются тоже") });
       const days = el("div", { className: "days" }, ...DAYS.map((d, i) => {
         const b = el("button", { textContent: d, type: "button" });
         b.setAttribute("aria-pressed", l.days.includes(i));
         b.addEventListener("click", () => { b.setAttribute("aria-pressed", b.getAttribute("aria-pressed") != "true"); commit(); });
         return b;
       }));
-      const when = el("div", { className: "when" }, "с", el("input", { type: "time", className: "from", value: l.from }), "до", el("input", { type: "time", className: "to", value: l.to }),
-        el("span", { textContent: "через полночь — можно (22:00–07:00)" }));
+      const [pre, mid, post] = t("с {0} до {1}", "|", "|").split("|"); // порядок слов зависит от языка
+      const when = el("div", { className: "when" }, pre.trim(), el("input", { type: "time", className: "from", value: l.from }), mid.trim(), el("input", { type: "time", className: "to", value: l.to }), post.trim(),
+        el("span", { textContent: t("через полночь — можно (22:00–07:00)") }));
       const focus = el("select", {}, ...Object.entries(FOCUS).map(([v, t]) => el("option", { value: v, textContent: t, selected: v == l.focus })));
-      const focusRow = el("div", { className: "when" }, "Ещё и во время фокуса LumiTime:", focus);
+      const focusRow = el("div", { className: "when" }, t(t("Ещё и во время фокуса LumiTime:")), focus);
       card.append(el("div", { className: "head" }, on, name, del), sites, days, when, focusRow);
       for (const c of [name, on, sites, focus, ...card.querySelectorAll("input[type=time]")]) c.addEventListener("change", commit);
       return card;
@@ -926,13 +1054,14 @@ for (const row of document.querySelectorAll(".snd")) {
   row.querySelector(".snd-play").addEventListener("click", () => win.lumiSounds?.play(row.dataset.sound, { force: true, ignoreFocus: true }));
 }
 
-// ---------- «Сбросить вкладку»: в конце каждого раздела, кроме «О моде» ----------
+// ---------- «Сбросить раздел»: в конце каждого раздела, кроме «О моде»; объединённые разделы сбрасываются целиком ----------
 // Возвращает флажки, ползунки и выборы раздела (data-pref, data-int-pref, select[data-str-pref], [data-reset], шорткаты).
-// Не трогает пространства, закрепы, список и цвета тем, текстовые поля (поиск, папки, ключи).
+// Не трогает пространства, закрепы, список и цвета тем, списки блокировки сайтов, текстовые поля (поиск, папки, ключи). Строки с data-no-reset (общий выключатель строгого режима) тоже остаются как есть.
 // Значение по умолчанию — сброс пользовательской настройки; data-reset-to (bool) — если мод сам поставил другое (zen.view.compact.hide-toolbar).
 function resetTab(section) {
   const todo = new Map(); // настройка → значение или null (сброс)
   for (const e of section.querySelectorAll("[data-pref], [data-int-pref], select[data-str-pref], [data-reset], [data-key]")) {
+    if (e.closest("[data-no-reset]")) continue;
     const pref = e.dataset.pref ?? e.dataset.intPref ?? (e.matches("select") ? e.dataset.strPref : null);
     if (pref) todo.set(pref, e.dataset.resetTo ?? null);
     if (e.dataset.key) todo.set(keys.pref(e.dataset.key), null);
@@ -940,16 +1069,16 @@ function resetTab(section) {
   }
   for (const [pref, to] of todo) to == null ? Services.prefs.clearUserPref(pref) : Services.prefs.setBoolPref(pref, to == "true");
 }
-for (const section of document.querySelectorAll("main > section:not(#about):not(#strict)")) {
-  const button = el("button", { className: "reset-tab", textContent: "Сбросить вкладку", title: "Вернуть настройки этой вкладки к значениям по умолчанию" });
+for (const section of document.querySelectorAll("main > section:not(#about)")) {
+  const button = el("button", { className: "reset-tab", textContent: t("Сбросить раздел"), title: t("Вернуть настройки этого раздела к значениям по умолчанию") });
   const box = el("div", { className: "reset-wrap" }, button);
   button.addEventListener("click", () => {
-    const name = tabButtons.find(b => b.dataset.tab == section.id).textContent;
-    const yes = el("button", { className: "danger", textContent: "Сбросить" }), no = el("button", { textContent: "Отмена" });
+    const name = tabButtons.find(b => b.dataset.tab == section.id).querySelector("span").textContent;
+    const yes = el("button", { className: "danger", textContent: t("Сбросить") }), no = el("button", { textContent: t("Отмена") });
     yes.addEventListener("click", () => { resetTab(section); box.replaceChildren(button); });
     no.addEventListener("click", () => { box.replaceChildren(button); button.focus(); });
     box.replaceChildren(el("div", { className: "confirm" },
-      el("span", { textContent: `Вернуть настройки вкладки «${name}» по умолчанию? Пространства, закрепы, темы, ключи и пути не изменятся.` }), yes, no));
+      el("span", { textContent: t("Вернуть настройки раздела «{0}» по умолчанию? Пространства, закрепы, темы, списки блокировки, ключи и пути не изменятся.", name) }), yes, no));
     no.focus();
   });
   section.append(box);

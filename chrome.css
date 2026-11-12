@@ -816,7 +816,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 #lumi-settings {
   position: fixed; z-index: 4; /* как у рейки, но раньше неё в разметке: раскрытые плееры — поверх панели */
   inset: 8px auto 8px 64px;    /* рейка 8 + 48 и зазор 8 */
-  width: 520px; max-width: calc(100vw - 80px); /* в концепте 360px — шире, чтобы ряд из шести разделов помещался в одну строку */
+  width: 600px; max-width: calc(100vw - 80px); /* колонка разделов слева (78px) съедает место: содержимому остаётся ~450px */
   box-sizing: border-box; overflow: hidden;
   border-radius: var(--lumi-radius);
   border: 1px solid color-mix(in srgb, var(--lumi-accent) 55%, transparent);

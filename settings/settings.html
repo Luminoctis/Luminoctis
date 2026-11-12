@@ -2,446 +2,453 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Настройки Luminoctis</title>
+<title data-lumi-l10n>Настройки Luminoctis</title>
 <link rel="icon" href="chrome://global/skin/icons/settings.svg">
 <link rel="stylesheet" href="settings.css">
 <link rel="stylesheet" href="../home/clock.css">
 <script type="module" src="settings.js"></script>
 </head>
 <body>
-<!-- Панель настроек справа от рейки (js/lumi-rail.uc.js встраивает эту страницу). Раздел — в адресе: settings.html#look.
-     Вкладки (2026-11-01): Вид → Вкладки → Рейка → Home → Обои → Управление → О моде. id раздела = data-tab = section id.
+<!-- Панель настроек справа от рейки (js/lumi-rail.uc.js встраивает эту страницу). Раздел — в адресе: settings.html#look (или #раздел/группа).
+     Разделы (2026-11-12): слева колонка плиток (значок + одно слово), справа содержимое: Вид → Вкладки → Рейка → Home → Обои → Управление → О моде. id раздела = data-tab = section id.
+     Сверху — поиск по настройкам: ищет по видимому тексту строк/подсказок/заголовков (settings.js, блок «Поиск»), словаря нет.
      Группа = h2 (+ .hint после «·»), строка = .row (.text: b — название, span — одна короткая строка; полный текст — в title строки, рядом с названием ⓘ).
-     «Сбросить вкладку» в конце каждого раздела (кроме «О моде») дописывает settings.js: возвращает флажки, ползунки и выборы по data-pref/data-int-pref/select[data-str-pref]/[data-reset]. -->
+     Группы-«переехавшие» имеют id у h2 (g-strict, g-sounds): старые адреса #strict, #sounds ведут к ним (ALIASES в settings.js).
+     «Сбросить раздел» в конце каждого раздела (кроме «О моде») дописывает settings.js: возвращает флажки, ползунки и выборы по data-pref/data-int-pref/select[data-str-pref]/[data-reset]. -->
 <header>
-  <h1>Настройки Luminoctis</h1>
-  <nav class="tabs" role="tablist" aria-label="Разделы настроек">
-    <button role="tab" data-tab="look">Вид</button>
-    <button role="tab" data-tab="tabs">Вкладки</button>
-    <button role="tab" data-tab="sidebar">Рейка</button>
-    <button role="tab" data-tab="home">Home</button>
-    <button role="tab" data-tab="wallpaper">Обои</button>
-    <button role="tab" data-tab="strict">Строгий режим</button>
-    <button role="tab" data-tab="sounds">Звуки</button>
-    <button role="tab" data-tab="control">Управление</button>
-    <button role="tab" data-tab="about">О моде</button>
-  </nav>
+  <h1 data-lumi-l10n>Настройки Luminoctis</h1>
+  <div class="find">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="6.5"/><path d="m16 16 4.5 4.5"/></svg>
+    <input id="find" type="search" placeholder="Поиск по настройкам" aria-label="Поиск по настройкам" autocomplete="off" spellcheck="false" data-lumi-l10n-placeholder data-lumi-l10n-aria-label>
+  </div>
 </header>
+
+<div class="layout">
+<nav class="tabs" role="tablist" aria-orientation="vertical" aria-label="Разделы настроек" data-lumi-l10n-aria-label>
+  <button role="tab" data-tab="look"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span data-lumi-l10n>Вид</span></button>
+  <button role="tab" data-tab="tabs"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 4v5"/></svg><span data-lumi-l10n>Вкладки</span></button>
+  <button role="tab" data-tab="sidebar" title="Рейка — узкая панель слева: пространства, закрепы, плееры, таймер" data-lumi-l10n-title><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span data-lumi-l10n>Рейка</span></button>
+  <button role="tab" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/></svg><span data-lumi-l10n>Главная</span></button>
+  <button role="tab" data-tab="wallpaper"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-4 4 3 3-2 6 4"/></svg><span data-lumi-l10n="Обои​">Обои</span></button>
+  <button role="tab" data-tab="control" title="Меню «⋯», правый клик по вкладке, кнопки, клавиши и мышь" data-lumi-l10n-title><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span data-lumi-l10n>Меню и клавиши</span></button>
+  <button role="tab" data-tab="about"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.6h.01"/></svg><span data-lumi-l10n>О моде</span></button>
+</nav>
 
 <main>
   <!-- ===== Вид: тема, окно, автоскрытие, цвета темы ===== -->
   <section id="look" role="tabpanel">
-    <h2>Тема</h2>
+    <h2 data-lumi-l10n>Тема оформления</h2>
     <div id="presets" class="list"></div>
-    <button id="theme-create" class="dashed">+ Создать тему</button>
-    <label class="row" title="Цвет акцента берётся из текущих обоев Home; выключите — вернётся цвет палитры"><div class="text"><b>Цвет акцента из обоев</b><span>Берётся из текущих обоев Home</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
-    <label class="row" title="Пока идёт загрузка — светящиеся линии от кнопки загрузок; когда кончилась — волна по окну"><div class="text"><b>Эффект загрузок</b><span>Линии во время загрузки и волна в конце</span></div><input type="checkbox" data-pref="luminoctis.look.download-fx" data-default="true"></label>
-    <label class="row" title="Примерно раз в 100 смен вкладки интерфейс на 150 мс «ломается»: RGB-сдвиг, дрожание и шум"><div class="text"><b>Редкий глитч</b><span>Иногда при смене вкладки интерфейс на миг „ломается“</span></div><input type="checkbox" data-pref="luminoctis.look.tab-glitch" data-default="true"></label>
-    <label class="row" title="Один раз за запуск браузера, в первом окне: короткий глитч, без звука"><div class="text"><b>Глитч при запуске</b><span>Один раз, когда открывается браузер</span></div><input type="checkbox" data-pref="luminoctis.look.startup-glitch" data-default="true"></label>
-    <div class="row snd" data-sound="glitch"><div class="text"><b>Звук глитча</b><span>Отдельно от остальных звуков, громкость — из раздела „Звуки“</span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
+    <button id="theme-create" class="dashed" data-lumi-l10n>+ Создать тему</button>
+    <label class="row" title="Цвет акцента берётся из текущих обоев Главной; выключите — вернётся цвет палитры" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Цвет акцента из обоев</b><span data-lumi-l10n>Берётся из текущих обоев Главной</span></div><input type="checkbox" data-pref="luminoctis.home.accentFromWallpaper"></label>
+    <label class="row" title="Пока идёт загрузка — светящиеся линии от кнопки загрузок; когда кончилась — волна по окну" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Эффект загрузок</b><span data-lumi-l10n>Линии во время загрузки и волна в конце</span></div><input type="checkbox" data-pref="luminoctis.look.download-fx" data-default="true"></label>
+    <label class="row" title="Примерно раз в 100 смен вкладки интерфейс на 150 мс «ломается»: RGB-сдвиг, дрожание и шум" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Редкий глитч</b><span data-lumi-l10n>Иногда при смене вкладки интерфейс на миг „ломается“</span></div><input type="checkbox" data-pref="luminoctis.look.tab-glitch" data-default="true"></label>
+    <label class="row" title="Один раз за запуск браузера, в первом окне: короткий глитч, без звука" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Глитч при запуске</b><span data-lumi-l10n>Один раз, когда открывается браузер</span></div><input type="checkbox" data-pref="luminoctis.look.startup-glitch" data-default="true"></label>
+    <div class="row snd" data-sound="glitch"><div class="text"><b data-lumi-l10n>Звук глитча</b><span data-lumi-l10n>Отдельно от остальных звуков, громкость — в группе „Звуки“ ниже</span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
       <input type="checkbox" data-pref="luminoctis.sounds.glitch.enabled" data-default="true"></div>
 
     <!-- режим окна и всё про прозрачность — здесь; строки по режиму показывает settings.css по body[data-mode] (opaque | transparent | wallpaper) -->
-    <h2>Окно <span class="hint">· сайты не меняются</span></h2>
-    <div class="row stack" title="Непрозрачный — сплошные цвета палитры. Прозрачный — сквозь рейку, вкладки, панель адреса, меню и панели виден рабочий стол. Обои — сквозь них видны обои Home, на всех вкладках">
-      <div class="text"><b>Режим окна</b><span>Что видно сквозь рейку, вкладки и адресную строку</span></div>
-      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque">Непрозрачный</button><button data-value="transparent">Прозрачный</button><button data-value="wallpaper" id="mode-wallpaper">Обои</button></div>
-      <a class="goto goto-wp" href="#wallpaper" data-goto="wallpaper">Настроить обои →</a>
+    <h2><span data-lumi-l10n>Прозрачность окна</span> <span class="hint" data-lumi-l10n>· сайты не меняются</span></h2>
+    <div class="row stack" title="Непрозрачный — сплошные цвета палитры. Прозрачный — сквозь рейку, вкладки, панель адреса, меню и панели виден рабочий стол. Обои — сквозь них видны обои Главной, на всех вкладках" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Режим окна</b><span data-lumi-l10n>Что видно сквозь рейку, вкладки и адресную строку</span></div>
+      <div class="seg" data-pref="luminoctis.look.window" data-default="opaque"><button data-value="opaque" data-lumi-l10n>Непрозрачный</button><button data-value="transparent" data-lumi-l10n>Прозрачный</button><button data-value="wallpaper" id="mode-wallpaper" data-lumi-l10n>Обои</button></div>
+      <a class="goto goto-wp" href="#wallpaper" data-goto="wallpaper" data-lumi-l10n>Настроить обои →</a>
     </div>
     <div id="glass-options">
-      <p id="glass-off" class="note" hidden>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
-      <div class="row stack" title="Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Home">
-        <div class="text"><b>Прозрачность</b><span>Сколько фона видно сквозь панели, %</span></div>
+      <p id="glass-off" class="note" hidden data-lumi-l10n>Windows сейчас не даёт окну прозрачный фон (нужна Windows 11 и аппаратное ускорение) — панели станут темнее, но не прозрачными.</p>
+      <div class="row stack" title="Рейка, полоса вкладок, адресная строка: сколько рабочего стола или обоев видно сквозь них, %. Одинаково на всех вкладках, в том числе на Главной" data-lumi-l10n-title>
+        <div class="text"><b data-lumi-l10n>Прозрачность</b><span data-lumi-l10n>Сколько фона видно сквозь панели, %</span></div>
         <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.transparency" data-default="45"><output></output></label>
       </div>
-      <div class="row stack only-transparent" title="«Нет» — всё чёткое; «Размытие» — размытие Windows; «Acrylic» и «Mica» — родная подложка Zen (Acrylic размывает окна и обои за браузером, Mica — только обои, спокойнее). Силу размытия задаёт сама Windows">
-        <div class="text"><b>Размытие</b><span>Что за окном: чётко, размыто или подложка Zen</span></div>
-        <div class="seg" data-pref="luminoctis.look.blur-kind" data-default="acrylic"><button data-value="none">Нет</button><button data-value="blur">Размытие</button><button data-value="acrylic">Acrylic</button><button data-value="mica">Mica</button></div>
+      <div class="row stack only-transparent" title="«Нет» — всё чёткое; «Размытие» — размытие Windows; «Acrylic» и «Mica» — родная подложка Zen (Acrylic размывает окна и обои за браузером, Mica — только обои, спокойнее). Силу размытия задаёт сама Windows" data-lumi-l10n-title>
+        <div class="text"><b data-lumi-l10n>Размытие</b><span data-lumi-l10n>Что за окном: чётко, размыто или подложка Zen</span></div>
+        <div class="seg" data-pref="luminoctis.look.blur-kind" data-default="acrylic"><button data-value="none" data-lumi-l10n>Нет</button><button data-value="blur" data-lumi-l10n>Размытие</button><button data-value="acrylic">Acrylic</button><button data-value="mica">Mica</button></div>
       </div>
       <div class="row stack only-wallpaper">
-        <div class="text"><b>Размытие обоев</b><span>Насколько размыты обои под панелями</span></div>
+        <div class="text"><b data-lumi-l10n>Размытие обоев</b><span data-lumi-l10n>Насколько размыты обои под панелями</span></div>
         <label class="slider"><input type="range" min="0" max="60" data-int-pref="luminoctis.home.wallpaper.ui.blur" data-default="24"><output></output></label>
       </div>
-      <div class="row stack only-transparent" title="Прозрачность обоев на Home: сквозь них виден рабочий стол, 0 — обои непрозрачные">
-        <div class="text"><b>На Home</b><span>Сквозь обои виден рабочий стол</span></div>
-        <label class="slider">Прозрачность обоев<input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
+      <div class="row stack only-transparent" title="Прозрачность обоев на Главной: сквозь них виден рабочий стол, 0 — обои непрозрачные" data-lumi-l10n-title>
+        <div class="text"><b data-lumi-l10n>На Главной</b><span data-lumi-l10n>Сквозь обои виден рабочий стол</span></div>
+        <label class="slider"><span data-lumi-l10n>Прозрачность обоев</span><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.look.homeTransparency" data-default="0"><output></output></label>
       </div>
     </div>
 
-    <h2>Автоскрытие <span class="hint">· панель выезжает, когда мышь у края окна</span></h2>
+    <h2><span data-lumi-l10n>Прятать панели</span> <span class="hint" data-lumi-l10n>· панель выезжает, когда мышь у края окна</span></h2>
     <label class="row">
-      <div class="text"><b>Рейка</b><span>Выезжает у левого края</span></div>
+      <div class="text"><b data-lumi-l10n>Рейка</b><span data-lumi-l10n>Выезжает у левого края</span></div>
       <input type="checkbox" data-pref="luminoctis.compact.sidebar">
     </label>
     <label class="row">
-      <div class="text"><b>Полоса вкладок</b><span>Выезжает у верхнего края</span></div>
+      <div class="text"><b data-lumi-l10n>Полоса вкладок</b><span data-lumi-l10n>Выезжает у верхнего края</span></div>
       <input type="checkbox" data-pref="luminoctis.compact.tabstrip">
     </label>
-    <label class="row" title="Выезжает у верхнего края или при наведении на полосу вкладок">
-      <div class="text"><b>Адресная строка</b><span>Выезжает у верхнего края</span></div>
+    <label class="row" title="Выезжает у верхнего края или при наведении на полосу вкладок" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Адресная строка</b><span data-lumi-l10n>Выезжает у верхнего края</span></div>
       <input type="checkbox" data-pref="zen.view.compact.hide-toolbar" data-reset-to="true">
     </label>
-    <div class="row stack" id="compact-transparency" title="Рейка, полоса вкладок и адресная строка поверх сайта, %. Работает только в прозрачном режиме окна (Вид → Окно) — в непрозрачном они сплошные">
-      <div class="text"><b>Прозрачность выехавшей панели</b><span>Только в прозрачном режиме окна, %</span></div>
+    <div class="row stack" id="compact-transparency" title="Рейка, полоса вкладок и адресная строка поверх сайта, %. Работает только в прозрачном режиме окна (Вид → Прозрачность окна) — в непрозрачном они сплошные" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Прозрачность выехавшей панели</b><span data-lumi-l10n>Только в прозрачном режиме окна, %</span></div>
       <label class="slider"><input type="range" min="0" max="90" step="5" data-int-pref="luminoctis.compact.transparency" data-default="45"><output></output></label>
     </div>
 
-    <h2>Цвета темы <span class="hint">· клик — изменить; у своей темы правки сохраняются в неё</span></h2>
+
+    <!-- звуки интерфейса (js/lumi-sounds.uc.js, sounds/). Старый адрес #sounds ведёт сюда -->
+    <h2 id="g-sounds" data-lumi-l10n>Звуки</h2>
+      <p class="hint" data-lumi-l10n>Короткие звуки интерфейса. Пак «Стандартный» — набор CC0 от Kenney, «GX» — мягкие электронные щелчки, синтезированы для Luminoctis.</p>
+    <div class="row stack"><label class="slider"><span data-lumi-l10n>Пак звуков</span> <select data-str-pref="luminoctis.sounds.pack"><option value="" data-lumi-l10n>Стандартный</option><option value="gx">GX</option></select></label></div>
+    <label class="row"><div class="text"><b data-lumi-l10n>Звуки</b><span data-lumi-l10n>Общий выключатель</span></div><input type="checkbox" data-pref="luminoctis.sounds.enabled"></label>
+    <div class="row stack"><label class="slider"><span data-lumi-l10n>Громкость</span><input type="range" min="0" max="100" data-int-pref="luminoctis.sounds.volume" data-default="50"><output></output></label></div>
+    <div class="row snd" data-sound="type"><div class="text"><b data-lumi-l10n>Печать</b><span data-lumi-l10n>Разные «клавиши», в полях и на сайтах</span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.type.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="tab-open"><div class="text"><b data-lumi-l10n>Открытие вкладки</b><span></span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.tab-open.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="tab-close"><div class="text"><b data-lumi-l10n>Закрытие вкладки</b><span></span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.tab-close.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="tab-switch"><div class="text"><b data-lumi-l10n>Переключение вкладки</b><span></span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.tab-switch.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="hover"><div class="text"><b data-lumi-l10n>Наведение</b><span data-lumi-l10n>На вкладку полосы и закреп, очень тихо</span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.hover.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="click"><div class="text"><b data-lumi-l10n>Клик по рейке и закрепам</b><span></span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.click.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="download"><div class="text"><b data-lumi-l10n>Конец загрузки</b><span data-lumi-l10n>Играет и когда браузер не в фокусе</span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.download.enabled" data-default="true"></div>
+
+    <h2><span data-lumi-l10n>Цвета темы</span> <span class="hint" data-lumi-l10n>· клик — изменить; у своей темы правки сохраняются в неё</span></h2>
     <div id="colors" class="list"></div>
-    <button id="theme-save-hint" class="dashed" hidden>Сохранить как свою тему — правки останутся и при смене темы</button>
-    <button id="palette-reset" class="dashed">Сбросить цвета темы</button>
+    <button id="theme-save-hint" class="dashed" hidden data-lumi-l10n>Сохранить как свою тему — правки останутся и при смене темы</button>
+    <button id="palette-reset" class="dashed" data-lumi-l10n>Сбросить цвета темы</button>
   </section>
 
   <!-- ===== Вкладки: вид, новая вкладка, выгрузка из памяти ===== -->
   <section id="tabs" role="tabpanel">
-    <h2>Вид вкладок</h2>
+    <h2 data-lumi-l10n>Вид вкладок</h2>
     <div class="shapes" data-pref="luminoctis.tabs.shape" data-default="rounded">
-      <button data-value="rounded"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="4"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="4"/></svg>Скруглённые</button>
-      <button data-value="square"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="0"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="0"/></svg>Квадратные</button>
-      <button data-value="parallelogram"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M9 5h25l-6 13H3z" stroke-linejoin="round"/><path class="t sel" d="M45.5 5.5h24l-6 12h-27z" stroke-linejoin="round"/></svg>Скошенные</button>
-      <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg>Трапеции</button>
+      <button data-value="rounded"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="4"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="4"/></svg><span data-lumi-l10n>Скруглённые</span></button>
+      <button data-value="square"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="0"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="0"/></svg><span data-lumi-l10n>Квадратные</span></button>
+      <button data-value="parallelogram"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M9 5h25l-6 13H3z" stroke-linejoin="round"/><path class="t sel" d="M45.5 5.5h24l-6 12h-27z" stroke-linejoin="round"/></svg><span data-lumi-l10n>Скошенные</span></button>
+      <button data-value="slanted"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M5 5h26l3 13H2z" stroke-linejoin="round"/><path class="t sel" d="M41.5 5.5h25l2.6 12h-30.2z" stroke-linejoin="round"/></svg><span data-lumi-l10n>Трапеции</span></button>
     </div>
-    <div class="row stack" title="В конце полосы — у кнопок окна; за вкладками — сразу после последней вкладки, как в других браузерах">
-      <div class="text"><b>Кнопка «+»</b><span>Где стоит кнопка новой вкладки</span></div>
+    <div class="row stack" title="В конце полосы — у кнопок окна; за вкладками — сразу после последней вкладки, как в других браузерах" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Кнопка «+»</b><span data-lumi-l10n>Где стоит кнопка новой вкладки</span></div>
       <div class="seg" data-pref="luminoctis.tabs.newtab-position" data-default="end">
-        <button data-value="end">В конце полосы</button><button data-value="after-tabs">За вкладками</button>
+        <button data-value="end" data-lumi-l10n>В конце полосы</button><button data-value="after-tabs" data-lumi-l10n>За вкладками</button>
       </div>
     </div>
-    <label class="row" title="Наведите на вкладку или закреп — появится карточка с названием и памятью, которую занимает вкладка (выгруженная — 0 МБ)">
-      <div class="text"><b>Карточка вкладки при наведении</b><span>Название и занятая память</span></div>
+    <label class="row" title="Наведите на вкладку или закреп — появится карточка с названием и памятью, которую занимает вкладка (выгруженная — 0 МБ)" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Карточка вкладки при наведении</b><span data-lumi-l10n>Название и занятая память</span></div>
       <input type="checkbox" data-pref="luminoctis.tabs.hover-memory" data-default="true">
     </label>
 
-    <h2>Новая вкладка</h2>
+    <h2 data-lumi-l10n>Новая вкладка</h2>
     <label class="row">
-      <div class="text"><b>Ctrl+T и «+» открывают Home</b><span>а не плавающий поиск Zen посреди окна</span></div>
+      <div class="text"><b data-lumi-l10n>Ctrl+T и «+» открывают Главную</b><span data-lumi-l10n>а не плавающий поиск Zen посреди окна</span></div>
       <input type="checkbox" data-pref="zen.urlbar.replace-newtab" data-inverted>
     </label>
-    <label class="row" title="Если сайт из адресной строки уже открыт — открыть его в новой вкладке, а не перейти на открытую">
-      <div class="text"><b>Не переключаться на уже открытую вкладку</b><span>Сайт из адресной строки откроется заново</span></div>
+    <label class="row" title="Если сайт из адресной строки уже открыт — открыть его в новой вкладке, а не перейти на открытую" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Не переключаться на уже открытую вкладку</b><span data-lumi-l10n>Сайт из адресной строки откроется заново</span></div>
       <input type="checkbox" data-pref="luminoctis.urlbar.always-new-tab">
     </label>
 
-    <h2>Выгрузка из памяти</h2>
-    <label class="row" title="Вкладку или закреп, которые не выбраны, не на виду и ничего не играют, через это время выгружать из памяти (родной выгрузкой Firefox; по клику грузятся заново)">
-      <div class="text"><b>Выгружать через…</b><span>Неактивные вкладки и закрепы</span></div>
+    <h2><span data-lumi-l10n>Экономия памяти</span> <span class="hint" data-lumi-l10n>· неактивные вкладки выгружаются</span></h2>
+    <label class="row" title="Вкладку или закреп, которые не выбраны, не на виду и ничего не играют, через это время выгружать из памяти (родной выгрузкой Firefox; по клику грузятся заново)" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Выгружать через…</b><span data-lumi-l10n>Неактивные вкладки и закрепы</span></div>
       <select id="unload" data-reset="luminoctis.tabs.unload-minutes">
-        <option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option>
-        <option value="30">30 минут</option><option value="60">1 час</option><option value="0">Никогда</option>
+        <option value="5" data-lumi-l10n>5 минут</option><option value="10" data-lumi-l10n>10 минут</option><option value="15" data-lumi-l10n>15 минут</option>
+        <option value="30" data-lumi-l10n>30 минут</option><option value="60" data-lumi-l10n>1 час</option><option value="0" data-lumi-l10n>Никогда</option>
       </select>
     </label>
     <label class="row">
-      <div class="text"><b>Выгруженные — серыми</b><span>Чёрно-белые и затемнённые</span></div>
+      <div class="text"><b data-lumi-l10n>Выгруженные — серыми</b><span data-lumi-l10n>Чёрно-белые и затемнённые</span></div>
       <input type="checkbox" data-pref="luminoctis.tabs.no-grey-unloaded" data-inverted>
     </label>
-    <label class="row" title="Вкладка Home не выгружается ни таймером, ни кнопкой «Выгрузить». Без флажка она выгружается как обычная вкладка и открывается заново по «L»">
-      <div class="text"><b>Никогда не выгружать Home</b><span>Ни по таймеру, ни кнопкой «Выгрузить»</span></div>
+    <label class="row" title="Вкладка «Главная» не выгружается ни таймером, ни кнопкой «Выгрузить». Без флажка она выгружается как обычная вкладка и открывается заново по «L»" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Никогда не выгружать Главную</b><span data-lumi-l10n>Ни по таймеру, ни кнопкой «Выгрузить»</span></div>
       <input type="checkbox" data-pref="luminoctis.home.never-unload">
     </label>
+
+    <!-- блокировка сайтов по расписанию (js/lumi-strict.sys.mjs; список рисует settings.js). Старый адрес #strict ведёт сюда -->
+    <h2 id="g-strict"><span data-lumi-l10n>Блокировка сайтов</span> <span class="hint" data-lumi-l10n>· строгий режим, изменения сохраняются сразу</span></h2>
+    <p class="hint" data-lumi-l10n>Закрывает выбранные сайты заглушкой без кнопки «Всё равно открыть». Списков и расписаний можно сделать сколько угодно. Блок по пресетам LumiTime — в его настройках.</p>
+    <label class="row" data-no-reset><div class="text"><b data-lumi-l10n>Строгий режим</b><span data-lumi-l10n>Общий выключатель всех списков</span></div><input type="checkbox" data-pref="luminoctis.strict.enabled"></label>
+    <div id="strict-lists"></div>
+    <button id="strict-add" class="dashed" data-lumi-l10n>+ Список</button>
   </section>
 
-  <!-- ===== Рейка: пространства, закрепы, плееры ===== -->
+  <!-- ===== Рейка (узкая панель слева): пространства, закрепы, плееры ===== -->
   <section id="sidebar" role="tabpanel">
-    <h2>Рабочие пространства <span class="hint">· кнопки на рейке; ⠿ — перетащить</span></h2>
+    <p class="hint" data-lumi-l10n>Рейка — узкая панель слева: рабочие пространства, закрепы, плееры и таймер.</p>
+    <h2><span data-lumi-l10n>Рабочие пространства</span> <span class="hint" data-lumi-l10n>· кнопки на рейке; ⠿ — перетащить</span></h2>
     <div id="spaces" class="list"></div>
-    <button id="space-add" class="dashed">+ Новое пространство</button>
+    <button id="space-add" class="dashed" data-lumi-l10n>+ Новое пространство</button>
 
-    <h2>Закрепы <span class="hint">· общие для всех пространств</span></h2>
+    <h2><span data-lumi-l10n>Закрепы</span> <span class="hint" data-lumi-l10n>· общие для всех пространств</span></h2>
     <div id="pins" class="list"></div>
     <div class="actions">
-      <button id="pin-current" class="dashed">+ Текущий сайт</button>
-      <input id="pin-search" type="search" placeholder="+ Из закладок: название или адрес">
+      <button id="pin-current" class="dashed" data-lumi-l10n>+ Текущий сайт</button>
+      <input id="pin-search" type="search" placeholder="+ Из закладок: название или адрес" data-lumi-l10n-placeholder>
     </div>
     <div id="pin-results" class="list"></div>
 
-    <h2>Плееры</h2>
+    <h2 data-lumi-l10n>Плееры</h2>
     <label class="row">
-      <div class="text"><b>Плееры внизу рейки</b><span>Плитки играющих вкладок</span></div>
+      <div class="text"><b data-lumi-l10n>Плееры внизу рейки</b><span data-lumi-l10n>Плитки играющих вкладок</span></div>
       <input type="checkbox" data-pref="luminoctis.rail.hide-players" data-inverted>
     </label>
 
-    <h2>Таймер</h2>
+    <h2 data-lumi-l10n>Таймер</h2>
     <label class="row">
-      <div class="text"><b>Таймер на рейке</b><span>Плитка LumiTime внизу рейки: клик — мини-окно таймера</span></div>
+      <div class="text"><b data-lumi-l10n>Таймер на рейке</b><span data-lumi-l10n>Плитка LumiTime внизу рейки: клик — мини-окно таймера</span></div>
       <input type="checkbox" data-pref="luminoctis.time.rail" data-default="true">
     </label>
-    <button id="time-open" class="dashed">Открыть LumiTime целиком</button>
+    <button id="time-open" class="dashed" data-lumi-l10n>Открыть LumiTime целиком</button>
   </section>
 
   <!-- ===== Luminoctis Home (home/*.js; см. docs/areas/home.md) ===== -->
   <section id="home" role="tabpanel">
-    <p class="hint">Вкладка «L» на рейке: часы, поиск, ярлыки и заметки. Обои — <a class="goto" href="#wallpaper" data-goto="wallpaper">во вкладке «Обои» →</a></p>
+    <p class="hint"><span data-lumi-l10n>Главная — вкладка «L» на рейке: часы, поиск, ярлыки и заметки. Обои —</span> <a class="goto" href="#wallpaper" data-goto="wallpaper" data-lumi-l10n>в разделе «Обои» →</a></p>
 
-    <h2>Что показывать <span class="hint">· блоки на Home</span></h2>
-    <label class="row"><div class="text"><b>Часы</b></div><input type="checkbox" data-pref="luminoctis.home.show.clock" data-default="true"></label>
-    <label class="row"><div class="text"><b>Поиск</b><span>Строка поиска с подсказками</span></div><input type="checkbox" data-pref="luminoctis.home.show.search" data-default="true"></label>
-    <label class="row"><div class="text"><b>Ярлыки</b><span>Плитки сайтов из папки закладок</span></div><input type="checkbox" data-pref="luminoctis.home.show.shortcuts" data-default="true"></label>
-    <label class="row" title="Доски LumiNotes под первым экраном — до них можно долистать"><div class="text"><b>Заметки</b><span>Доски LumiNotes под первым экраном</span></div><input type="checkbox" data-pref="luminoctis.home.show.notes" data-default="true"></label>
+    <h2><span data-lumi-l10n>Что показывать</span> <span class="hint" data-lumi-l10n>· блоки на Главной</span></h2>
+    <label class="row"><div class="text"><b data-lumi-l10n>Часы</b></div><input type="checkbox" data-pref="luminoctis.home.show.clock" data-default="true"></label>
+    <label class="row"><div class="text"><b data-lumi-l10n>Поиск</b><span data-lumi-l10n>Строка поиска с подсказками</span></div><input type="checkbox" data-pref="luminoctis.home.show.search" data-default="true"></label>
+    <label class="row"><div class="text"><b data-lumi-l10n>Ярлыки</b><span data-lumi-l10n>Плитки сайтов из папки закладок</span></div><input type="checkbox" data-pref="luminoctis.home.show.shortcuts" data-default="true"></label>
+    <label class="row" title="Доски LumiNotes под первым экраном — до них можно долистать" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Заметки</b><span data-lumi-l10n>Доски LumiNotes под первым экраном</span></div><input type="checkbox" data-pref="luminoctis.home.show.notes" data-default="true"></label>
 
-    <div class="row stack" title="Чем становится новый пункт: задачей с галочкой и датами или заметкой без них. Это же берёт «В LumiNotes» из меню страницы. В строке ввода тип можно переключить кнопкой слева">
-      <div class="text"><b>Новые пункты в заметках</b><span>Задача с галочкой или простая заметка</span></div>
-      <div class="seg" data-pref="luminoctis.home.notes.new" data-default="task"><button data-value="task">Задачи</button><button data-value="note">Заметки</button></div>
+    <div class="row stack" title="Чем становится новый пункт: задачей с галочкой и датами или заметкой без них. Это же берёт «В LumiNotes» из меню страницы. В строке ввода тип можно переключить кнопкой слева" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Новые пункты в заметках</b><span data-lumi-l10n>Задача с галочкой или простая заметка</span></div>
+      <div class="seg" data-pref="luminoctis.home.notes.new" data-default="task"><button data-value="task" data-lumi-l10n>Задачи</button><button data-value="note" data-lumi-l10n>Заметки</button></div>
     </div>
 
-    <h2>Часы <span class="hint">· клик — выбрать стиль</span></h2>
+    <h2><span data-lumi-l10n>Часы</span> <span class="hint" data-lumi-l10n>· клик — выбрать стиль</span></h2>
     <div class="clock-styles" data-pref="luminoctis.home.clock.style" data-default="digital">
-      <button data-value="digital"><span class="clock-prev"></span>Цифровые</button>
-      <button data-value="thin"><span class="clock-prev"></span>Тонкие</button>
-      <button data-value="segment"><span class="clock-prev"></span>Сегменты</button>
-      <button data-value="flip"><span class="clock-prev"></span>Перелистывание</button>
-      <button data-value="analog"><span class="clock-prev"></span>Стрелки</button>
-      <button data-value="neon"><span class="clock-prev"></span>Неон</button>
-      <button data-value="outline"><span class="clock-prev"></span>Контур</button>
-      <button data-value="stacked"><span class="clock-prev"></span>Столбиком</button>
-      <button data-value="serif"><span class="clock-prev"></span>С засечками</button>
-      <button data-value="terminal"><span class="clock-prev"></span>Терминал</button>
+      <button data-value="digital"><span class="clock-prev"></span><span data-lumi-l10n>Цифровые</span></button>
+      <button data-value="thin"><span class="clock-prev"></span><span data-lumi-l10n>Тонкие</span></button>
+      <button data-value="segment"><span class="clock-prev"></span><span data-lumi-l10n>Сегменты</span></button>
+      <button data-value="flip"><span class="clock-prev"></span><span data-lumi-l10n>Перелистывание</span></button>
+      <button data-value="analog"><span class="clock-prev"></span><span data-lumi-l10n>Стрелки</span></button>
+      <button data-value="neon"><span class="clock-prev"></span><span data-lumi-l10n>Неон</span></button>
+      <button data-value="outline"><span class="clock-prev"></span><span data-lumi-l10n>Контур</span></button>
+      <button data-value="stacked"><span class="clock-prev"></span><span data-lumi-l10n>Столбиком</span></button>
+      <button data-value="serif"><span class="clock-prev"></span><span data-lumi-l10n>С засечками</span></button>
+      <button data-value="terminal"><span class="clock-prev"></span><span data-lumi-l10n>Терминал</span></button>
     </div>
-    <div class="row stack"><label class="slider">Размер, %<input type="range" min="50" max="150" step="5" data-int-pref="luminoctis.home.clock.size" data-default="100"><output></output></label></div>
-    <label class="row"><div class="text"><b>12-часовой формат</b><span>AM / PM вместо 24 часов</span></div><input type="checkbox" data-pref="luminoctis.home.clock.h12"></label>
-    <label class="row"><div class="text"><b>Секунды</b></div><input type="checkbox" data-pref="luminoctis.home.clock.seconds"></label>
+    <div class="row stack"><label class="slider"><span data-lumi-l10n>Размер, %</span><input type="range" min="50" max="150" step="5" data-int-pref="luminoctis.home.clock.size" data-default="100"><output></output></label></div>
+    <label class="row"><div class="text"><b data-lumi-l10n>12-часовой формат</b><span data-lumi-l10n>AM / PM вместо 24 часов</span></div><input type="checkbox" data-pref="luminoctis.home.clock.h12"></label>
+    <label class="row"><div class="text"><b data-lumi-l10n>Секунды</b></div><input type="checkbox" data-pref="luminoctis.home.clock.seconds"></label>
     <div class="row stack">
-      <div class="text"><b>Дата под часами</b></div>
-      <div class="seg" data-pref="luminoctis.home.clock.datefmt" data-default="long"><button data-value="long">Суббота, 31 октября</button><button data-value="medium">сб, 31 окт.</button><button data-value="short">31.10.2026</button><button data-value="iso">2026-10-31</button><button data-value="off">Нет</button></div>
+      <div class="text"><b data-lumi-l10n>Дата под часами</b></div>
+      <div class="seg" data-pref="luminoctis.home.clock.datefmt" data-default="long"><button data-value="long"></button><button data-value="medium"></button><button data-value="short"></button><button data-value="iso">2026-10-31</button><button data-value="off" data-lumi-l10n>Нет</button></div>
     </div>
     <div class="row stack">
-      <div class="text"><b>Цвет текста</b><span>«Палитра» — цвет темы; «Свой» — выберите справа</span></div>
-      <div class="seg" data-pref="luminoctis.home.clock.color" data-default="palette"><button data-value="palette">Палитра</button><button data-value="accent">Акцент</button><button data-value="white">Белый</button><button data-value="custom">Свой</button></div>
-      <input id="clock-color" type="color" title="Свой цвет часов">
+      <div class="text"><b data-lumi-l10n>Цвет текста</b><span data-lumi-l10n>«Палитра» — цвет темы; «Свой» — выберите справа</span></div>
+      <div class="seg" data-pref="luminoctis.home.clock.color" data-default="palette"><button data-value="palette" data-lumi-l10n>Палитра</button><button data-value="accent" data-lumi-l10n>Акцент</button><button data-value="white" data-lumi-l10n>Белый</button><button data-value="custom" data-lumi-l10n>Свой</button></div>
+      <input id="clock-color" type="color" title="Свой цвет часов" data-lumi-l10n-title>
     </div>
-    <div class="row stack" title="Тень — обводка часов; авто-контраст — на светлых обоях текст становится тёмным">
-      <div class="text"><b>Читаемость на светлых обоях</b><span>Тень или авто-контраст</span></div>
-      <div class="seg" data-pref="luminoctis.home.clock.legibility" data-default="off"><button data-value="off">Выкл</button><button data-value="shadow">Тень</button><button data-value="auto">Авто-контраст</button></div>
+    <div class="row stack" title="Тень — обводка часов; авто-контраст — на светлых обоях текст становится тёмным" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Читаемость на светлых обоях</b><span data-lumi-l10n>Тень или авто-контраст</span></div>
+      <div class="seg" data-pref="luminoctis.home.clock.legibility" data-default="off"><button data-value="off" data-lumi-l10n>Выкл</button><button data-value="shadow" data-lumi-l10n>Тень</button><button data-value="auto" data-lumi-l10n>Авто-контраст</button></div>
     </div>
 
-    <h2>Ярлыки</h2>
-    <div class="row stack" title="Закладки из этой папки показываются плитками на Home. Клик — новая вкладка, средняя кнопка — фоновая">
-      <div class="text"><b>Папка закладок</b><span>Закладки из неё — плитки на Home</span></div>
+    <h2 data-lumi-l10n>Ярлыки</h2>
+    <div class="row stack" title="Закладки из этой папки показываются плитками на Главной. Клик — новая вкладка, средняя кнопка — фоновая" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Папка закладок</b><span data-lumi-l10n>Закладки из неё — плитки на Главной</span></div>
       <select id="shortcuts-folder" data-reset="luminoctis.home.shortcuts.folder"></select>
     </div>
-    <h2>Стиль ярлыков <span class="hint">· клик — выбрать</span></h2>
+    <h2><span data-lumi-l10n>Стиль ярлыков</span> <span class="hint" data-lumi-l10n>· клик — выбрать</span></h2>
     <div class="sc-styles" data-pref="luminoctis.home.shortcuts.preset" data-default="glass">
-      <button data-value="glass"><span class="sc-prev" data-p="glass"></span>Стекло</button>
-      <button data-value="minimal"><span class="sc-prev" data-p="minimal"></span>Минимал</button>
-      <button data-value="dock"><span class="sc-prev" data-p="dock"></span>Док</button>
-      <button data-value="cards"><span class="sc-prev" data-p="cards"></span>Карточки</button>
+      <button data-value="glass"><span class="sc-prev" data-p="glass"></span><span data-lumi-l10n>Стекло</span></button>
+      <button data-value="minimal"><span class="sc-prev" data-p="minimal"></span><span data-lumi-l10n>Минимал</span></button>
+      <button data-value="dock"><span class="sc-prev" data-p="dock"></span><span data-lumi-l10n>Док</span></button>
+      <button data-value="cards"><span class="sc-prev" data-p="cards"></span><span data-lumi-l10n>Карточки</span></button>
     </div>
-    <h2>Расположение ярлыков <span class="hint">· клик — выбрать</span></h2>
+    <h2><span data-lumi-l10n>Расположение ярлыков</span> <span class="hint" data-lumi-l10n>· клик — выбрать</span></h2>
     <div class="sc-layouts" data-pref="luminoctis.home.shortcuts.layout" data-default="below">
-      <button data-value="below"><span class="lay-prev" data-l="below"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span>Под поиском</button>
-      <button data-value="bottom"><span class="lay-prev" data-l="bottom"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span>Внизу экрана</button>
-      <button data-value="left"><span class="lay-prev" data-l="left"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span>Слева</button>
-      <button data-value="right"><span class="lay-prev" data-l="right"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span>Справа</button>
-      <button data-value="split"><span class="lay-prev" data-l="split"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span>Слева и справа</button>
+      <button data-value="below"><span class="lay-prev" data-l="below"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Под поиском</span></button>
+      <button data-value="bottom"><span class="lay-prev" data-l="bottom"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Внизу экрана</span></button>
+      <button data-value="left"><span class="lay-prev" data-l="left"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Слева</span></button>
+      <button data-value="right"><span class="lay-prev" data-l="right"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Справа</span></button>
+      <button data-value="split"><span class="lay-prev" data-l="split"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Слева и справа</span></button>
     </div>
 
-    <h2>Данные</h2>
+    <h2 data-lumi-l10n>Данные</h2>
     <div class="row stack">
-      <div class="text"><b>Папка данных</b><span>Заметки LumiNotes, избранные обои. Пусто — папка по умолчанию</span></div>
+      <div class="text"><b data-lumi-l10n>Папка данных</b><span data-lumi-l10n>Заметки LumiNotes, избранные обои. Пусто — папка по умолчанию</span></div>
       <input id="home-dir" type="text" spellcheck="false">
     </div>
   </section>
 
   <!-- ===== Обои Home (home/wallpaper*.js) ===== -->
   <section id="wallpaper" role="tabpanel">
-    <p class="hint">Кнопки ⟳ ♥ ✕ ↗ ⚙ — в левом верхнем углу Home при наведении. Прозрачность окна — <a class="goto" href="#look" data-goto="look">во вкладке «Вид» →</a></p>
+    <p class="hint"><span data-lumi-l10n>Кнопки ⟳ ♥ ✕ ↗ ⚙ — в левом верхнем углу Главной при наведении. Прозрачность окна —</span> <a class="goto" href="#look" data-goto="look" data-lumi-l10n>в разделе «Вид» →</a></p>
 
-    <h2>Источники</h2>
-    <div class="row stack" title="Каждый источник включается отдельно, картинки из них идут вперемешку. Из сети — только безопасные (SFW; Wallhaven — как настроите в «Ещё»). Ничего не включено или сети нет — цветной фон. «Рабочий стол» — без своих обоев: Home насквозь, виден рабочий стол. Нужна прозрачность окна от Windows">
-      <div class="text"><b>Откуда брать</b><span>Источники идут вперемешку, из сети — только SFW</span></div>
-      <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper">Обои</button><button data-value="transparent">Рабочий стол</button></div>
+    <h2 data-lumi-l10n>Источники</h2>
+    <div class="row stack" title="Каждый источник включается отдельно, картинки из них идут вперемешку. Из сети — только безопасные (SFW; Wallhaven — как настроите в «Ещё»). Ничего не включено или сети нет — цветной фон. «Рабочий стол» — без своих обоев: Главная насквозь, виден рабочий стол. Нужна прозрачность окна от Windows" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Откуда брать</b><span data-lumi-l10n>Источники идут вперемешку, из сети — только SFW</span></div>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.mode" data-default="wallpaper"><button data-value="wallpaper" data-lumi-l10n>Обои</button><button data-value="transparent" data-lumi-l10n>Рабочий стол</button></div>
       <div class="checks">
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.unsplash" data-need-key="unsplash">Unsplash <span class="need-key">нужен ключ</span></label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.pexels" data-need-key="pexels">Pexels <span class="need-key">нужен ключ</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.unsplash" data-need-key="unsplash">Unsplash <span class="need-key" data-lumi-l10n>нужен ключ</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.pexels" data-need-key="pexels">Pexels <span class="need-key" data-lumi-l10n>нужен ключ</span></label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.reddit">Reddit</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan">Konachan (аниме)</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.yandere">Yande.re (аниме)</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.safebooru">Safebooru (аниме)</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.apod">NASA — картинка дня</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wikimedia">Wikimedia — картинка дня</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing">Bing — картинка дня</label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local">Своя папка</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan"><span data-lumi-l10n>Konachan (аниме)</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.yandere"><span data-lumi-l10n>Yande.re (аниме)</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.safebooru"><span data-lumi-l10n>Safebooru (аниме)</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.apod"><span data-lumi-l10n>NASA — картинка дня</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wikimedia"><span data-lumi-l10n>Wikimedia — картинка дня</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing"><span data-lumi-l10n>Bing — картинка дня</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local"><span data-lumi-l10n>Своя папка</span></label>
       </div>
     </div>
-    <div class="row stack" id="nsfw-row" data-reset="luminoctis.home.wallpaper.nsfw" title="Обои 18+ из Wallhaven (нужен ключ доступа), Yande.re и Konachan. Никогда не показываются в приватном окне и когда окно браузера в режиме «Обои»">
-      <label class="slider"><input type="checkbox" id="wp-nsfw">Показывать NSFW</label>
+    <div class="row stack" id="nsfw-row" data-reset="luminoctis.home.wallpaper.nsfw" title="Обои 18+ из Wallhaven (нужен ключ доступа), Yande.re и Konachan. Никогда не показываются в приватном окне и когда окно браузера в режиме «Обои»" data-lumi-l10n-title>
+      <label class="slider"><input type="checkbox" id="wp-nsfw"><span data-lumi-l10n>Показывать NSFW</span></label>
       <div class="text"><span id="nsfw-hint"></span></div>
       <div id="nsfw-confirm"></div>
     </div>
-    <div class="row stack" title="Теги или тема для Wallhaven, Unsplash, Pexels и аниме-сайтов, например «night city» или «landscape». Пусто — любые">
-      <div class="text"><b>Поиск в сети</b><span>Теги или тема, например «night city». Пусто — любые</span></div>
-      <input id="wp-query" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.query" placeholder="любые">
-      <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random">Случайные</button><button data-value="toplist">Лучшие</button><button data-value="hot">Горячие</button></div>
+    <div class="row stack" title="Теги или тема для Wallhaven, Unsplash, Pexels и аниме-сайтов, например «night city» или «landscape». Пусто — любые" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Поиск в сети</b><span data-lumi-l10n>Теги или тема, например «night city». Пусто — любые</span></div>
+      <input id="wp-query" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.query" placeholder="любые" data-lumi-l10n-placeholder>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.sorting" data-default="random"><button data-value="random" data-lumi-l10n>Случайные</button><button data-value="toplist" data-lumi-l10n>Лучшие</button><button data-value="hot" data-lumi-l10n>Горячие</button></div>
     </div>
-    <div class="row stack" title="Положите в папку картинки (jpg, jpeg, png, webp, avif, bmp, gif, apng, svg) и видео (mp4, webm, ogv) — они пойдут по кругу (звук видео — в группе «Звук»). Папка не выбрана — берётся wallpapers\local в папке данных">
-      <div class="text"><b>Своя папка</b><span>Картинки и видео из неё идут по кругу</span></div>
-      <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана"><button id="wp-pick">Выбрать…</button><button id="wp-open">Открыть в проводнике</button></div>
+    <div class="row stack" title="Положите в папку картинки (jpg, jpeg, png, webp, avif, bmp, gif, apng, svg) и видео (mp4, webm, ogv) — они пойдут по кругу (звук видео — в группе «Звук»). Папка не выбрана — берётся wallpapers\local в папке данных" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Своя папка</b><span data-lumi-l10n>Картинки и видео из неё идут по кругу</span></div>
+      <div class="key"><input id="wp-folder" type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.folder" placeholder="не выбрана" data-lumi-l10n-placeholder><button id="wp-pick" data-lumi-l10n>Выбрать…</button><button id="wp-open" data-lumi-l10n>Открыть в проводнике</button></div>
       <div class="text"><span id="wp-folder-state"></span></div>
       <div id="wp-previews" class="wp-previews"></div>
     </div>
 
     <details class="more">
-      <summary>Ещё <span class="more-hint">· Wallhaven, Reddit, ключи доступа</span></summary>
-      <div class="row stack" title="Что искать: категории, чистота и размер. NSFW включается переключателем «Показывать NSFW» в источниках (для Wallhaven ещё нужен ключ)">
-        <div class="text"><b>Wallhaven</b><span>Категории, чистота и размер</span></div>
+      <summary><span data-lumi-l10n>Ещё</span> <span class="more-hint" data-lumi-l10n>· Wallhaven, Reddit, ключи доступа</span></summary>
+      <div class="row stack" title="Что искать: категории, чистота и размер. NSFW включается переключателем «Показывать NSFW» в источниках (для Wallhaven ещё нужен ключ)" data-lumi-l10n-title>
+        <div class="text"><b>Wallhaven</b><span data-lumi-l10n>Категории, чистота и размер</span></div>
         <div class="checks">
-          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.general" data-default="true">Общие</label>
-          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.anime" data-default="true">Аниме</label>
-          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.people">Люди</label>
-          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.sketchy">Sketchy (полуоткровенные)</label>
+          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.general" data-default="true"><span data-lumi-l10n>Общие</span></label>
+          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.anime" data-default="true"><span data-lumi-l10n>Аниме</span></label>
+          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.people"><span data-lumi-l10n>Люди</span></label>
+          <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.wh.sketchy"><span data-lumi-l10n>Sketchy (полуоткровенные)</span></label>
         </div>
-        <label class="slider">Не меньше <select data-str-pref="luminoctis.home.wallpaper.wh.atleast"><option value="">любой размер</option><option value="1280x720">1280×720</option><option value="1920x1080">1920×1080 (Full HD)</option><option value="2560x1440">2560×1440</option><option value="3840x2160">3840×2160 (4K)</option></select></label>
-        <label class="slider">Пропорции <select data-str-pref="luminoctis.home.wallpaper.wh.ratios"><option value="">горизонтальные</option><option value="16x9">16:9</option><option value="16x10">16:10</option><option value="21x9">21:9</option><option value="any">любые</option></select></label>
+        <label class="slider"><span data-lumi-l10n>Не меньше</span> <select data-str-pref="luminoctis.home.wallpaper.wh.atleast"><option value="" data-lumi-l10n>любой размер</option><option value="1280x720">1280×720</option><option value="1920x1080">1920×1080 (Full HD)</option><option value="2560x1440">2560×1440</option><option value="3840x2160">3840×2160 (4K)</option></select></label>
+        <label class="slider"><span data-lumi-l10n>Пропорции</span> <select data-str-pref="luminoctis.home.wallpaper.wh.ratios"><option value="" data-lumi-l10n>горизонтальные</option><option value="16x9">16:9</option><option value="16x10">16:10</option><option value="21x9">21:9</option><option value="any" data-lumi-l10n>любые</option></select></label>
       </div>
-      <div class="row stack" title="Сабреддиты через запятую (до 5): берутся лучшие за неделю, только прямые картинки и без 18+">
-        <div class="text"><b>Reddit</b><span>Сабреддиты через запятую (до 5)</span></div>
+      <div class="row stack" title="Сабреддиты через запятую (до 5): берутся лучшие за неделю, только прямые картинки и без 18+" data-lumi-l10n-title>
+        <div class="text"><b>Reddit</b><span data-lumi-l10n>Сабреддиты через запятую (до 5)</span></div>
         <input type="text" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.reddit.subs" placeholder="wallpapers, wallpaper">
       </div>
-      <div class="row stack" title="Unsplash (Access Key) и Pexels (API key) бесплатны на сайтах сервисов; без ключа источник выключен. Ключ Wallhaven — по желанию (нужен для NSFW на Wallhaven). Ключи хранятся в настройках профиля Zen">
-        <div class="text"><b>Ключи доступа</b><span>Без ключа Unsplash и Pexels выключены</span></div>
+      <div class="row stack" title="Unsplash (Access Key) и Pexels (API key) бесплатны на сайтах сервисов; без ключа источник выключен. Ключ Wallhaven — по желанию (нужен для NSFW на Wallhaven). Ключи хранятся в настройках профиля Zen" data-lumi-l10n-title>
+        <div class="text"><b data-lumi-l10n>Ключи доступа</b><span data-lumi-l10n>Без ключа Unsplash и Pexels выключены</span></div>
         <label class="slider">Unsplash<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.unsplash"></label>
         <label class="slider">Pexels<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.pexels"></label>
         <label class="slider">Wallhaven<input type="password" class="keyfield" autocomplete="off" spellcheck="false" data-str-pref="luminoctis.home.wallpaper.key.wallhaven"></label>
       </div>
     </details>
 
-    <h2>Цвет фона</h2>
-    <div class="row" title="Мягкий градиент из этого цвета показывается, когда обоев нет: ничего не включено, нет сети или пусто в избранном. «Как акцент» — цвет акцента палитры"><div class="text"><b>Цвет без обоев</b><span>Показывается, когда обоев нет</span></div>
-      <div class="key"><input type="color" id="wp-color" data-reset="luminoctis.home.wallpaper.color"><button id="wp-color-reset">Как акцент</button></div></div>
+    <h2 data-lumi-l10n>Цвет фона</h2>
+    <div class="row" title="Мягкий градиент из этого цвета показывается, когда обоев нет: ничего не включено, нет сети или пусто в избранном. «Как акцент» — цвет акцента палитры" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Цвет без обоев</b><span data-lumi-l10n>Показывается, когда обоев нет</span></div>
+      <div class="key"><input type="color" id="wp-color" data-reset="luminoctis.home.wallpaper.color"><button id="wp-color-reset" data-lumi-l10n>Как акцент</button></div></div>
 
-    <h2>Избранное</h2>
-    <label class="row" title="Показывать только обои с ♥ — по кругу, по порядку (и сетевые, и из своей папки). Копии лежат в папке данных, wallpapers\favorites"><div class="text"><b>Только избранное</b><span>Только обои с ♥, по кругу</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
-    <label class="row"><div class="text"><b>Избранное вперемешку</b></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favShuffle"></label>
+    <h2 data-lumi-l10n>Избранное</h2>
+    <label class="row" title="Показывать только обои с ♥ — по кругу, по порядку (и сетевые, и из своей папки). Копии лежат в папке данных, wallpapers\favorites" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Только избранное</b><span data-lumi-l10n>Только обои с ♥, по кругу</span></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favoritesOnly"></label>
+    <label class="row"><div class="text"><b data-lumi-l10n>Избранное вперемешку</b></div><input type="checkbox" data-pref="luminoctis.home.wallpaper.favShuffle"></label>
 
-    <h2>Смена обоев</h2>
+    <h2 data-lumi-l10n>Смена обоев</h2>
     <div class="row stack">
-      <div class="seg" data-pref="luminoctis.home.wallpaper.rotate" data-default="open"><button data-value="open">При открытии</button><button data-value="interval">По таймеру</button><button data-value="daily">Раз в день</button><button data-value="manual">Кнопкой ⟳</button></div>
-      <label class="slider">По таймеру — каждые
-        <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="30"><option value="5">5 минут</option><option value="10">10 минут</option><option value="15">15 минут</option><option value="30">30 минут</option><option value="60">1 час</option><option value="180">3 часа</option></select></label>
+      <div class="seg" data-pref="luminoctis.home.wallpaper.rotate" data-default="open"><button data-value="open" data-lumi-l10n>При открытии</button><button data-value="interval" data-lumi-l10n>По таймеру</button><button data-value="daily" data-lumi-l10n>Раз в день</button><button data-value="manual" data-lumi-l10n>Кнопкой ⟳</button></div>
+      <label class="slider"><span data-lumi-l10n>По таймеру — каждые</span>
+        <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="30"><option value="5" data-lumi-l10n>5 минут</option><option value="10" data-lumi-l10n>10 минут</option><option value="15" data-lumi-l10n>15 минут</option><option value="30" data-lumi-l10n>30 минут</option><option value="60" data-lumi-l10n>1 час</option><option value="180" data-lumi-l10n>3 часа</option></select></label>
     </div>
 
-    <h2>Вид обоев</h2>
+    <h2 data-lumi-l10n>Вид обоев</h2>
     <div class="row stack">
-      <label class="slider">Затемнение<input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
-      <label class="slider">Размытие<input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
+      <label class="slider"><span data-lumi-l10n>Затемнение</span><input type="range" min="0" max="90" data-int-pref="luminoctis.home.wallpaper.dim" data-default="25"><output></output></label>
+      <label class="slider"><span data-lumi-l10n>Размытие</span><input type="range" min="0" max="40" data-int-pref="luminoctis.home.wallpaper.blur" data-default="0"><output></output></label>
     </div>
 
-    <h2>Звук видео-обоев</h2>
-    <div class="row stack" title="Видео-обои из своей папки. Кнопка ⚙ в левом верхнем углу Home — то же самое">
-      <label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.volume" data-default="50"><output></output></label>
-      <label class="slider"><input type="checkbox" data-pref="luminoctis.home.wallpaper.muted">Без звука</label>
+    <h2 data-lumi-l10n>Звук видео-обоев</h2>
+    <div class="row stack" title="Видео-обои из своей папки. Кнопка ⚙ в левом верхнем углу Главной — то же самое" data-lumi-l10n-title>
+      <label class="slider"><span data-lumi-l10n>Громкость</span><input type="range" min="0" max="100" data-int-pref="luminoctis.home.wallpaper.volume" data-default="50"><output></output></label>
+      <label class="slider"><input type="checkbox" data-pref="luminoctis.home.wallpaper.muted"><span data-lumi-l10n>Без звука</span></label>
     </div>
   </section>
 
-  <!-- ===== Строгий режим: списки сайтов по расписанию (js/lumi-strict.sys.mjs; список рисует settings.js) ===== -->
-  <section id="strict" role="tabpanel">
-    <p class="hint">Закрывает выбранные сайты заглушкой без кнопки «Всё равно открыть». Списков и расписаний можно сделать сколько угодно. Блок по пресетам LumiTime — в его настройках.</p>
-    <label class="row"><div class="text"><b>Строгий режим</b><span>Общий выключатель всех списков</span></div><input type="checkbox" data-pref="luminoctis.strict.enabled"></label>
-    <h2>Списки <span class="hint">· изменения сохраняются сразу</span></h2>
-    <div id="strict-lists"></div>
-    <button id="strict-add" class="dashed">+ Список</button>
-  </section>
-
-  <!-- ===== Звуки (js/lumi-sounds.uc.js, sounds/) ===== -->
-  <section id="sounds" role="tabpanel">
-    <p class="hint">Короткие звуки интерфейса. Пак «Стандартный» — набор CC0 от Kenney, «GX» — мягкие электронные щелчки, синтезированы для Luminoctis.</p>
-    <div class="row stack"><label class="slider">Пак звуков <select data-str-pref="luminoctis.sounds.pack"><option value="">Стандартный</option><option value="gx">GX</option></select></label></div>
-    <label class="row"><div class="text"><b>Звуки</b><span>Общий выключатель</span></div><input type="checkbox" data-pref="luminoctis.sounds.enabled"></label>
-    <div class="row stack"><label class="slider">Громкость<input type="range" min="0" max="100" data-int-pref="luminoctis.sounds.volume" data-default="50"><output></output></label></div>
-    <h2>Действия</h2>
-    <div class="row snd" data-sound="type"><div class="text"><b>Печать</b><span>Разные «клавиши», в полях и на сайтах</span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.type.enabled" data-default="true"></div>
-    <div class="row snd" data-sound="tab-open"><div class="text"><b>Открытие вкладки</b><span></span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.tab-open.enabled" data-default="true"></div>
-    <div class="row snd" data-sound="tab-close"><div class="text"><b>Закрытие вкладки</b><span></span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.tab-close.enabled" data-default="true"></div>
-    <div class="row snd" data-sound="tab-switch"><div class="text"><b>Переключение вкладки</b><span></span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.tab-switch.enabled" data-default="true"></div>
-    <div class="row snd" data-sound="hover"><div class="text"><b>Наведение</b><span>На вкладку полосы и закреп, очень тихо</span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.hover.enabled" data-default="true"></div>
-    <div class="row snd" data-sound="click"><div class="text"><b>Клик по рейке и закрепам</b><span></span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.click.enabled" data-default="true"></div>
-    <div class="row snd" data-sound="download"><div class="text"><b>Конец загрузки</b><span>Играет и когда браузер не в фокусе</span></div>
-      <button class="snd-btn snd-play" title="Прослушать">▶</button>
-      <input type="checkbox" data-pref="luminoctis.sounds.download.enabled" data-default="true"></div>
-  </section>
-
-  <!-- ===== Управление: меню, кнопки, клавиши и мышь ===== -->
+  <!-- ===== Меню и клавиши (раздел control): меню, кнопки, клавиши и мышь ===== -->
   <section id="control" role="tabpanel">
-    <h2>Меню «⋯» <span class="hint">· слева от шестерёнки; какие пункты видны</span></h2>
+    <h2><span data-lumi-l10n>Меню «⋯»</span> <span class="hint" data-lumi-l10n>· слева от шестерёнки; какие пункты видны</span></h2>
     <div id="appmenu" class="list" data-reset="luminoctis.appmenu.hidden"></div>
 
-    <h2>Правый клик по вкладке <span class="hint">· какие пункты видны</span></h2>
+    <h2><span data-lumi-l10n>Правый клик по вкладке</span> <span class="hint" data-lumi-l10n>· какие пункты видны</span></h2>
     <div id="tabmenu" class="list" data-reset="luminoctis.tabmenu.hidden"></div>
 
-    <h2>Кнопки</h2>
-    <label class="row" title="Встроенный VPN Firefox (Mozilla): кнопка слева от загрузок. Нужен аккаунт Mozilla (вход — на панели VPN); работает не во всех странах">
-      <div class="text"><b>Кнопка VPN</b><span>Встроенный VPN Mozilla, слева от загрузок</span></div>
+    <h2 data-lumi-l10n>Кнопки</h2>
+    <label class="row" title="Встроенный VPN Firefox (Mozilla): кнопка слева от загрузок. Нужен аккаунт Mozilla (вход — на панели VPN); работает не во всех странах" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Кнопка VPN</b><span data-lumi-l10n>Встроенный VPN Mozilla, слева от загрузок</span></div>
       <input type="checkbox" data-pref="browser.ipProtection.enabled">
     </label>
 
     <!-- шорткаты: js/lumi-keys.sys.mjs, docs/areas/keys.md -->
-    <h2>Клавиши и мышь <span class="hint">· клик по сочетанию — нажмите новое, Esc — отмена</span></h2>
-    <div class="row key-row" data-key="unload" title="По вкладке в полосе или закрепу в рейке. Выбранная вкладка сначала сменяется соседней. Сочетание — Ctrl, Alt или Shift с кнопкой мыши">
+    <h2><span data-lumi-l10n>Клавиши и мышь</span> <span class="hint" data-lumi-l10n>· клик по сочетанию — нажмите новое, Esc — отмена</span></h2>
+    <div class="row key-row" data-key="unload" title="По вкладке в полосе или закрепу в рейке. Выбранная вкладка сначала сменяется соседней. Сочетание — Ctrl, Alt или Shift с кнопкой мыши" data-lumi-l10n-title>
       <button class="bind"></button>
-      <div class="text"><b>Выгрузить вкладку или закреп</b><span>Клик по вкладке или закрепу с кнопкой</span></div>
-      <button class="small reset" title="Вернуть по умолчанию">↺</button>
-      <span class="ok">работает</span>
+      <div class="text"><b data-lumi-l10n>Выгрузить вкладку или закреп</b><span data-lumi-l10n>Клик по вкладке или закрепу с кнопкой</span></div>
+      <button class="small reset" title="Вернуть по умолчанию" data-lumi-l10n-title>↺</button>
+      <span class="ok" data-lumi-l10n>работает</span>
     </div>
     <div class="row key-row" data-key="tabLeft">
       <button class="bind"></button>
-      <div class="text"><b>Вкладка слева</b><span>Выбрать соседнюю вкладку полосы слева</span></div>
-      <button class="small reset" title="Вернуть по умолчанию">↺</button>
+      <div class="text"><b data-lumi-l10n>Вкладка слева</b><span data-lumi-l10n>Выбрать соседнюю вкладку полосы слева</span></div>
+      <button class="small reset" title="Вернуть по умолчанию" data-lumi-l10n-title>↺</button>
     </div>
     <div class="row key-row" data-key="tabRight">
       <button class="bind"></button>
-      <div class="text"><b>Вкладка справа</b><span>Выбрать соседнюю вкладку полосы справа</span></div>
-      <button class="small reset" title="Вернуть по умолчанию">↺</button>
+      <div class="text"><b data-lumi-l10n>Вкладка справа</b><span data-lumi-l10n>Выбрать соседнюю вкладку полосы справа</span></div>
+      <button class="small reset" title="Вернуть по умолчанию" data-lumi-l10n-title>↺</button>
     </div>
-    <div class="row"><div class="text"><b>Alt + 1…9, 0</b><span>Закрепы рейки сверху вниз (не переназначается)</span></div></div>
-    <label class="row"><div class="text"><b>По кругу</b><span>С края полосы переходить на вкладку с другого конца</span></div><input type="checkbox" data-pref="luminoctis.keys.wrap"></label>
+    <div class="row"><div class="text"><b>Alt + 1…9, 0</b><span data-lumi-l10n>Закрепы рейки сверху вниз (не переназначается)</span></div></div>
+    <label class="row"><div class="text"><b data-lumi-l10n>По кругу</b><span data-lumi-l10n>С края полосы переходить на вкладку с другого конца</span></div><input type="checkbox" data-pref="luminoctis.keys.wrap"></label>
 
-    <h2>Отладка</h2>
-    <div class="row"><div class="text"><b>Окно отладки</b><span>Запуск эффектов вручную · Ctrl + Alt + Shift + D</span></div><button id="open-debug">Открыть</button></div>
   </section>
 
   <!-- ===== О моде: версия, обновления, ссылка ===== -->
-  <section id="about" role="tabpanel">
-    <h2>Luminoctis <span class="hint">· мод для Zen Browser, by Laith</span></h2>
-    <div class="row"><div class="text"><b>Версия мода</b><span id="about-version"></span></div></div>
+  <section id="about" role="tabpanel" data-nochips>
+    <h2>Luminoctis <span class="hint" data-lumi-l10n>· мод для Zen Browser, by Laith</span></h2>
+    <div class="row"><div class="text"><b data-lumi-l10n>Версия мода</b><span id="about-version"></span></div></div>
 
-    <h2 id="update-title">Обновления <span class="hint">· из GitHub Releases</span></h2>
+    <h2 id="update-title"><span data-lumi-l10n>Обновления</span> <span class="hint" data-lumi-l10n>· из GitHub Releases</span></h2>
     <div class="row" id="update-row">
-      <div class="text"><b>Проверка обновлений</b><span id="update-status"></span></div>
-      <button id="update-check" class="small">Проверить сейчас</button>
+      <div class="text"><b data-lumi-l10n>Проверка обновлений</b><span id="update-status"></span></div>
+      <button id="update-check" class="small" data-lumi-l10n>Проверить сейчас</button>
     </div>
     <div class="row" id="update-avail" hidden>
-      <div class="text"><b>Доступна <span id="update-new"></span></b><span><a id="update-page" href="#">Что нового</a> · Zen перезапустится сам</span></div>
-      <button id="update-apply" class="primary">Обновить</button>
+      <div class="text"><b><span data-lumi-l10n>Доступна</span> <span id="update-new"></span></b><span><a id="update-page" href="#" data-lumi-l10n>Что нового</a> <span data-lumi-l10n>· Zen перезапустится сам</span></span></div>
+      <button id="update-apply" class="primary" data-lumi-l10n>Обновить</button>
     </div>
-    <label class="row" title="Раз в сутки запрашивает GitHub; обновить без вашего нажатия мод не может"><div class="text"><b>Проверять раз в сутки</b><span>Сам мод без вашего нажатия не обновится</span></div><input type="checkbox" id="update-auto" data-pref="luminoctis.update.auto-check" data-default="true"></label>
-    <p id="update-none" class="note" hidden>Обновления недоступны: мод поставлен не установщиком (под Sine его обновляет сам Sine).</p>
+    <label class="row" title="Раз в сутки запрашивает GitHub; обновить без вашего нажатия мод не может" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Проверять раз в сутки</b><span data-lumi-l10n>Сам мод без вашего нажатия не обновится</span></div><input type="checkbox" id="update-auto" data-pref="luminoctis.update.auto-check" data-default="true"></label>
+    <p id="update-none" class="note" hidden data-lumi-l10n>Обновления недоступны: мод поставлен не установщиком (под Sine его обновляет сам Sine).</p>
 
-    <h2>Настройки мода <span class="hint">· перенос на другой компьютер или профиль</span></h2>
-    <div class="row stack" title="В файл попадают настройки мода и автоскрытие адресной строки. Пути, ключи доступа к обоям и служебные данные — нет">
-      <div class="text"><b>Резервная копия настроек</b><span id="backup-status">Сохраните настройки в файл или загрузите из него</span></div>
-      <div class="key"><button id="backup-save">Сохранить настройки в файл…</button><button id="backup-load">Загрузить из файла…</button></div>
+    <h2><span data-lumi-l10n>Перенос настроек</span> <span class="hint" data-lumi-l10n>· на другой компьютер или профиль</span></h2>
+    <div class="row stack" title="В файл попадают настройки мода и автоскрытие адресной строки. Пути, ключи доступа к обоям и служебные данные — нет" data-lumi-l10n-title>
+      <div class="text"><b data-lumi-l10n>Резервная копия настроек</b><span id="backup-status" data-lumi-l10n>Сохраните настройки в файл или загрузите из него</span></div>
+      <div class="key"><button id="backup-save" data-lumi-l10n>Сохранить настройки в файл…</button><button id="backup-load" data-lumi-l10n>Загрузить из файла…</button></div>
       <div id="backup-confirm"></div>
     </div>
 
-    <h2>Ссылки</h2>
-    <a class="row link" id="about-github" href="https://github.com/LaithsShadow/Luminoctis"><div class="text"><b>GitHub</b><span>Исходники, релизы и сообщения об ошибках</span></div><span class="arrow">↗</span></a>
-    <a class="row link" id="about-donate" href="https://boosty.to/laithsshadow"><div class="text"><b>Поддержать автора</b><span>Донат на Boosty — на развитие мода</span></div><span class="arrow">↗</span></a>
-  </section>
-</main>
+    <h2 data-lumi-l10n>Отладка</h2>
+    <div class="row"><div class="text"><b data-lumi-l10n>Окно отладки</b><span data-lumi-l10n>Запуск эффектов вручную · Ctrl + Alt + Shift + D</span></div><button id="open-debug" data-lumi-l10n>Открыть</button></div>
 
-<footer><button id="done" class="primary">Готово</button></footer>
+    <h2 data-lumi-l10n>Ссылки</h2>
+    <a class="row link" id="about-github" href="https://github.com/LaithsShadow/Luminoctis"><div class="text"><b>GitHub</b><span data-lumi-l10n>Исходники, релизы и сообщения об ошибках</span></div><span class="arrow">↗</span></a>
+    <a class="row link" id="about-donate" href="https://boosty.to/laithsshadow"><div class="text"><b data-lumi-l10n>Поддержать автора</b><span data-lumi-l10n>Донат на Boosty — на развитие мода</span></div><span class="arrow">↗</span></a>
+  </section>
+  <p id="find-empty" hidden data-lumi-l10n>Ничего не найдено</p>
+</main>
+</div>
+
+<footer><button id="done" class="primary" data-lumi-l10n>Готово</button></footer>
 </body>
 </html>

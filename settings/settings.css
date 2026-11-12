@@ -1,4 +1,4 @@
-/* Панель настроек Luminoctis — как вид «edit» концепта (Main.dc.html): узкая панель справа от рейки, разделы вкладками.
+/* Панель настроек Luminoctis — как вид «edit» концепта (Main.dc.html): узкая панель справа от рейки, разделы — колонкой плиток слева.
  * Рамку, скругление и тень рисует chrome.css (#lumi-settings), здесь — содержимое. Цвета — токены палитры (--lumi-*): их ставит js/lumi-palette.sys.mjs, как и в окне. */
 :root {
   --lumi-mono: "JetBrains Mono", Consolas, monospace;
@@ -13,23 +13,41 @@ body {
   background: var(--lumi-surface); color: var(--lumi-fg);
   font: 13px Inter, system-ui, sans-serif;
 }
-header { display: flex; flex-direction: column; gap: 14px; flex-shrink: 0; }
+header { display: flex; flex-direction: column; gap: 10px; flex-shrink: 0; }
 h1 { margin: 0; font-size: 16px; font-weight: 600; }
 
-/* ряд разделов: сегменты во всю ширину */
-.tabs {
-  display: flex; flex-wrap: wrap; gap: 2px; padding: 3px; border-radius: 10px; background: var(--lumi-bg1);
-  & button {
-    flex: 1 1 auto; height: 30px; padding: 0 4px; border: none; border-radius: 7px;
-    color: var(--lumi-muted); font-size: 12px; white-space: nowrap;
-    &:hover:not([aria-selected="true"]) { background: var(--lumi-raised); color: var(--lumi-fg); }
-    &[aria-selected="true"] { background: var(--lumi-accent); color: var(--lumi-solid); font-weight: 600; }
-  }
+/* поиск по настройкам: значок слева, ✕ справа (логические свойства — в арабском зеркалится само) */
+.find {
+  position: relative; display: flex; align-items: center;
+  & svg { position: absolute; inset-inline-start: 11px; width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; color: var(--lumi-muted); pointer-events: none; }
+  & input[type="search"] { flex: 1; min-width: 0; height: 34px; padding-inline: 34px 10px; border-radius: 10px; }
 }
 
-/* содержимое раздела прокручивается внутри панели, ряд разделов и «Готово» остаются на месте */
+/* колонка разделов слева, содержимое справа */
+.layout { flex: 1; min-height: 0; display: flex; gap: 12px; }
+/* плитки одного размера: значок и подпись (до двух строк, дальше многоточие; полное название — в title) */
+.tabs {
+  flex: 0 0 78px; box-sizing: border-box; display: flex; flex-direction: column; gap: 4px; padding: 4px; align-self: flex-start; max-height: 100%;
+  overflow-y: auto; scrollbar-width: none; border-radius: 12px; background: var(--lumi-bg1);
+  & button {
+    flex: 0 0 auto; box-sizing: border-box; width: 100%; height: 64px; padding: 0 3px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+    border: 1px solid transparent; border-radius: 9px; color: var(--lumi-muted); font-size: 10.5px; font-weight: 500; line-height: 1.15; text-align: center;
+    & svg { width: 21px; height: 21px; flex-shrink: 0; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    & span { max-width: 100%; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; }
+    &:hover:not([aria-selected="true"]) { background: var(--lumi-raised); color: var(--lumi-fg); }
+    /* выбранный — как активный элемент рейки: рамка акцента, плитка raised, цвет акцента */
+    &[aria-selected="true"] { border-color: var(--lumi-accent); background: var(--lumi-raised); color: var(--lumi-accent); }
+    &:focus-visible { outline-offset: -2px; }
+  }
+}
+@media (prefers-reduced-motion: no-preference) { .tabs button { transition: background-color 120ms, color 120ms, border-color 120ms; } }
+/* пока идёт поиск, видны все разделы сразу: выбранная плитка не подсвечивается */
+body.searching .tabs button[aria-selected="true"] { border-color: transparent; background: transparent; color: var(--lumi-muted); }
+body.searching .tabs button[aria-selected="true"]:hover { background: var(--lumi-raised); color: var(--lumi-fg); }
+
+/* содержимое раздела прокручивается внутри панели, поиск, колонка разделов и «Готово» остаются на месте */
 main {
-  flex: 1; min-height: 0; overflow-y: auto; margin: 0 -10px; padding: 2px 10px 8px;
+  flex: 1; min-width: 0; min-height: 0; overflow-y: auto; margin: 0; margin-inline-end: -10px; padding-block: 2px 8px; padding-inline: 0 10px;
   scrollbar-width: thin; scrollbar-color: var(--lumi-raised) transparent;
 }
 section { display: flex; flex-direction: column; gap: 8px; &:not(.shown) { display: none; } }
@@ -90,7 +108,7 @@ kbd {
   & .reset { width: 26px; height: 26px; padding: 0; border: none; color: var(--lumi-muted); flex-shrink: 0; } }
 /* сочетание шортката — клавиша-кнопка: клик — записать новое */
 .bind {
-  width: 112px; height: 30px; padding: 0 8px; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis;
+  width: max-content; min-width: 112px; max-width: 170px; height: 30px; padding: 0 8px; flex-shrink: 0; /* «Shift + Middle click» длиннее русского */ overflow: hidden; text-overflow: ellipsis;
   font: 500 12px var(--lumi-mono); border-radius: 7px; white-space: nowrap;
   border: 1px solid color-mix(in srgb, var(--lumi-accent) 60%, transparent); background: var(--lumi-bg1);
   &:hover { border-color: var(--lumi-accent); background: var(--lumi-bg1) !important; }
@@ -309,3 +327,31 @@ a.row.link { color: inherit; text-decoration: none; &:hover { background: color-
 .lay-prev[data-l="left"] u, .lay-prev[data-l="right"] u { top: 50%; translate: 0 -50%; flex-direction: column; }
 .lay-prev[data-l="left"] u { left: 4px; } .lay-prev[data-l="right"] u { right: 4px; }
 .lay-prev[data-l="split"] u { display: grid; grid-auto-flow: column; grid-template-rows: 1fr 1fr; justify-content: space-between; left: 4px; right: 4px; top: 50%; translate: 0 -50%; }
+
+/* оглавление длинного раздела: чипы-группы (строит settings.js из h2), липнут к верху прокрутки */
+.chips {
+  position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; gap: 4px; margin: 0 -4px; padding: 4px;
+  background: color-mix(in srgb, var(--lumi-surface) 94%, transparent); backdrop-filter: blur(10px);
+  & button { height: 24px; padding: 0 10px; border-radius: 12px; border-color: transparent; background: var(--lumi-raised); color: var(--lumi-muted); font-size: 11.5px; font-weight: 500;
+    &:hover:not(:disabled) { background: var(--lumi-bg1); color: var(--lumi-fg); } }
+}
+.chips + h2 { margin-top: 6px; }
+section[data-chips] h2 { scroll-margin-top: var(--chips-h, 44px); }
+body.searching .chips, body.searching section > p.hint, body.searching .reset-wrap, .res-head, #find-empty { display: none; }
+/* результаты поиска: заголовок раздела над его группами, клик открывает раздел */
+body.searching .res-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px; height: 30px; padding: 0 8px; border: none; border-radius: 8px;
+  background: color-mix(in srgb, var(--lumi-accent) 14%, transparent); color: var(--lumi-accent); font-size: 12.5px; font-weight: 600;
+  & svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; &:dir(rtl) { scale: -1 1; } }
+  &:hover { background: color-mix(in srgb, var(--lumi-accent) 24%, transparent) !important; }
+}
+body.searching section:not(.nomatch) { display: flex; }
+section.nomatch, .nomatch { display: none !important; }
+body.searching #find-empty { display: block; margin: 18px 0; text-align: center; color: var(--label); font-size: 12.5px; &[hidden] { display: none; } }
+/* узкая панель: колонка и отступы поджимаются, чтобы содержимому хватило места */
+@media (max-width: 520px) {
+  body { padding: 12px; }
+  .tabs { flex-basis: 64px; }
+  .layout { gap: 8px; }
+  main { margin-inline-end: -6px; padding-inline-end: 6px; }
+}

@@ -12,7 +12,7 @@
 // gfx.webrender.svg-filter-effects (иначе сайт с фильтром пропадает целиком) и выбранная вкладка — настоящий сайт: у chrome-страниц (Home, свои вкладки)
 // backdrop-filter и так размывает, там остаётся прежнее поведение с дыркой.
 UC_API.Windows.waitWindowLoading(window).then(() => {
-  const NS = "http://www.w3.org/2000/svg", PREF = "luminoctis.look.site-blur", SVG_PREF = "gfx.webrender.svg-filter-effects", RADIUS = 12;
+  const NS = "http://www.w3.org/2000/svg", PREF = "luminoctis.look.site-blur", SVG_PREF = "gfx.webrender.svg-filter-effects", RADIUS = 24;
   const root = document.documentElement, panels = document.getElementById("tabbrowser-tabpanels");
   const make = (tag, attrs = {}, ...kids) => {
     const el = document.createElementNS(NS, tag);
@@ -47,7 +47,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       return;
     }
     filter.replaceChildren(
-      ...boxes.map(([x, y, width, height], i) => make("feGaussianBlur", { in: "SourceGraphic", stdDeviation: RADIUS, x, y, width, height, result: `b${i}` })),
+      // У края области сайтов (верх под полосой, лево под рейкой) блюр по премультиплицированным цветам даёт альфу <1 и резкий сайт под ним просвечивает:
+      // feComponentTransfer снимает премультипликацию (цвет — честное среднее) и поднимает альфу до 1, текст у края тоже не читается.
+      ...boxes.flatMap(([x, y, width, height], i) => [make("feGaussianBlur", { in: "SourceGraphic", stdDeviation: RADIUS, x, y, width, height, result: `g${i}` }),
+        make("feComponentTransfer", { in: `g${i}`, x, y, width, height, result: `b${i}` }, make("feFuncA", { type: "linear", slope: 8 }))]),
       make("feMerge", {}, make("feMergeNode", { in: "SourceGraphic" }), ...boxes.map((_, i) => make("feMergeNode", { in: `b${i}` }))));
     panels.style.filter = "url(#lumi-site-blur)";
   }

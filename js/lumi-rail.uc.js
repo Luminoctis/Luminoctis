@@ -932,6 +932,8 @@
     if (!mini) return;
     const sel = gBrowser.selectedTab;
     mini.backdrop.toggleAttribute("lumi-passive", isFull(sel));
+    mini.frame.toggleAttribute("lumi-passive", isFull(sel));
+    mini.frame.querySelector("iframe")?.contentDocument?.documentElement?.toggleAttribute("lumi-passive", isFull(sel)); // столбец внутри тоже стеклом
     mini.frame.toggleAttribute("lumi-over-site", !isFull(sel) && !sel?.hasAttribute("lumi-home"));
     window.lumiSiteBlur?.track("time-mini", mini.frame); // стекло: под рамкой размытый сайт (js/lumi-site-blur.uc.js)
     if (isFull(sel)) sel.linkedBrowser.contentWindow?.lumiTime?.place?.(); // панель большого режима стыкуется к рамке

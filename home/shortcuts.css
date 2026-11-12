@@ -23,7 +23,7 @@ body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) .lumi-tile { width: 64
 .lumi-add-back { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgb(0 0 0 / .35); }
 .lumi-add-box {
   box-sizing: border-box; width: min(340px, calc(100vw - 32px)); padding: 18px; display: flex; flex-direction: column; gap: 12px; border-radius: 16px;
-  color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(18px);
+  color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(32px);
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
   & h3 { margin: 0; font-size: 15px; font-weight: 600; }
 }
@@ -60,7 +60,7 @@ body:is(:not([lumi-sc-preset]), [lumi-sc-preset="glass"]) .lumi-tile { width: 64
 .sc-fold-back { position: fixed; inset: 0; z-index: 30; display: grid; place-items: center; background: rgb(0 0 0 / .35); transition: background .12s;
   &.away { background: transparent; } &.away .sc-fold-box { opacity: 0; } }
 .sc-fold-box { box-sizing: border-box; width: min(480px, calc(100vw - 32px)); max-height: calc(100vh - 64px); overflow: auto; padding: 18px; display: flex; flex-direction: column; gap: 14px;
-  border-radius: 16px; color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(18px);
+  border-radius: 16px; color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(32px);
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4); transition: opacity .12s;
   & h3 { margin: 0; font-size: 15px; font-weight: 600; } }
 .sc-grid { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; min-height: 60px; }
@@ -92,7 +92,7 @@ body[lumi-sc-preset="minimal"] {
 }
 body[lumi-sc-preset="dock"] {
   & #lumi-shortcuts { width: fit-content; max-width: min(760px, 100%); gap: 4px; padding: 8px 12px; border-radius: 22px; /* единственный backdrop-filter — на полосе, не на плитках */
-    background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(18px);
+    background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(32px);
     border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 35%, transparent); box-shadow: 0 8px 24px rgb(0 0 0 / .25); &:empty { display: none; } }
   & #lumi-shortcuts > .lumi-tile { width: 44px; padding: 6px 0; background: transparent; }
   & #lumi-shortcuts > .lumi-tile .sc-ico { transition: scale .12s; transform-origin: 50% 100%; }
@@ -133,7 +133,7 @@ body[lumi-sc-preset="minimal"][lumi-sc-layout="right"] #lumi-first > #lumi-short
 /* док в split: полоса на каждую колонку (псевдоэлементы вне сетки, по одному backdrop-filter на полосу); сам #lumi-shortcuts без фона */
 body[lumi-sc-preset="dock"][lumi-sc-layout="split"] #lumi-first > #lumi-shortcuts:not([flat]) {
   padding: 0; background: none; border: 0; box-shadow: none; backdrop-filter: none; isolation: isolate;
-  &::before, &::after { content: ''; position: absolute; z-index: -1; inset: -8px -12px; border-radius: 22px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(18px);
+  &::before, &::after { content: ''; position: absolute; z-index: -1; inset: -8px -12px; border-radius: 22px; background: color-mix(in srgb, var(--lumi-surface, #1f2335) 55%, transparent); backdrop-filter: blur(32px);
     border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 35%, transparent); box-shadow: 0 8px 24px rgb(0 0 0 / .25); }
   &::before { grid-column: 1 / span var(--sc-cl, 1); grid-row: 1 / span var(--sc-l, 1); translate: 0 var(--sc-yl, 0px); }
   &::after { grid-column-start: calc(var(--sc-cl, 1) + 2); grid-column-end: span var(--sc-cr, 1); grid-row: 1 / span var(--sc-r, 1); translate: 0 var(--sc-yr, 0px); } }

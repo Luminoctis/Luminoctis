@@ -103,6 +103,8 @@ body[lumi-mini] {
   & button { font-size: 12px; &[aria-pressed="true"] { background: color-mix(in srgb, var(--lumi-accent) 25%, var(--lumi-raised)); color: var(--lumi-fg); } }
 }
 
+html[lumi-passive] #lumi-time { background: color-mix(in srgb, var(--lumi-surface, #1f2335) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); } /* мини-окно над большой страницей: стекло, как панель */
+
 /* большой режим (?full=1, скрытая вкладка): столбца таймера нет — таймер это мини-окно рейки слева, панель стыкуется к его правому краю
  * (--lt-mini-r/-y/-h ставит time.js из реальной рамки), верх и низ те же, вид рамки тот же; панель всегда открыта, × не нужен */
 body[lumi-full] {
@@ -111,7 +113,7 @@ body[lumi-full] {
   & #lumi-time { display: none; }
   & #lumi-time-panel { top: var(--lt-mini-y, 12px); bottom: auto; height: var(--lt-mini-h, calc(100vh - 24px)); left: calc(var(--lt-mini-r, 352px) + 6px); right: 12px;
     translate: 0 0; opacity: 1; transition: none;
-    background: var(--lumi-surface, #1f2335); backdrop-filter: blur(18px); border-radius: var(--lumi-radius, 16px);
+    background: color-mix(in srgb, var(--lumi-surface, #1f2335) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); border-radius: var(--lumi-radius, 16px);
     border-color: color-mix(in srgb, var(--lumi-accent) 55%, transparent); box-shadow: 0 24px 60px rgb(0 0 0 / .5); }
   & .lt-close { display: none; }
 }
@@ -120,7 +122,7 @@ body[lumi-full] {
 #lumi-time-panel {
   position: fixed; z-index: 4; top: 14px; bottom: 14px; left: 14px; right: calc(var(--lumi-time-w, 320px) + 28px);
   display: flex; flex-direction: column;
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 88%, transparent); backdrop-filter: blur(22px) saturate(1.2);
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 88%, transparent); backdrop-filter: blur(32px) saturate(1.2);
   border: 1px solid var(--lt-line); border-radius: 18px; box-shadow: 0 20px 60px rgb(0 0 0 / .45);
   translate: calc(-100% - 30px) 0; opacity: 0; transition: translate .45s var(--lt-ease), opacity .3s;
   & > header { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px 10px; border-bottom: 1px solid var(--lt-line);
@@ -213,7 +215,7 @@ body.lt-block {
 .lt-today-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; & h4 { margin: 0; }
   & .lt-add-btn { flex: none; min-height: 24px !important; padding: 0 8px; font-size: 11px; color: var(--lumi-muted); } }
 #lumi-time-add { position: fixed; z-index: 20; width: 250px; box-sizing: border-box; padding: 12px; display: flex; flex-direction: column; gap: 8px;
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(22px);
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(32px);
   border: 1px solid var(--lt-line); border-radius: 14px; box-shadow: 0 12px 40px rgb(0 0 0 / .45); font-size: 13px; color: var(--lumi-fg);
   & .lt-add-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
   & .lt-add-topic select, & .lt-add-topic input { width: 100%; }

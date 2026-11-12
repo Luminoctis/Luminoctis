@@ -34,7 +34,7 @@ body[lumi-hide-notes] #lumi-notes, body[lumi-hide-notes] .lumi-scroll { display:
 .lumi-scroll {
   --lumi-btn-bg: color-mix(in srgb, var(--lumi-surface, #1f2335) 80%, transparent);
   pointer-events: auto; display: grid; place-items: center; width: 40px; height: 40px; padding: 0; cursor: pointer; border-radius: 50%;
-  color: var(--lumi-muted, #a9b1d6); background: var(--lumi-btn-bg); backdrop-filter: blur(14px);
+  color: var(--lumi-muted, #a9b1d6); background: var(--lumi-btn-bg); backdrop-filter: blur(32px);
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 45%, transparent); box-shadow: 0 4px 14px rgb(0 0 0 / .25); outline: none;
   transition: color .15s, background .15s, border-color .15s, box-shadow .15s;
   &:hover, &:focus-visible { color: var(--lumi-accent, #7aa2f7); border-color: var(--lumi-accent, #7aa2f7);
@@ -42,7 +42,7 @@ body[lumi-hide-notes] #lumi-notes, body[lumi-hide-notes] .lumi-scroll { display:
   & svg { display: block; }
 }
 /* прозрачная Home (lumi-through) и обои под страницей: стекло — меньше заливки, сильнее размытие */
-html[lumi-through] .lumi-scroll, body:has(.lumi-wp-edge:not([hidden])) .lumi-scroll { --lumi-btn-bg: color-mix(in srgb, var(--lumi-surface, #1f2335) 38%, transparent); backdrop-filter: blur(18px) saturate(1.2); }
+html[lumi-through] .lumi-scroll, body:has(.lumi-wp-edge:not([hidden])) .lumi-scroll { --lumi-btn-bg: color-mix(in srgb, var(--lumi-surface, #1f2335) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); }
 /* кивок стрелки запускает home.js раз в ~2,8 с (атрибут nudge): бесконечная CSS-анимация держала перерисовку 60 раз/с даже в паузах (замер 2026-11-06) */
 #lumi-scroll-down[nudge] svg { animation: lumi-nudge .56s ease-in-out; }
 @keyframes lumi-nudge { 0%, 100% { translate: 0 0; } 50% { translate: 0 3px; } }

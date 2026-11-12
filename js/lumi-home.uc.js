@@ -102,10 +102,16 @@
   // Home — «витрина», а не страница сайта: в адресной строке пусто и подсказка, как на новой вкладке (адрес из списка начальных страниц Firefox),
   // а загрузка «в текущую вкладку» из интерфейса (Enter в адресной строке, закладка) идёт в новую — иначе сайт открылся бы поверх Home и вкладка осталась бы скрытой.
   if (typeof gInitialPages != "undefined" && !gInitialPages.includes(URL)) gInitialPages.push(URL);
+  // страницы мода с параметрами (LumiTime: time.html?full=1&panel=…) — тоже витрины: Firefox сверяет адрес целиком, поэтому includes дополняем проверкой по началу адреса
+  if (typeof gInitialPages != "undefined" && !gInitialPages.lumiPrefix) {
+    const prefix = pageUrl(""), incl = gInitialPages.includes;
+    gInitialPages.lumiPrefix = prefix;
+    gInitialPages.includes = function (spec, ...r) { return incl.call(this, spec, ...r) || (typeof spec == "string" && spec.startsWith(prefix)); };
+  }
   for (const name of ["openTrustedLinkIn", "openWebLinkIn", "openLinkIn"]) {
     const orig = window[name];
     if (typeof orig == "function") window[name] = function (url, where, ...rest) {
-      const fromHome = where == "current" && isHome(gBrowser.selectedTab);
+      const fromHome = where == "current" && (isHome(gBrowser.selectedTab) || isFull(gBrowser.selectedTab)); // большой LumiTime — тоже скрытая витрина
       if (fromHome) gURLBar.userTypedValue = null; // набранное не должно остаться в адресной строке Home
       return orig.call(this, url, fromHome ? "tab" : where, ...rest);
     };

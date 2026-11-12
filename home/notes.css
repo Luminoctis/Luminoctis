@@ -177,7 +177,7 @@ span.lumi-fold { display: none; } /* у пункта без подпунктов
 /* плашка «Удалено … Отменить» */
 .lumi-undo { pointer-events: auto; position: fixed; bottom: 24px; left: 50%; translate: -50% 0; z-index: 10; display: flex; align-items: center; gap: 12px;
   padding: 8px 8px 8px 18px; border-radius: 14px; font: 15px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5);
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(32px);
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 8px 28px rgb(0 0 0 / .4); }
 .lumi-undo-btn { height: 34px; padding: 0 14px; color: var(--lumi-accent, #7aa2f7) !important; }
 .lumi-card-link { color: var(--lumi-accent, #7aa2f7); text-decoration: none; &:hover { text-decoration: underline; } }
@@ -262,7 +262,7 @@ section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
 /* контекстное меню ряда/листа */
 .lumi-menu {
   position: fixed; z-index: 20; min-width: 220px; max-width: 280px; padding: 6px; display: flex; flex-direction: column; gap: 2px; border-radius: 16px;
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(18px);
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(32px);
   border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
   font: 15px Inter, system-ui, sans-serif; color: var(--lumi-fg, #c0caf5);
 }

@@ -383,13 +383,14 @@
 /* Мини-окно таймера LumiTime (js/lumi-rail.uc.js, openMini): рамка и затемнение — как у мини-окна закрепа (общие правила выше), внутри — home/time.html?mini=1.
  * Над скрытой вкладкой LumiTime целиком ([lumi-passive]) затемнения нет и клики проходят к большой странице. */
 #lumi-time-backdrop[lumi-passive] { background: none; pointer-events: none; animation: none; }
+#lumi-time-frame[lumi-passive] { background: color-mix(in srgb, var(--lumi-surface) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); } /* над большой страницей LumiTime — стекло, без затемнения */
 #lumi-time-frame {
   bottom: auto; width: 340px; height: min(940px, calc(100% - 2 * var(--lumi-pin-y))); /* почти вдвое выше прежних 486px: внутри весь главный вид LumiTime, лишнее прокручивается */
   display: flex; flex-direction: column; overflow: hidden;
   & iframe { flex: 1; min-height: 0; width: 100%; border: 0; display: block; background: transparent; }
   & .lumi-pin-head { flex-shrink: 0; }
   /* под рамкой размытие: Firefox размывает только интерфейс (Home — chrome-страница). Над обычным сайтом (другой процесс) он не размыт, поэтому js ставит [lumi-over-site] и под цветом палитры идёт непрозрачная подложка --lumi-solid, как у #lumi-pin-frame в стекле */
-  backdrop-filter: blur(18px);
+  backdrop-filter: blur(32px);
   :root:not([lumi-site-blur]) &[lumi-over-site] { background: linear-gradient(var(--lumi-surface), var(--lumi-surface)) var(--lumi-solid); backdrop-filter: none; }
   & .lumi-time-full {
     appearance: none; height: 28px; padding: 0 10px; border: none; border-radius: 8px; background: none;
@@ -443,7 +444,7 @@
   border-width: 1px; border-color: var(--lumi-accent); border-radius: 12px;
   background-color: var(--lumi-surface);
   box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(18px); /* только у раскрытой карточки (как у #lumi-time-frame, §6); у свёрнутой плитки фильтра нет — ради GPU. Размывает интерфейс под карточкой, чужой процесс (сайт) не размывается */
+  backdrop-filter: blur(32px); /* только у раскрытой карточки (как у #lumi-time-frame, §6); у свёрнутой плитки фильтра нет — ради GPU. Размывает интерфейс под карточкой, чужой процесс (сайт) не размывается */
   transition-duration: 200ms;
   transition-timing-function: var(--ease-out);
   transition-delay: calc(var(--i, 0) * 35ms);
@@ -980,7 +981,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
   /* панель настроек — настоящее стекло: свою заливку рисует страница (surface с ползунком прозрачности), рамка прозрачная, а сайт под ней вырезан
    * маской (дырка по живому прямоугольнику панели; js: settings/settings.js, блок «стекло») — сквозь панель видно то же, что за окном */
   /* размыто только то, что лежит под самой панелью (backdrop-filter по её рамке): окно вокруг и сайт справа резкие. Раньше filter: blur на всей области сайта, адресной строке и полосе вкладок размывал и пустое место справа */
-  & #lumi-settings { background: transparent; backdrop-filter: blur(12px); }
+  & #lumi-settings { background: transparent; backdrop-filter: blur(32px); }
   /* углы дырки скруглены как у панели (--lumi-radius): четыре «клина» вне дуги возвращают сайт (add поверх exclude) — как третий слой маски стены в разделе 15 */
   /* тот же вырез — у мини-окна закрепа: js/lumi-rail.uc.js (updateHole) вырезает по рамке окошка панель ПРЕЖНЕЙ вкладки под ним (не всю область: внутри неё
    * лежит и панель самого закрепа), вместо подложки --lumi-solid у #lumi-pin-frame. Переменные выреза — инлайн на самой панели, у настроек — на #tabbrowser-tabpanels */

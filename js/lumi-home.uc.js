@@ -111,11 +111,20 @@
   for (const name of ["openTrustedLinkIn", "openWebLinkIn", "openLinkIn"]) {
     const orig = window[name];
     if (typeof orig == "function") window[name] = function (url, where, ...rest) {
-      const fromHome = where == "current" && (isHome(gBrowser.selectedTab) || isFull(gBrowser.selectedTab)); // большой LumiTime — тоже скрытая витрина
+      // большой LumiTime — тоже скрытая витрина; targetBrowser — вкладка, которую выбрала адресная строка при открытии (к моменту загрузки выбрана может быть уже другая)
+      const target = gBrowser.getTabForBrowser(rest[0]?.targetBrowser);
+      const fromHome = where == "current" && [gBrowser.selectedTab, target].some(t => isHome(t) || isFull(t));
       if (fromHome) gURLBar.userTypedValue = null; // набранное не должно остаться в адресной строке Home
       return orig.call(this, url, fromHome ? "tab" : where, ...rest);
     };
   }
+
+  // Ссылка, брошенная на страницу Home (handleDroppedLink → gBrowser.loadTabs с replace в её вкладку), идёт мимо openLinkIn — это и был путь «сайт внутри Home»
+  const loadTabs = gBrowser.loadTabs;
+  gBrowser.loadTabs = function (urls, opts, ...rest) {
+    const t = opts?.targetTab ?? this.selectedTab;
+    return loadTabs.call(this, urls, opts?.replace && (isHome(t) || isFull(t)) ? { ...opts, replace: false, targetTab: undefined } : opts, ...rest);
+  };
 
   // ---------- Старт: всегда Home ----------
   // Стартовое окно: обычное (не приватное, не всплывающее), без вкладки/ссылки в аргументах (перетащенная вкладка, ссылка из другой программы — не трогаем).
@@ -179,6 +188,24 @@
       if (isHome(event.target) && !isHome(was) && !isEmpty(was)) prev = was ?? null;
       sync(event.detail?.previousTab);
       requestAnimationFrame(() => sync()); // класс окошка закрепа ставится после TabSelect
+    });
+    // Страховка на любой путь, которым сайт мог загрузиться прямо в Home / большой LumiTime (у друга Home показывала gemini.google.com и «L» не помогала):
+    // вкладка ушла со своей страницы — снимаем метку, она становится обычной (в полосе, выбрана, сайт цел), следующая «L» создаст новую Home
+    const FULL = "lumi-time-full", ownUrl = (tab, spec) => { const s = spec.split(/[?#]/)[0]; return s == "about:blank" || s == (isHome(tab) ? URL : pageUrl("home/time.html")); };
+    gBrowser.addTabsProgressListener({
+      onLocationChange(browser, webProgress, request, location, flags) {
+        if (!webProgress.isTopLevel || flags & Ci.nsIWebProgressListener.LOCATION_CHANGE_SAME_DOCUMENT) return;
+        const tab = gBrowser.getTabForBrowser(browser);
+        if (!tab || !(isHome(tab) || isFull(tab)) || ownUrl(tab, location.spec)) return;
+        const key = isHome(tab) ? KEY : FULL;
+        tab.removeAttribute(key);
+        SessionStore.deleteCustomTabValue(tab, key);
+        fresh.delete(tab); // иначе find() считал бы её «свежей» Home
+        if (prev == tab) prev = null;
+        gBrowser._tabAttrModified(tab, [key]); // полоса вкладок пересобирается и показывает её
+        sync();
+        window.lumiHomeLive?.refresh();
+      },
     });
     // Пустое пространство (переключились в него или закрыли последнюю вкладку): Zen выбирает серую пустую вкладку — вместо неё Home.
     // Отложено: пока Zen заканчивает переключение / закрытие, выбранная вкладка и активное пространство ещё не устоялись.

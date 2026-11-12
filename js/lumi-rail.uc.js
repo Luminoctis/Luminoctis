@@ -896,7 +896,7 @@
   function closeFull() {
     const tab = full;
     full = null;
-    if (tab && !tab.closing) gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }); // без следа в «недавно закрытых»
+    if (tab && !tab.closing && isFull(tab)) gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }); // без следа (ушла на сайт — lumi-home.uc.js снял метку — не трогаем) в «недавно закрытых»
   }
   // выбрали не LumiTime-целиком — вкладка и мини-окно уходят вместе; выбрали её — мини-окно перенастраивается
   window.addEventListener("TabSelect", event => {
@@ -914,7 +914,7 @@
   });
   // панель: settings|stats|journal|day (по умолчанию — Статистика). Вкладка есть — выбираем её и переключаем панель страницей (без пересоздания)
   function openTime(panel) {
-    if (full && !full.closing) {
+    if (full && !full.closing && isFull(full)) {
       gBrowser.selectedTab = full;
       if (!mini && miniTile) openMini(miniTile); // большой режим = мини-окно + панель справа от него
       const page = full.linkedBrowser.contentWindow?.lumiTime;

@@ -3,6 +3,8 @@
 // средняя кнопка и Ctrl+клик — фоновая. Перетаскивание (pointer events): смена порядка = порядок закладок в папке; задержать над
 // другой плиткой ~0,45 с — сгруппировать (папка «Папка»); ПКМ — «Изменить/Удалить» (удаление с «Отменить»).
 // Папка с одним ярлыком остаётся; пустая удаляется сама; удаление папки — с подтверждением и «Отменить» (ярлыки возвращаются).
+import { JS } from "./paths.js";
+const { t } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const root = document.getElementById("lumi-shortcuts");
@@ -76,12 +78,12 @@ async function render(force) { // force — DOM менялся руками (п�
   const mkPlus = side => { // плитка «+» в конце ряда (split: своя в конце каждой колонки)
     const plus = el("button", "lumi-add", "+");
     plus.type = "button";
-    plus.title = "Добавить ярлык";
-    plus.setAttribute("aria-label", "Добавить ярлык");
+    plus.title = t("Добавить ярлык");
+    plus.setAttribute("aria-label", t("Добавить ярлык"));
     if (side) plus.dataset.side = side;
     return plus;
   };
-  if (!top.length) root.replaceChildren(el("p", "lumi-shortcuts-hint", "Здесь будут ваши ярлыки: добавьте закладки в выбранную папку или выберите другую в Настройки → Home → Ярлыки."), mkPlus());
+  if (!top.length) root.replaceChildren(el("p", "lumi-shortcuts-hint", t("Здесь будут ваши ярлыки: добавьте закладки в выбранную папку или выберите другую в Настройки → Главная → Ярлыки.")), mkPlus());
   else if (split) { // левая колонка, её «+», правая колонка, её «+» (при полном списке «+» скрыты, но стоят на местах — по ним mark() делит колонки)
     const pl = mkPlus("l"), pr = mkPlus("r");
     pl.hidden = pr.hidden = top.length >= MAX;
@@ -134,7 +136,7 @@ function openDialog({ head, text, fields = [], ok, onSubmit }) {
   closeMenu();
   const back = el("div", "lumi-add-back"), box = el("form", "lumi-add-box");
   const inputs = fields.map(([, ph, value]) => Object.assign(el("input"), { type: "text", placeholder: ph, spellcheck: false, value: value ?? "" }));
-  const okB = el("button", "lumi-add-ok", ok), no = el("button", "lumi-add-cancel", "Отмена");
+  const okB = el("button", "lumi-add-ok", ok), no = el("button", "lumi-add-cancel", t("Отмена"));
   okB.type = "submit";
   no.type = "button";
   const row = el("div", "lumi-add-row");
@@ -158,7 +160,7 @@ function openDialog({ head, text, fields = [], ok, onSubmit }) {
 }
 const domain = href => new URL(href).hostname.replace(/^www\./, "");
 function openAdd(side) {
-  openDialog({ head: "Новый ярлык", ok: "Добавить", fields: [["Адрес", "example.com"], ["Название", "можно оставить пустым"]],
+  openDialog({ head: t("Новый ярлык"), ok: t("Добавить"), fields: [[t("Адрес"), "example.com"], [t("Название"), t("можно оставить пустым")]],
     async onSubmit([u, t], [ui]) {
       const href = addUrl(u);
       if (!href) { ui.classList.add("bad"); ui.focus(); return false; }
@@ -169,27 +171,27 @@ function openAdd(side) {
       if (!ok) { R.delete(guid); saveRight(R); ui.classList.add("bad"); return false; } // папки нет и т. п.
     } });
 }
-const edit = n => openDialog({ head: "Изменить ярлык", ok: "Сохранить", fields: [["Адрес", "example.com", n.uri], ["Название", "можно оставить пустым", n.title]],
+const edit = n => openDialog({ head: t("Изменить ярлык"), ok: t("Сохранить"), fields: [[t("Адрес"), "example.com", n.uri], [t("Название"), t("можно оставить пустым"), n.title]],
   async onSubmit([u, t], [ui]) {
     const href = u.trim() == n.uri ? n.uri : addUrl(u);
     if (!href) { ui.classList.add("bad"); ui.focus(); return false; }
     await mutate(() => B.update({ guid: n.guid, url: href, title: t.trim() || domain(href).replace(/^$/, href) }));
   } });
-const rename = n => openDialog({ head: "Переименовать папку", ok: "Сохранить", fields: [["Название", "Папка", n.title]],
-  onSubmit: ([t]) => mutate(() => B.update({ guid: n.guid, title: t.trim() || "Папка" })) });
+const rename = n => openDialog({ head: t("Переименовать папку"), ok: t("Сохранить"), fields: [[t("Название"), t("Папка"), n.title]],
+  onSubmit: ([nm]) => mutate(() => B.update({ guid: n.guid, title: nm.trim() || t("Папка") })) });
 
 // удаление с «Отменить»
 let toast = null, toastT = 0;
 function undoable(msg, undo) {
   toast?.remove();
   clearTimeout(toastT);
-  const t = el("div", "sc-toast"), b = el("button", null, "Отменить");
+  const bar = el("div", "sc-toast"), b = el("button", null, t("Отменить"));
   b.type = "button";
-  b.onclick = () => { t.remove(); mutate(undo); };
-  t.append(el("span", null, msg), b);
-  document.body.append(t);
-  toast = t;
-  toastT = setTimeout(() => t.remove(), 6000);
+  b.onclick = () => { bar.remove(); mutate(undo); };
+  bar.append(el("span", null, msg), b);
+  document.body.append(bar);
+  toast = bar;
+  toastT = setTimeout(() => bar.remove(), 6000);
 }
 const snap = n => ({ guid: n.guid, parentGuid: n.parentGuid, index: n.index, title: n.title, url: n.uri, dir: isDir(n),
   kids: isDir(n) ? n.kids.map(snap) : [] });
@@ -207,18 +209,18 @@ function remove(n, msg) {
 function del(n) {
   const par = model.get(n.parentGuid); // последний ярлык в папке: уходит вся пустая папка, «Отменить» вернёт её с ярлыком
   const v = par && par !== rootNode && isDir(par) && par.kids.length == 1 ? par : n;
-  remove(v, `Ярлык «${label(n)}» удалён`);
+  remove(v, t("Ярлык «{0}» удалён", label(n)));
 }
-const delDir = n => n.kids.length ? openDialog({ head: "Удалить папку?", ok: "Удалить", text: `«${n.title}» и ярлыки в ней (${n.kids.length}) будут удалены. Потом можно отменить.`,
-  onSubmit: () => remove(n, `Папка «${n.title}» удалена`) }) : remove(n, `Папка «${n.title}» удалена`);
+const delDir = n => n.kids.length ? openDialog({ head: t("Удалить папку?"), ok: t("Удалить"), text: t("«{0}» и ярлыки в ней ({1}) будут удалены. Потом можно отменить.", n.title, n.kids.length),
+  onSubmit: () => remove(n, t("Папка «{0}» удалена", n.title)) }) : remove(n, t("Папка «{0}» удалена", n.title));
 
 // контекстное меню
 function closeMenu() { menu?.remove(); menu = null; }
-function showMenu(x, y, t) {
+function showMenu(x, y, tile) {
   closeMenu();
-  const n = model.get(t.dataset.guid);
+  const n = model.get(tile.dataset.guid);
   if (!n) return;
-  const items = isDir(n) ? [["Переименовать", () => rename(n)], ["Удалить папку", () => delDir(n), 1]] : [["Изменить", () => edit(n)], ["Удалить", () => del(n), 1]];
+  const items = isDir(n) ? [[t("Переименовать"), () => rename(n)], [t("Удалить папку"), () => delDir(n), 1]] : [[t("Изменить"), () => edit(n)], [t("Удалить"), () => del(n), 1]];
   const m = el("div", "sc-menu");
   m.setAttribute("role", "menu");
   for (const [l, fn, bad] of items) { const b = el("button", bad ? "bad" : null, l); b.type = "button"; b.onclick = () => { closeMenu(); fn(); }; m.append(b); }
@@ -344,7 +346,7 @@ function group(src, tgt) { // ярлык на ярлык → новая папк
     let dest = tgt.guid;
     const R = rightSet();
     if (!isDir(tgt)) {
-      const f = await B.insert({ parentGuid: folder(), type: B.TYPE_FOLDER, title: "Папка", index: (await B.fetch(tgt.guid)).index });
+      const f = await B.insert({ parentGuid: folder(), type: B.TYPE_FOLDER, title: t("Папка"), index: (await B.fetch(tgt.guid)).index });
       await B.update({ guid: tgt.guid, parentGuid: f.guid, index: 0 });
       dest = f.guid;
       if (R.delete(tgt.guid)) R.add(f.guid); // папка остаётся в колонке цели

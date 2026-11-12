@@ -5,6 +5,7 @@
 
 import { CustomizableUI } from "moz-src:///browser/components/customizableui/CustomizableUI.sys.mjs";
 
+const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
 // Настройки Zen, без которых мод выглядит неправильно. Установщик пишет их сам (installer/install.ps1 $prefDefs); под Sine установщика нет —
 // ставим один раз из JS (флаг luminoctis.prefs.seeded), если нет <профиль>\luminoctis-install.json. Список держать в паре с $prefDefs.
 // Часть настроек Zen читает при создании окна, поэтому при самом первом запуске нужен перезапуск.
@@ -34,7 +35,7 @@ const LAYOUT_VERSION = 4; // 2: «+» переехал в полосу вкла�
 // (PanelUI.menuButton подменён на неё), родная кнопка спрятана в chrome.css. Значок и «Меню» — в chrome.css / label.
 if (CustomizableUI.getWidget("lumi-appmenu-button")?.provider != "api") {
   CustomizableUI.createWidget({
-    id: "lumi-appmenu-button", type: "button", label: "Меню", tooltiptext: "Меню",
+    id: "lumi-appmenu-button", type: "button", label: t("Меню"), tooltiptext: t("Меню"),
     removable: true, overflows: false,
     onCreated(node) { node.setAttribute("badged", "true"); node.setAttribute("delegatesanchor", "true"); },
   });

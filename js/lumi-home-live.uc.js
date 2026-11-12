@@ -37,7 +37,7 @@
         blurBehind: dwm.declare("DwmEnableBlurBehindWindow", W, I, P, BB.ptr), extend: dwm.declare("DwmExtendFrameIntoClientArea", W, I, P, MARGINS.ptr),
         attr: dwm.declare("DwmSetWindowAttribute", W, I, P, UI, P, UI), pos: lib.declare("SetWindowPos", W, I, P, P, I, I, I, I, UI),
         rgn: gdi.declare("CreateRectRgn", W, P, I, I, I, I), del: gdi.declare("DeleteObject", W, I, P) };
-    } catch (e) { console.warn("Luminoctis прозрачная Home: нет Win32", e); U = null; }
+    } catch (e) { console.warn("Luminoctis прозрачная Home: нет Win32", e /* l10n-skip */); U = null; }
     return U;
   }
   const own = () => U.ctypes.voidptr_t(U.ctypes.UInt64(window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle));
@@ -79,7 +79,7 @@
     d.data = a.address();
     d.size = U.ACCENT.size;
     accentSet = U.comp(own(), d.address()) != 0 ? a.state : -1; // GetWindowCompositionAttribute accent не отдаёт — запоминаем своё
-    try { backdrop(a.state > 0); } catch (e) { console.warn("Luminoctis: подложка окна", e); }
+    try { backdrop(a.state > 0); } catch (e) { console.warn("Luminoctis: подложка окна", e); } /* l10n-skip */
     return accentSet >= 0;
   }
   // Родная подложка Windows (Acrylic/Mica, DWMWA_SYSTEMBACKDROP_TYPE) у неактивного окна по замыслу ОС заменяется сплошным цветом — размытие пропадает.
@@ -175,7 +175,7 @@
   UC_API.Windows.waitWindowLoading(window).then(() => { const p = panels(); if (p) new ResizeObserver(() => { if (site) holeRect(); }).observe(p); });
   // Стекло — сразу, до первого показа окна: Windows решает, как выводить развёрнутое на весь экран окно, при показе, и если стекла ещё нет,
   // окно остаётся чёрным до смены режима «в окно ↔ на весь экран» (у Windhawk стекло ставится при создании окна). Полная проверка — после загрузки
-  try { if (windowMode(window) == "transparent" && api()) accent(wantKind(true)); } catch (e) { console.warn("Luminoctis: раннее стекло окна", e); }
+  try { if (windowMode(window) == "transparent" && api()) accent(wantKind(true)); } catch (e) { console.warn("Luminoctis: раннее стекло окна", e); } /* l10n-skip */
   UC_API.Windows.waitWindowLoading(window).then(() => update()); // окно уже «Прозрачное» при запуске
   window.addEventListener("TabSelect", e => { update(e.detail?.previousTab); requestAnimationFrame(() => update()); });
   window.addEventListener("sizemodechange", () => update());

@@ -4,6 +4,7 @@
 // ==/UserScript==
 
 (() => {
+  const { t } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-i18n.sys.mjs"));
   const { jsUrl, pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   // палитра — сразу, до отрисовки окна (скрипт идёт на DOMContentLoaded): без вспышки цветов Tokyo Night
   ChromeUtils.importESModule(jsUrl("lumi-palette.sys.mjs")).watch(document, { glass: true });
@@ -43,7 +44,7 @@
       if (!settings) {
         settings = h("div", "", { id: "lumi-settings" });
         settings.setAttribute("role", "dialog");
-        settings.setAttribute("aria-label", "Настройки Luminoctis");
+        settings.setAttribute("aria-label", t("Настройки Luminoctis"));
         tab ||= Services.prefs.getStringPref("luminoctis.settings.tab", "look"); // последний открытый раздел (пишет страница)
         settings.append(h("iframe", "", { src: SETTINGS_URL + (hash || "#" + tab) }));
         document.getElementById("lumi-rail").before(settings); // до рейки: раскрытые плееры рисуются поверх панели
@@ -99,11 +100,11 @@
 
   UC_API.Windows.waitWindowLoading(window).then(() => {
     const rail = h("nav", "", { id: "lumi-rail" });
-    rail.setAttribute("aria-label", "Боковая панель Luminoctis");
+    rail.setAttribute("aria-label", t("Боковая панель Luminoctis"));
 
     // Клик — Luminoctis Home: открыть / вернуться (js/lumi-home.uc.js; подсветку lumi-home-open ставит он же)
     const incognito = PrivateBrowsingUtils.isWindowPrivate(window); // в приватном окне вместо «L» — маска (chrome.css, «Инкогнито»)
-    const logo = labeled(h("button", "", { id: "lumi-logo", textContent: incognito ? "" : "L" }), incognito ? "Luminoctis Home — инкогнито" : "Luminoctis Home");
+    const logo = labeled(h("button", "", { id: "lumi-logo", textContent: incognito ? "" : "L" }), incognito ? t("Главная Luminoctis — инкогнито") : t("Главная Luminoctis"));
     if (incognito) logo.append(h("span", "lumi-incognito"));
     logo.addEventListener("click", () => window.lumiHome?.toggle());
 
@@ -137,15 +138,16 @@
   // Рейка — область перетаскивания окна; без своего меню Windows показывает системное меню окна.
   // У кнопок пространств своё родное меню Zen, у закрепов — своё (initPins).
   function initRailMenu(rail) {
+    const lSettings = t("Настройки мода Luminoctis"), lNoTimer = t("Убрать таймер"), lSpaces = t("Управление пространствами"), lCustomize = t("Настроить панель инструментов");
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-rail-menu">
-        <menuitem id="lumi-rail-menu-settings" label="Настройки мода Luminoctis"/>
+        <menuitem id="lumi-rail-menu-settings" label="${lSettings}"/>
         <menuseparator id="lumi-rail-menu-timer-sep" hidden="true"/>
-        <menuitem id="lumi-rail-menu-timer" label="Убрать таймер" hidden="true"/>
+        <menuitem id="lumi-rail-menu-timer" label="${lNoTimer}" hidden="true"/>
         <menuseparator/>
-        <menuitem label="Управление пространствами" command="cmd_zenManageWorkspaces"/>
+        <menuitem label="${lSpaces}" command="cmd_zenManageWorkspaces"/>
         <menuseparator/>
-        <menuitem label="Настроить панель инструментов" command="cmd_CustomizeToolbars"/>
+        <menuitem label="${lCustomize}" command="cmd_CustomizeToolbars"/>
       </menupopup>`).firstElementChild;
     document.getElementById("mainPopupSet").append(menu);
     menu.querySelector("#lumi-rail-menu-settings").addEventListener("command", () => luminoctis.openSettings());
@@ -167,7 +169,7 @@
 
     // Кнопка под «L»: родная Библиотека Zen (zen-library) на разделе «Пространства».
     // cmd_zenManageWorkspaces = ZenLibrary.toggle("spaces"): открыта — закроет.
-    const manage = labeled(h("button", "", { id: "lumi-spaces-button" }), "Библиотека Zen: пространства");
+    const manage = labeled(h("button", "", { id: "lumi-spaces-button" }), t("Библиотека Zen: пространства"));
     manage.addEventListener("click", () => document.getElementById("cmd_zenManageWorkspaces").doCommand());
     rail.querySelector("#lumi-logo").after(manage);
 
@@ -456,7 +458,7 @@
     backdrop.addEventListener("click", () => hidePin(true));
     frame = h("div", "", { id: "lumi-pin-frame", hidden: true });
     frame.setAttribute("role", "dialog");
-    const full = labeled(h("button", "lumi-pin-full"), "Открыть во вкладке");
+    const full = labeled(h("button", "lumi-pin-full"), t("Открыть во вкладке"));
     full.addEventListener("click", expandPin);
     const head = h("div", "lumi-pin-head");
     head.append(h("img", "", { alt: "" }), h("span", "lumi-pin-title"), full);
@@ -550,12 +552,13 @@
     render();
 
     // ПКМ — меню закрепа; шорткат (Shift+ПКМ) — сразу выгрузить
+    const lUnload = t("Выгрузить"), lKeep = t("Всегда загружен"), lQuiet = t("Уведомления"), lUnpin = t("Открепить");
     const menu = window.MozXULElement.parseXULToFragment(`
       <menupopup id="lumi-pin-menu">
-        <menuitem id="lumi-pin-menu-unload" label="Выгрузить"/>
-        <menuitem id="lumi-pin-menu-keep" type="checkbox" label="Всегда загружен"/>
-        <menuitem id="lumi-pin-menu-quiet" type="checkbox" label="Уведомления"/>
-        <menuitem id="lumi-pin-menu-unpin" label="Открепить"/>
+        <menuitem id="lumi-pin-menu-unload" label="${lUnload}"/>
+        <menuitem id="lumi-pin-menu-keep" type="checkbox" label="${lKeep}"/>
+        <menuitem id="lumi-pin-menu-quiet" type="checkbox" label="${lQuiet}"/>
+        <menuitem id="lumi-pin-menu-unpin" label="${lUnpin}"/>
       </menupopup>`).firstElementChild;
     document.getElementById("mainPopupSet").append(menu);
     let menuTab;
@@ -849,7 +852,7 @@
           if (next) logo.setAttribute("lumi-tasks", next);
           else logo.removeAttribute("lumi-tasks");
         }
-      } catch (err) { console.error("LumiNotes: точка задач:", err); }
+      } catch (err) { console.error("LumiNotes: точка задач:", err); } // l10n-skip
       running = false;
       if (again) { again = false; schedule(); }
     }
@@ -938,8 +941,8 @@
     if (shown) hidePin();
     const backdrop = h("div", "", { id: "lumi-time-backdrop" }), frame = h("div", "", { id: "lumi-time-frame" });
     frame.setAttribute("role", "dialog");
-    frame.setAttribute("aria-label", "Таймер LumiTime");
-    const fullBtn = h("button", "lumi-time-full", { textContent: "Открыть целиком" });
+    frame.setAttribute("aria-label", t("Таймер LumiTime"));
+    const fullBtn = h("button", "lumi-time-full", { textContent: t("Открыть целиком") });
     fullBtn.addEventListener("click", () => openTime());
     const head = h("div", "lumi-pin-head");
     head.append(h("span", "lumi-pin-title", { textContent: "LumiTime" }), fullBtn);
@@ -982,7 +985,7 @@
     const E = ChromeUtils.importESModule(jsUrl("lumi-time.sys.mjs"));
     const svg = (tag, attrs) => Object.entries(attrs).reduce((el, [k, v]) => (el.setAttribute(k, v), el), document.createElementNS("http://www.w3.org/2000/svg", tag));
     const arc = svg("circle", { class: "lumi-time-arc", cx: 17, cy: 17, r: 14, pathLength: 100 });
-    const num = h("span", "lumi-time-num"), tile = labeled(h("button", "", { id: "lumi-time-tile" }), "Таймер LumiTime");
+    const num = h("span", "lumi-time-num"), tile = labeled(h("button", "", { id: "lumi-time-tile" }), t("Таймер LumiTime"));
     const ring = svg("svg", { viewBox: "0 0 34 34", "aria-hidden": "true" });
     ring.append(svg("circle", { class: "lumi-time-track", cx: 17, cy: 17, r: 14 }), arc);
     tile.append(ring, h("span", "lumi-time-icon"), num);
@@ -990,18 +993,18 @@
     miniTile = tile;
     tile.addEventListener("click", () => (mini ? closeMini(true) : openMini(tile)));
 
-    const names = { focus: "Фокус", break: "Перерыв", "long-break": "Длинный перерыв" };
+    const names = { focus: t("Фокус"), break: t("Перерыв"), "long-break": t("Длинный перерыв") };
     const update = () => {
       const st = E.data.state, idle = !E.data.loaded || st.phase == "idle";
       const paused = !idle && st.runningSince === null;
       tile.setAttribute("phase", idle ? "idle" : st.phase == "focus" ? "focus" : "break");
       tile.toggleAttribute("paused", paused);
-      if (idle) return void labeled(tile, "Таймер LumiTime");
+      if (idle) return void labeled(tile, t("Таймер LumiTime"));
       const info = E.display(st, E.now()), p = info.main.replace("+", "").split(":").map(Number);
       const minutes = p.length == 3 ? p[0] * 60 + p[1] : p[0];
-      num.textContent = (info.main[0] == "+" ? "+" : "") + (minutes || info.main[0] == "+" || st.timerMode == "Stopwatch" ? minutes : p.at(-1) + "с");
+      num.textContent = (info.main[0] == "+" ? "+" : "") + (minutes || info.main[0] == "+" || st.timerMode == "Stopwatch" ? minutes : p.at(-1) + t("с"));
       arc.style.strokeDashoffset = String(100 * (1 - info.progress));
-      labeled(tile, `${paused ? "Пауза · " : ""}${names[st.phase]} · ${info.main}`);
+      labeled(tile, paused ? t("Пауза · {0} · {1}", names[st.phase], info.main) : `${names[st.phase]} · ${info.main}`);
     };
     let timer = null;
     const sync = () => {
@@ -1146,7 +1149,7 @@
     // клик по самой плитке (обложка, название) открывает вкладку с этим медиа; пространство переключается, как у карточки Zen (switchTabIfNeeded)
     // закреп (Essentials) — сразу на всё окно, как «Открыть во вкладке» (openPinAsTab: showPin+expandNow без кадра окошка)
     const open = () => isPin(tile.tab) ? openPinAsTab(tile.tab) : tile.tab ? gZenWorkspaces.switchTabIfNeeded(tile.tab) : press(".zen-media-focus-button")();
-    const cover = labeled(h("button", "lumi-player-cover"), title || "Плеер");
+    const cover = labeled(h("button", "lumi-player-cover"), title || t("Плеер"));
     cover.addEventListener("click", open);
     if (icon && icon != "none") cover.style.backgroundImage = icon;
     else cover.setAttribute("lumi-dot", ""); // нет обложки — точка
@@ -1158,15 +1161,15 @@
     // ползунок громкости сайта: ряд под кнопками, виден в раскрытой карточке
     tile.tab = cardTab(title, artist);
     const vol = h("input", "lumi-player-vol", { type: "range", min: 0, max: 1, step: 0.01, value: 1, disabled: true });
-    labeled(vol, "Громкость сайта");
+    labeled(vol, t("Громкость сайта"));
     vol.addEventListener("input", () => tile.tab && askMedia(tile.tab, "set", +vol.value));
     tile.addEventListener("click", event => event.target.closest("button, input") || open());
     tile.append(
       cover,
       text,
-      button("lumi-player-prev", "Предыдущий трек", ".zen-media-previoustrack-button", noPrev),
-      button("lumi-player-play", playing ? "Пауза" : "Играть", ".zen-media-playpause-button"),
-      button("lumi-player-next", "Следующий трек", ".zen-media-nexttrack-button", noNext),
+      button("lumi-player-prev", t("Предыдущий трек"), ".zen-media-previoustrack-button", noPrev),
+      button("lumi-player-play", playing ? t("Пауза") : t("Играть"), ".zen-media-playpause-button"),
+      button("lumi-player-next", t("Следующий трек"), ".zen-media-nexttrack-button", noNext),
       vol
     );
     syncVolume(tile);

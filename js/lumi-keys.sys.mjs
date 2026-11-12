@@ -33,5 +33,6 @@ const keyName = e => /^.$/u.test(e.key) && /[^\x00-\x7f]/.test(e.key) && /^Key[A
 export const keyCombo = e => ["Control", "Alt", "Shift", "Meta", "OS"].includes(e.key) ? null : [...mods(e), keyName(e)].join("+");
 export const matches = (name, e) => (KEYS[name].mouse ? mouseCombo(e) : keyCombo(e)) == get(name);
 
-const NAMES = { ctrl: "Ctrl", alt: "Alt", shift: "Shift", meta: "Win", left: "ЛКМ", middle: "СКМ", right: "ПКМ", " ": "Space" };
+const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
+const NAMES = { ctrl: "Ctrl", alt: "Alt", shift: "Shift", meta: "Win", left: t("ЛКМ"), middle: t("СКМ"), right: t("ПКМ"), " ": "Space" };
 export const label = combo => combo.split(/\+(?!$)/).map(p => NAMES[p] ?? (p.length == 1 ? p.toUpperCase() : p)).join(" + ");

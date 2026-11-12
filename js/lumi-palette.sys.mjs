@@ -6,15 +6,16 @@
 // Один экземпляр на всё приложение: окна (js/lumi-rail.uc.js) и панель настроек импортируют его по одному адресу
 // chrome://userscripts/content/lumi-palette.sys.mjs. Цвета ставятся переменными --lumi-<токен> на корень документа,
 // значения Tokyo Night в chrome.css — запасные (если скрипты не загрузились).
+const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
 export const TOKENS = ["bg0", "bg1", "surface", "raised", "fg", "muted", "dim", "accent",
   "blue", "cyan", "teal", "green", "yellow", "orange", "red", "pink", "purple"];
 // подписи для панели настроек, по группам
 export const GROUPS = [
-  ["Фон", { bg0: "Фон окна", bg1: "Рейка и вкладки", surface: "Поверхности", raised: "Выбранное" }],
-  ["Текст", { fg: "Текст", muted: "Приглушённый текст", dim: "Тусклый текст" }],
-  ["Акцент", { accent: "Акцент" }],
-  ["Цвета", { blue: "Синий", cyan: "Голубой (ссылки)", teal: "Бирюзовый", green: "Зелёный", yellow: "Жёлтый",
-    orange: "Оранжевый", red: "Красный", pink: "Розовый", purple: "Фиолетовый" }],
+  [t("Фон"), { bg0: t("Фон окна"), bg1: t("Рейка и вкладки"), surface: t("Поверхности"), raised: t("Выбранное") }],
+  [t("Текст"), { fg: t("Текст"), muted: t("Приглушённый текст"), dim: t("Тусклый текст") }],
+  [t("Акцент"), { accent: t("Акцент") }],
+  [t("Цвета"), { blue: t("Синий"), cyan: t("Голубой (ссылки)"), teal: t("Бирюзовый"), green: t("Зелёный"), yellow: t("Жёлтый"),
+    orange: t("Оранжевый"), red: t("Красный"), pink: t("Розовый"), purple: t("Фиолетовый") }],
 ];
 const p = (name, s) => ({ name, colors: s.split(" ") }); // цвета — в порядке TOKENS
 export const PRESETS = {
@@ -61,8 +62,9 @@ export function createTheme(name) {
 export const defaultThemeName = () => {
   const names = new Set(customThemes().map(x => x.name));
   let n = 1;
-  while (names.has(n == 1 ? "Моя тема" : "Моя тема " + n)) n++;
-  return n == 1 ? "Моя тема" : "Моя тема " + n;
+  const name = n => (n == 1 ? t("Моя тема") : t("Моя тема {0}", n));
+  while (names.has(name(n))) n++;
+  return name(n);
 };
 export function renameTheme(id, name) {
   if (name.trim()) saveThemes(customThemes().map(x => "custom:" + x.id == id ? { ...x, name: name.trim() } : x));

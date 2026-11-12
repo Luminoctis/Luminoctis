@@ -2,10 +2,12 @@
 // Настройки: luminoctis.home.clock.style / .h12 / .seconds / .date / .size (% от обычного размера, 50–150) /
 // .color (palette|accent|white|custom + .custom «#rrggbb») / .legibility (off|shadow|auto) / .datefmt (long|medium|short|iso|off). Тот же модуль рисует превью стилей в настройках
 // (settings.js: new Clock(el, "flip")). Текст .lumi-clock-time — всегда «чч:мм[:сс]» (цифры сегментов и перелистывания — пустые <i> и attr()).
+import { JS } from "./paths.js";
+const { t, locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 const PREF = "luminoctis.home.clock.";
 export const STYLES = {
-  digital: "Цифровые", thin: "Тонкие", segment: "Сегменты", flip: "Перелистывание", analog: "Стрелки",
-  neon: "Неон", outline: "Контур", stacked: "Столбиком", serif: "С засечками", terminal: "Терминал",
+  digital: t("Цифровые"), thin: t("Тонкие"), segment: t("Сегменты"), flip: t("Перелистывание"), analog: t("Стрелки"),
+  neon: t("Неон"), outline: t("Контур"), stacked: t("Столбиком"), serif: t("С засечками"), terminal: t("Терминал"),
 };
 export function options() {
   const style = Services.prefs.getStringPref(PREF + "style", "digital");
@@ -26,7 +28,7 @@ const DATE = {
   medium: { weekday: "short", day: "numeric", month: "short" },
   short: { day: "2-digit", month: "2-digit", year: "numeric" },
 };
-const dateText = (now, f) => f == "iso" ? `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` : now.toLocaleDateString("ru-RU", DATE[f] ?? DATE.long);
+const dateText = (now, f) => f == "iso" ? `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}` : now.toLocaleDateString(locale, DATE[f] ?? DATE.long);
 
 // Авто-контраст: яркость обоев за часами (центр кадра с учётом затемнения) → тёмный текст на светлых обоях. Считает только страница Home.
 let wallTone = "light";

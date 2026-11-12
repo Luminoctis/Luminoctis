@@ -7,6 +7,7 @@
 (() => {
   if (PrivateBrowsingUtils.isWindowPrivate(window)) return; // в инкогнито LumiNotes нет
   const { pageUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
+  const { t } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-i18n.sys.mjs"));
   const notes = ChromeUtils.importESModule(pageUrl("home/notes-md.mjs"));
 
   // карточка: выделенный текст + «— [заголовок](адрес)»
@@ -21,7 +22,7 @@
 
   const menu = document.createXULElement("menu");
   menu.id = "lumi-notes-capture";
-  menu.setAttribute("label", "В LumiNotes");
+  menu.setAttribute("label", t("В LumiNotes"));
   const popup = document.createXULElement("menupopup");
   menu.append(popup);
 
@@ -45,13 +46,13 @@
         item.addEventListener("command", () => add(name, text, title, url).catch(err => {
           console.error("LumiNotes:", err);
           // спокойная подсказка над страницей вместо окна с ошибкой
-          gBrowser.getNotificationBox().appendNotification("lumi-notes-dir", { label: "Не удалось открыть папку данных — выберите её в настройках", priority: 3 }, [], true);
+          gBrowser.getNotificationBox().appendNotification("lumi-notes-dir", { label: t("Не удалось открыть папку данных — выберите её в настройках"), priority: 3 }, [], true);
         }));
         return item;
       }));
       if (!names.length) {
         const item = document.createXULElement("menuitem");
-        item.setAttribute("label", "Не удалось прочитать доски");
+        item.setAttribute("label", t("Не удалось прочитать доски"));
         item.setAttribute("disabled", "true");
         popup.append(item);
       }

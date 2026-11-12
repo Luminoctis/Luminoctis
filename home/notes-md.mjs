@@ -18,7 +18,7 @@ import * as store from "./store.js";
 
 export const DIR = "notes";
 export const ORDER = "notes/boards.json";
-export const DEFAULTS = ["Сегодня", "Дела", "Идеи"];
+export const DEFAULTS = ["Сегодня", "Дела", "Идеи"]; // l10n-skip: имена файлов; новому пользователю страница передаёт те же имена на его языке (seedDefaults), существующие листы не переименовываются
 const TRASH_DIR = "luminoctis.notes.trash-dir"; // скрытый pref: папка вместо Корзины Windows (для проверок)
 export const CHANGED = "lumi-notes-changed"; // Services.obs: файлы листов изменены не страницей Home
 export const SAVED = "lumi-notes-saved"; // Services.obs: лист записан или Home его перечитала (слушает рейка); Home на него не реагирует — петли нет
@@ -199,12 +199,12 @@ export async function writeLayout(layout, base) {
 
 // три листа по умолчанию, только если папка действительно пуста: ни одного .md и раскладка не помнит листов (иначе список файлов просто не прочитался;
 // так затирались «Дела»/«Идеи» и раскладка схлопывалась в один ряд). Существующие файлы листов не трогает. Зовёт страница Home; true — создано
-export async function seedDefaults() {
+export async function seedDefaults(names = DEFAULTS, hint = "Нажми на текст, чтобы изменить; новый пункт — внизу листа") { // l10n-skip: по умолчанию русские; Home передаёт переведённые
   if ((await store.list(DIR)).some(f => /\.md$/i.test(f))) return false;
   const text = await store.readText(ORDER, null);
   if (sheetsIn(parseJSON(text)).length) return false;
-  for (const n of DEFAULTS) if ((await store.readText(file(n), null)) == null) await writeSheet(n, n == DEFAULTS[0] ? [{ text: "Нажми на текст, чтобы изменить; новый пункт — внизу листа", check: false, children: [] }] : []);
-  return (await writeLayout(normalizeLayout(DEFAULTS, DEFAULTS), text)) != null; // порядок по умолчанию, не по алфавиту
+  for (const n of names) if ((await store.readText(file(n), null)) == null) await writeSheet(n, n == names[0] ? [{ text: hint, check: false, children: [] }] : []);
+  return (await writeLayout(normalizeLayout(names, names), text)) != null; // порядок по умолчанию, не по алфавиту
 }
 // раскладка по файлам: старая (массив) переписывается, новые файлы дописываются; нет ни папки, ни листов — пустая раскладка, ничего не создаётся.
 // Сбой чтения boards.json (занят, нет доступа) бросает ошибку и ничего не пишет; повреждённый — берётся boards.prev.json. На диск уходит раскладка
@@ -212,7 +212,7 @@ export async function seedDefaults() {
 export async function readLayout(retry = true) {
   const files = (await store.list(DIR)).filter(f => /\.md$/i.test(f)).map(f => f.slice(0, -3));
   if (!files.length) { // раскладка помнит листы, а файлов нет — папка сейчас не читается: ошибка, а не пустая доска (иначе новый лист затёр бы раскладку)
-    if (sheetsIn(parseJSON(await store.readText(ORDER, null))).length) throw new DOMException("список листов пуст, а раскладка помнит листы", "InvalidStateError");
+    if (sheetsIn(parseJSON(await store.readText(ORDER, null))).length) throw new DOMException("список листов пуст, а раскладка помнит листы" /* l10n-skip */, "InvalidStateError");
     return normalizeLayout(null, []);
   }
   const text = await store.readText(ORDER, null);

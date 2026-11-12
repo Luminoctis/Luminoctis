@@ -3,6 +3,7 @@
 // Клавиши: ↑/↓ по подсказкам, Enter, Esc (закрыть список, повторно — снять фокус).
 // Ctrl+V с картинкой в буфере — сразу поиск по ней в Google Lens (POST multipart на lens.google.com/v3/upload, поле encoded_image), в новой вкладке.
 import { JS } from "./paths.js";
+const { t } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
 const win = window.browsingContext.topChromeWindow;
 const priv = window.browsingContext.usePrivateBrowsing;
@@ -30,10 +31,10 @@ async function init() {
 let hintTimer = 0;
 function setHint(msg, ms) { // подсказка в поле: msg на ms миллисекунд, иначе обычная
   clearTimeout(hintTimer);
-  input.placeholder = msg || (engine ? `Искать в ${engine.name} или ввести адрес` : "");
+  input.placeholder = msg || (engine ? t("Искать в {0} или ввести адрес", engine.name) : "");
   if (msg && ms) hintTimer = setTimeout(setHint, ms);
 }
-const ready = init().catch(e => console.error("Luminoctis поиск:", e));
+const ready = init().catch(e => console.error("Luminoctis поиск:", e)); /* l10n-skip */
 const engineObs = { observe: () => init().catch(() => {}) };
 Services.obs.addObserver(engineObs, "browser-search-engine-modified");
 window.addEventListener("unload", () => Services.obs.removeObserver(engineObs, "browser-search-engine-modified"));
@@ -63,8 +64,8 @@ const goText = async text => { // Enter без выбранной подсказ
 const { lensRequest: lens, MAX_IMG } = ChromeUtils.importESModule(JS("lumi-lens.sys.mjs"));
 const lensRequest = file => lens(file, window);
 async function searchImage(file) {
-  if (file.size > MAX_IMG) return setHint("Картинка больше 20 МБ", 3000);
-  setHint("Ищу по картинке…");
+  if (file.size > MAX_IMG) return setHint(t("Картинка больше 20 МБ"), 3000);
+  setHint(t("Ищу по картинке…"));
   try {
     const { url, postData } = await lensRequest(file);
     win.openTrustedLinkIn(url, "tab", { postData });
@@ -73,8 +74,8 @@ async function searchImage(file) {
     close();
     setHint();
   } catch (e) {
-    console.error("Luminoctis поиск по картинке:", e);
-    setHint("Не удалось отправить картинку", 3000);
+    console.error("Luminoctis поиск по картинке:", e); /* l10n-skip */
+    setHint(t("Не удалось отправить картинку"), 3000);
   }
 }
 

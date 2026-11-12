@@ -11,6 +11,7 @@
 import { setTimeout, clearTimeout } from "resource://gre/modules/Timer.sys.mjs";
 
 import { pageUrl } from "./lumi-paths.sys.mjs";
+const { t, locale } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
 import { shiftDate, emptyDaily, normDaily, applyMark, dailyStats } from "./lumi-time-daily.sys.mjs"; // ежедневные задачи: чистая логика отдельно (проверка в node)
 export { shiftDate, dailyStats, cycleMark, toggleMark } from "./lumi-time-daily.sys.mjs";
 const STORE_URL = pageUrl("home/store.js");
@@ -103,24 +104,24 @@ export function formatClock(ms) {
   return h ? `${pad(h)}:${pad(m % 60)}:${pad(sec % 60)}` : `${pad(m)}:${pad(sec % 60)}`;
 }
 // вид таймера: main — крупные цифры, extra — «+мм:сс не в зачёт», progress — доля кольца
-export function display(s, t) {
+export function display(s, at) {
   if (s.phase == "idle") return { main: "00:00", extra: "", progress: 1 };
-  const e = elapsedMs(s, t);
+  const e = elapsedMs(s, at);
   if (s.timerMode == "Stopwatch") return { main: formatClock(e), extra: "", progress: 1 };
   const over = Math.max(0, e - s.plannedMs);
   return {
     main: over > 0 && s.acceptedOvertime ? `+${formatClock(over)}` : formatClock(Math.max(0, s.plannedMs - e)),
-    extra: over > 0 && !s.acceptedOvertime ? `+${formatClock(over)} не в зачёт` : "",
+    extra: over > 0 && !s.acceptedOvertime ? t("+{0} не в зачёт", formatClock(over)) : "",
     progress: Math.max(0, 1 - e / s.plannedMs),
   };
 }
 function startFocus(prev, t, pair, longBreak, every, topic, timerMode = "Countdown") {
   return { ...idleState(prev.completedFocuses), phase: "focus", startedAt: t, acceptedOvertime: true, timerMode,
-    plannedMs: timerMode == "Stopwatch" ? 0 : pair.focus * MIN, runningSince: t, topic: topic.trim() || "Фокус",
+    plannedMs: timerMode == "Stopwatch" ? 0 : pair.focus * MIN, runningSince: t, topic: topic.trim() || "Фокус", // l10n-skip: хранимая тема по умолчанию
     pair: { ...pair }, longBreak, every };
 }
 function startBreak(prev, t) {
-  if (prev.phase != "focus") throw new Error("Фокус не идёт");
+  if (prev.phase != "focus") throw new Error("Фокус не идёт"); // l10n-skip
   const count = prev.completedFocuses + 1, long = count >= prev.every;
   return { ...idleState(long ? 0 : count), phase: long ? "long-break" : "break", acceptedOvertime: true,
     startedAt: t, plannedMs: (long ? prev.longBreak : prev.pair.rest) * MIN,
@@ -128,7 +129,7 @@ function startBreak(prev, t) {
 }
 function startStopwatchSegment(prev, t, phase, topic = "") {
   return { ...idleState(prev.completedFocuses), phase, startedAt: t, plannedMs: 0, runningSince: t,
-    acceptedOvertime: true, timerMode: "Stopwatch", topic: phase == "focus" ? topic.trim() || "Фокус" : "",
+    acceptedOvertime: true, timerMode: "Stopwatch", topic: phase == "focus" ? topic.trim() || "Фокус" : "", // l10n-skip
     pair: { ...prev.pair }, longBreak: prev.longBreak, every: prev.every };
 }
 export function pause(s, t) {
@@ -153,12 +154,13 @@ function adjustElapsed(s, t, minutes) {
   return true;
 }
 export function finish(s, t, result, id, timezoneOffset) {
-  if (s.phase == "idle") throw new Error("Цикл не идёт");
+  if (s.phase == "idle") throw new Error("Цикл не идёт"); // l10n-skip
   const active = [...s.active], pauses = [...s.pauses];
   if (s.runningSince !== null) active.push([s.runningSince, Math.max(t, s.runningSince)]);
   if (s.pausedSince !== null) pauses.push([s.pausedSince, Math.max(t, s.pausedSince)]);
   return { version: 1, id, kind: s.phase == "focus" ? "Focus" : s.phase == "break" ? "Break" : "Long break",
-    topic: s.phase == "focus" ? s.topic.trim() || "Фокус" : "", result, startedAt: s.startedAt, endedAt: t, timezoneOffset,
+    topic: s.phase == "focus" ? s.topic.trim() || "Фокус" : "", result, // l10n-skip
+    startedAt: s.startedAt, endedAt: t, timezoneOffset,
     plannedMs: s.plannedMs, adjustmentMs: s.adjustmentMs ?? 0, acceptedOvertime: s.acceptedOvertime, active, pauses,
     timerMode: s.timerMode ?? "Countdown" };
 }
@@ -199,12 +201,14 @@ export function normDomain(v) {
   const d = String(v).trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/[/?#].*$/, "").replace(/:\d+$/, "").replace(/^(\*\.|www\.)/, "");
   return /^[^\s/:.]+(\.[^\s/:.]+)+$/.test(d) ? d : null;
 }
+// цвета тем — ключи палитры листов LumiNotes (COLORS в home/notes-md.mjs; хранится ключ, не hex)
+export const TOPIC_COLORS = ["red", "orange", "yellow", "green", "teal", "blue", "purple", "pink", "gray"];
 const DEFAULT_SETTINGS = {
   version: 1,
   pairs: [{ focus: 25, rest: 5 }, { focus: 45, rest: 10 }, { focus: 50, rest: 10 }, { focus: 60, rest: 15 }],
   longBreaks: [15, 20, 30], counts: [2, 3, 4, 6, 8],
-  presets: [{ id: "classic", name: "Классика", pairIndex: 0, longBreak: 20, every: 4 }],
-  topics: ["UE5", "Math", "Phys"],
+  presets: [{ id: "classic", name: "Classic", pairIndex: 0, longBreak: 20, every: 4 }], // новые пользователи: английские имена (у старых в файле может быть «Классика» — показывается переведённой)
+  topics: ["Study", "Work", "Reading"], topicColors: {},
   sound: true, soundPreset: "classic", soundFile: "", volume: 50, systemNotifications: true,
   monthGoalsEnabled: false, monthGoalHours: null, topicMonthGoals: [],
   weekGoalsEnabled: false, weekGoalHours: null, topicWeekGoals: [],
@@ -240,6 +244,7 @@ export function loadSettings(data) {
     counts: counts.length ? [...new Set(counts)] : [...D.counts],
     presets: presets.length ? presets : structuredClone(D.presets).map(p => ({ ...p, block: blockOf(null) })),
     topics: topics.length ? [...new Set(topics)] : [...D.topics],
+    topicColors: Object.fromEntries(Object.entries(raw.topicColors && typeof raw.topicColors == "object" ? raw.topicColors : {}).filter(([k, v]) => k.trim() && TOPIC_COLORS.includes(v))),
     sound: bool("sound"),
     soundPreset: ["bell", "chime"].includes(raw.soundPreset) ? raw.soundPreset : "classic",
     soundFile: validSoundFile(raw.soundFile) ? raw.soundFile.trim() : "",
@@ -275,7 +280,7 @@ function focusTimeByDateAndTopic(records, since = -Infinity) {
     if (r.kind != "Focus") continue;
     const byDate = new Map();
     addByDate(byDate, countedIntervals(r).map(([a, b]) => [Math.max(a, since), b]).filter(([a, b]) => b > a), r.timezoneOffset);
-    const topic = r.topic.trim() || "Фокус";
+    const topic = r.topic.trim() || "Фокус"; // l10n-skip
     for (const [date, ms] of byDate) {
       const topics = days.get(date) ?? new Map();
       topics.set(topic, (topics.get(topic) ?? 0) + ms);
@@ -304,7 +309,7 @@ export function shiftStatisticsDate(date, period, dir) {
   d.setDate(d.getDate() + dir * 7);
   return d;
 }
-const fmt = (opts, d) => new Intl.DateTimeFormat("ru", opts).format(d);
+const fmt = (opts, d) => new Intl.DateTimeFormat(locale, opts).format(d);
 function calendar(period, at) {
   const y = at.getFullYear(), m = at.getMonth(), next = d => new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
   if (period == "year") {
@@ -331,7 +336,7 @@ function calendar(period, at) {
   });
   const last = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6);
   return { startDate: buckets[0].startDate, endDate: buckets[6].endDate, buckets,
-    title: `${fmt({ day: "numeric", month: "short" }, start)} — ${fmt({ day: "numeric", month: "short", year: "numeric" }, last).replace(/ г\.$/, "")}` };
+    title: `${fmt({ day: "numeric", month: "short" }, start)} — ${fmt({ day: "numeric", month: "short", year: "numeric" }, last).replace(/ г\.$/, "")}` }; // l10n-skip: суффикс года ru
 }
 export function buildStatistics(records, period, at = new Date(now())) {
   const range = calendar(period, at);
@@ -350,8 +355,8 @@ export function buildStatistics(records, period, at = new Date(now())) {
       if (!b) continue;
       if (r.kind == "Focus") {
         b.focusMs += ms; focusMs += ms; focusDays.add(date);
-        const t = r.topic.trim() || "Фокус";
-        topics.set(t, (topics.get(t) ?? 0) + ms);
+        const tp = r.topic.trim() || "Фокус"; // l10n-skip
+        topics.set(tp, (topics.get(tp) ?? 0) + ms);
         counts = true;
       } else { b.breakMs += ms; breakMs += ms; }
     }
@@ -420,9 +425,9 @@ async function load() {
   try { saved = await st.readJSON(FILES.state, null); } catch (e) { console.error("LumiTime state:", e); }
   try {
     journal = await st.readJSON(FILES.journal, null);
-    if (journal && !Array.isArray(journal.records)) throw new Error("нет списка records");
-  } catch (e) { journalError = `Журнал не читается (${FILES.journal}): ${e.message ?? e}. Записи не теряются — ждут исправления файла.`; }
-  try { daily = normDaily(await st.readJSON(FILES.daily, null)); } catch (e) { dailyError = `Файл «Каждый день» не читается (${FILES.daily}): ${e.message ?? e}. Он не будет перезаписан.`; }
+    if (journal && !Array.isArray(journal.records)) throw new Error(t("нет списка records"));
+  } catch (e) { journalError = t("Журнал не читается ({0}): {1}. Записи не теряются — ждут исправления файла.", FILES.journal, t(e.message ?? String(e))); }
+  try { daily = normDaily(await st.readJSON(FILES.daily, null)); } catch (e) { dailyError = t("Файл «Каждый день» не читается ({0}): {1}. Он не будет перезаписан.", FILES.daily, t(e.message ?? String(e))); }
   if (my != gen) return;
   data.daily = daily; data.dailyError = dailyError; data.dailyWriteError = null;
   data.settings = loadSettings(settingsRaw);
@@ -573,7 +578,7 @@ export function addManual(kind, topic, durationMs) {
   }
   if (!["Focus", "Break"].includes(kind) || !(durationMs > 0)) return false;
   const endedAt = now(), startedAt = endedAt - durationMs;
-  putRecord({ version: 1, id: uuid(), kind, topic: kind == "Focus" ? topic.trim().slice(0, 200) || "Фокус" : "", result: "Completed",
+  putRecord({ version: 1, id: uuid(), kind, topic: kind == "Focus" ? topic.trim().slice(0, 200) || "Фокус" : "", result: "Completed", // l10n-skip
     startedAt, endedAt, timezoneOffset: new Date(startedAt).getTimezoneOffset(), plannedMs: durationMs,
     acceptedOvertime: false, manual: true, active: [[startedAt, endedAt]], pauses: [], timerMode: data.timerMode });
   flush(); bump();
@@ -654,7 +659,7 @@ export function summary() {
   cache = { key, value };
   return value;
 }
-const goalTime = ms => { const m = Math.floor(Math.max(0, ms) / MIN), h = Math.floor(m / 60); return h ? `${h} ч ${pad(m % 60)} мин` : `${m} мин`; };
+const goalTime = ms => { const m = Math.floor(Math.max(0, ms) / MIN), h = Math.floor(m / 60); return h ? t("{0} ч {1} мин", h, pad(m % 60)) : t("{0} мин", m); };
 function monthFraction(d) {
   const days = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
   return (d.getDate() - 1 + (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) / days;
@@ -662,24 +667,24 @@ function monthFraction(d) {
 const weekFraction = d => ((d.getDay() + 6) % 7 + (d.getHours() * 3600 + d.getMinutes() * 60 + d.getSeconds()) / 86400) / 7;
 // цели периода (month | week | streak): строки { label, percent, actual, goal, pace } с живым фокусом; null — цели не заданы
 export function goalRows(period) {
-  const s = data.settings, st = data.state, t = now(), sum = summary();
+  const s = data.settings, st = data.state, tm = now(), sum = summary();
   const c = {
-    month: { on: s.monthGoalsEnabled, total: s.monthGoalHours, topics: s.topicMonthGoals, sum: sum.month, live: countedMonthMs(st, t), elapsed: monthFraction(new Date(t)) },
-    week: { on: s.weekGoalsEnabled, total: s.weekGoalHours, topics: s.topicWeekGoals, sum: sum.week, live: countedWeekMs(st, t), elapsed: weekFraction(new Date(t)) },
-    streak: { on: s.streakGoalsEnabled, total: s.streakGoalHours, topics: s.topicStreakGoals, sum: sum.streak, live: countedSinceMs(st, t, sum.resetAt), elapsed: null },
+    month: { on: s.monthGoalsEnabled, total: s.monthGoalHours, topics: s.topicMonthGoals, sum: sum.month, live: countedMonthMs(st, tm), elapsed: monthFraction(new Date(tm)) },
+    week: { on: s.weekGoalsEnabled, total: s.weekGoalHours, topics: s.topicWeekGoals, sum: sum.week, live: countedWeekMs(st, tm), elapsed: weekFraction(new Date(tm)) },
+    streak: { on: s.streakGoalsEnabled, total: s.streakGoalHours, topics: s.topicStreakGoals, sum: sum.streak, live: countedSinceMs(st, tm, sum.resetAt), elapsed: null },
   }[period];
   if (!c.on || (c.total === null && !c.topics.length)) return null;
   const byTopic = new Map();
   for (const [topic, ms] of c.sum.topics) byTopic.set(topic.toLocaleLowerCase(), (byTopic.get(topic.toLocaleLowerCase()) ?? 0) + ms);
-  const liveTopic = (st.topic.trim() || "Фокус").toLocaleLowerCase();
+  const liveTopic = (st.topic.trim() || "Фокус").toLocaleLowerCase(); // l10n-skip
   const row = (label, hours, ms) => {
     const goal = hours * 3600000, percent = Math.round(ms / goal * 100);
     const delta = c.elapsed === null ? 0 : Math.round((ms - goal * c.elapsed) / MIN);
-    const pace = c.elapsed === null ? (ms >= goal ? "цель достигнута" : `осталось ${goalTime(Math.ceil((goal - ms) / MIN) * MIN)}`)
-      : delta == 0 ? "в графике" : `${delta > 0 ? "опережение" : "отставание"} ${goalTime(Math.abs(delta) * MIN)}`;
-    return { label, percent, actual: goalTime(ms), goal: `${Number(hours.toFixed(2))} ч`, pace, ahead: delta >= 0 };
+    const pace = c.elapsed === null ? (ms >= goal ? t("цель достигнута") : t("осталось {0}", goalTime(Math.ceil((goal - ms) / MIN) * MIN)))
+      : delta == 0 ? t("в графике") : delta > 0 ? t("опережение {0}", goalTime(delta * MIN)) : t("отставание {0}", goalTime(-delta * MIN));
+    return { label, percent, actual: goalTime(ms), goal: t("{0} ч", Number(hours.toFixed(2))), pace, ahead: delta >= 0 };
   };
-  const rows = c.total === null ? [] : [row("Всего", c.total, c.sum.totalMs + c.live)];
+  const rows = c.total === null ? [] : [row(t("Всего"), c.total, c.sum.totalMs + c.live)];
   for (const g of c.topics) {
     const k = g.topic.toLocaleLowerCase();
     rows.push(row(g.topic, g.hours, (byTopic.get(k) ?? 0) + (st.phase == "focus" && liveTopic == k ? c.live : 0)));
@@ -752,7 +757,7 @@ export function notify(text) {
   } catch (e) { console.error("LumiTime notification:", e); return false; }
 }
 function alertFinished(phase) {
-  const text = phase == "focus" ? "Время фокуса вышло. Начни перерыв, когда будешь готов." : "Перерыв закончился. Можно начинать фокус.";
+  const text = phase == "focus" ? t("Время фокуса вышло. Начни перерыв, когда будешь готов.") : t("Перерыв закончился. Можно начинать фокус.");
   lastAlert = { at: now(), text };
   playSound();
   if (data.settings.systemNotifications) notify(text);

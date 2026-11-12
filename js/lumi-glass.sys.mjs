@@ -59,7 +59,7 @@ function prepare() {
       protect(ctypes.cast(UP(slot), P), 8, old.value, old.address());
     };
     hook = { orig: at(slot, UP), stub: UP(mem).value, write };
-  } catch (e) { console.warn("Luminoctis: перехват стекла окна не подготовлен", e); hook = false; }
+  } catch (e) { console.warn("Luminoctis: перехват стекла окна не подготовлен", e); hook = false; } // l10n-skip
   return hook;
 }
 
@@ -68,6 +68,6 @@ export function setGlass(hwnd, on) {
   on ? glass.add(String(hwnd)) : glass.delete(String(hwnd));
   const h = prepare();
   if (!h) return false;
-  try { h.write(glass.size ? h.stub : h.orig); } catch (e) { console.warn("Luminoctis: перехват стекла окна", e); return false; }
+  try { h.write(glass.size ? h.stub : h.orig); } catch (e) { console.warn("Luminoctis: перехват стекла окна", e); /* l10n-skip */ return false; }
   return true;
 }

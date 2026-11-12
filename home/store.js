@@ -13,7 +13,7 @@ export const defaultDir = () => {
 export const dir = () => cur() || pref() || defaultDir();
 export const path = (rel = "") => {
   const parts = rel.split(/[\/]+/).filter(Boolean);
-  if (parts.includes("..")) throw new Error(`store: путь вне папки данных: ${rel}`);
+  if (parts.includes("..")) throw new Error(`store: путь вне папки данных: ${rel}`); // l10n-skip
   return PathUtils.join(dir(), ...parts);
 };
 const missing = e => DOMException.isInstance(e) && e.name == "NotFoundError";

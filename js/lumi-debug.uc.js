@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: окно отладки
-// @description    Ctrl+Alt+Shift+D или кнопка в настройках («Управление») открывает окно, где визуальные эффекты мода запускаются вручную, без настоящей причины. window.lumiDebug = { actions, run(id, args), open(), cleanup() }.
+// @description    Ctrl+Alt+Shift+D или кнопка в настройках («О моде») открывает окно, где визуальные эффекты мода запускаются вручную, без настоящей причины. window.lumiDebug = { actions, run(id, args), open(), cleanup() }.
 // ==/UserScript==
 
 // Список действий — массив actions ниже: {id, group, label, hint, run({tab, n})}. Чтобы добавить действие, допиши одну строку. Окно (settings/debug.js) рисует его само.

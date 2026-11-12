@@ -246,3 +246,12 @@ body.lt-block {
 #lumi-time-panel .lt-cell-yes { background: var(--lumi-green) !important; }
 #lumi-time-panel .lt-cell-no { background: var(--lumi-red) !important; }
 #lumi-time-panel .lt-cell-today { outline: 1px solid var(--lumi-accent); outline-offset: 1px; }
+
+/* ---------- цвета тем (настройки → Темы; точка у названия темы в статистике, журнале, «Сегодня» и целях) ---------- */
+.lt-tc::before { content: ""; display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-inline-end: 7px; vertical-align: 0; background: var(--tc); }
+#lumi-time-panel .lt-swatch { flex: none; width: 24px; height: 24px; min-height: 0; padding: 0; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+#lumi-time-panel .lt-swatch.on { border-color: var(--lumi-fg); }
+#lumi-time-panel .lt-swatch-none { background: none; border: 2px dashed var(--lumi-dim); }
+#lumi-time-panel .lt-swatch-none.on { border-style: solid; border-color: var(--lumi-fg); }
+#lumi-time-panel .lt-swatch-btn { width: 22px; height: 22px; }
+.lt-palette { flex: 1 0 100%; display: flex; flex-wrap: wrap; gap: 8px; padding: 6px 2px 4px; }

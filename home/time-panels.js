@@ -3,7 +3,9 @@
 // Данные — у движка (js/lumi-time.sys.mjs, один на всё приложение); Daily Log — свои файлы time/days/гггг-мм-дд.json (home/store.js).
 import { JS } from "./paths.js";
 import * as store from "./store.js";
+import { COLORS } from "./notes-md.mjs";
 export const E = ChromeUtils.importESModule(JS("lumi-time.sys.mjs"));
+const { t, locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
 // ---------- мелочи ----------
 // h("div", { class, text, title, on: { click }, ...атрибуты/свойства }, ...дети)
@@ -22,18 +24,27 @@ export function h(tag, props = {}, ...kids) {
 // как replaceChildren, но пропускает null/false и раскрывает списки
 const fill = (el, ...kids) => el.replaceChildren(...kids.flat(Infinity).filter(k => k != null && k !== false));
 export const s = (tag, attrs = {}, ...kids) => h(tag, { ...attrs, svg: true }, ...kids);
-export const KIND = { Focus: "Фокус", Break: "Перерыв", "Long break": "Длинный перерыв" };
-export const MODE = { Countdown: "Отсчёт", Stopwatch: "Секундомер" };
-const RESULT = { Completed: "Завершено", Stopped: "Остановлено" };
+export const KIND = () => ({ Focus: t("Фокус"), Break: t("Перерыв"), "Long break": t("Длинный перерыв") });
+export const MODE = () => ({ Countdown: t("Отсчёт"), Stopwatch: t("Секундомер") });
+const RESULT = () => ({ Completed: t("Завершено"), Stopped: t("Остановлено") });
+// тема по умолчанию «Фокус» хранится в данных по-русски — переводим только показ
+export const topicName = k => (k === "Фокус" ? t("Фокус") : k); // l10n-skip
+// цвет темы (настройки LumiTime → Темы): ключ палитры листов LumiNotes → hex; null — без цвета
+export const topicColor = k => COLORS[E.data.settings.topicColors?.[k]] ?? null;
+const COLOR_NAMES = () => ({ red: t("Красный"), orange: t("Оранжевый"), yellow: t("Жёлтый"), green: t("Зелёный"), teal: t("Бирюзовый"), blue: t("Синий"), purple: t("Фиолетовый"), pink: t("Розовый"), gray: t("Серый") });
+// название темы с цветной точкой (.lt-tc::before, time.css); без цвета — просто текст, как раньше
+export const topicTag = (k, tag = "span") => { const c = topicColor(k); return h(tag, c ? { class: "lt-tc", style: `--tc:${c}`, text: topicName(k) } : { text: topicName(k) }); };
+// пресет по умолчанию у старых пользователей хранится как «Классика» — показываем переведённым (новый — «Classic», как есть)
+export const presetName = n => (n === "Классика" ? t("Классика") : n); // l10n-skip
 export const clockOf = ms => E.formatClock(ms);
 // «1 ч 05 мин» / «12 мин»
 export function hm(ms) {
   const m = Math.floor(Math.max(0, ms) / 60000), hrs = Math.floor(m / 60);
-  return hrs ? `${hrs} ч ${String(m % 60).padStart(2, "0")} мин` : `${m} мин`;
+  return hrs ? t("{0} ч {1} мин", hrs, String(m % 60).padStart(2, "0")) : t("{0} мин", m);
 }
 const plain = v => JSON.parse(JSON.stringify(v));
 const dateTitle = (date, opts = { weekday: "short", day: "numeric", month: "long" }) =>
-  new Intl.DateTimeFormat("ru", opts).format(new Date(`${date}T12:00:00`));
+  new Intl.DateTimeFormat(locale, opts).format(new Date(`${date}T12:00:00`));
 const field = (label, ...control) => h("label", { class: "lt-field" }, h("span", { text: label }), ...control);
 const select = (options, value, onchange) => {
   const el = h("select", { on: { change: () => onchange(el.value) } }, options.map(([v, t]) => h("option", { value: String(v), text: t })));
@@ -46,7 +57,7 @@ const toggle = (label, checked, onchange, hint) => h("label", { class: "lt-toggl
 function topicList() {
   let dl = document.getElementById("lt-topic-list");
   if (!dl) document.body.append(dl = h("datalist", { id: "lt-topic-list" }));
-  dl.replaceChildren(...E.data.settings.topics.map(t => h("option", { value: t })));
+  dl.replaceChildren(...E.data.settings.topics.map(tp => h("option", { value: tp })));
   return "lt-topic-list";
 }
 // подтверждение вторым нажатием (без системных окон)
@@ -63,9 +74,9 @@ export function goalsBlock(period, title) {
   const rows = E.goalRows(period);
   if (!rows) return null;
   return h("div", { class: "lt-goals" }, h("h4", { text: title }), rows.map(r => h("div", { class: "lt-goal" },
-    h("div", { class: "lt-goal-line" }, h("span", { text: r.label }), h("span", { class: r.ahead ? "lt-ahead" : "lt-behind", text: `${r.percent}% · ${r.actual} / ${r.goal} · ${r.pace}` })),
+    h("div", { class: "lt-goal-line" }, topicTag(r.label), h("span", { class: r.ahead ? "lt-ahead" : "lt-behind", text: `${r.percent}% · ${r.actual} / ${r.goal} · ${r.pace}` })),
     h("div", { class: "lt-goal-track", role: "progressbar", "aria-valuenow": String(Math.min(100, r.percent)) },
-      h("div", { class: "lt-goal-fill", style: `width:${Math.min(100, Math.max(0, r.percent))}%` })))));
+      h("div", { class: "lt-goal-fill", style: `width:${Math.min(100, Math.max(0, r.percent))}%${topicColor(r.label) ? `;background:${topicColor(r.label)}` : ""}` })))));
 }
 
 // ---------- «Каждый день»: ежедневные задачи (движок: E.daily*, логика и формат — js/lumi-time-daily.sys.mjs) ----------
@@ -76,32 +87,32 @@ export const dailyKey = () => JSON.stringify([E.data.daily, E.dailyToday(), dail
 export function dailyBlock(refresh) {
   const { daily, dailyError, dailyWriteError, settings } = E.data;
   if (!settings.dailyEnabled) return null;
-  const today = E.dailyToday(), tasks = daily.tasks, mark = t => daily.marks[today]?.[t.id];
-  const done = tasks.filter(t => mark(t) === 1).length;
-  const add = h("input", { type: "text", class: "lt-daily-new", placeholder: "+ Новая задача — Enter", maxLength: 200, "aria-label": "Новая ежедневная задача",
+  const today = E.dailyToday(), tasks = daily.tasks, mark = k => daily.marks[today]?.[k.id];
+  const done = tasks.filter(k => mark(k) === 1).length;
+  const add = h("input", { type: "text", class: "lt-daily-new", placeholder: t("+ Новая задача — Enter"), maxLength: 200, "aria-label": t("Новая ежедневная задача"),
     on: { keydown: e => { if (e.key == "Enter" && e.target.value.trim()) { dailyRefocus = true; E.dailyAdd(e.target.value); } } } });
   if (dailyRefocus) { dailyRefocus = false; queueMicrotask(() => add.focus()); } // после Enter блок пересобирается — вернуть курсор в поле
   return h("div", { class: "lt-daily" },
-    h("div", { class: "lt-today-head" }, h("h4", { text: "Каждый день" + (tasks.length ? ` · ${done}/${tasks.length}` : "") }),
-      tasks.length > 0 && !dailyError && h("button", { class: "lt-add-btn", text: dailyEdit ? "Готово" : "Изменить", title: "Переименовать или удалить задачи",
+    h("div", { class: "lt-today-head" }, h("h4", { text: t("Каждый день") + (tasks.length ? ` · ${done}/${tasks.length}` : "") }),
+      tasks.length > 0 && !dailyError && h("button", { class: "lt-add-btn", text: dailyEdit ? t("Готово") : t("Изменить"), title: t("Переименовать или удалить задачи"),
         on: { click: () => { dailyEdit = !dailyEdit; refresh(); } } })),
     dailyError && h("p", { class: "lt-error", text: dailyError }),
-    dailyWriteError && h("p", { class: "lt-error", text: `Не сохранилось: ${dailyWriteError}` }),
-    !tasks.length && !dailyError && h("div", { class: "lt-dim", text: "Задач нет — добавь то, что повторяется каждый день" }),
-    tasks.map(t => {
+    dailyWriteError && h("p", { class: "lt-error", text: t("Не сохранилось: {0}", dailyWriteError) }),
+    !tasks.length && !dailyError && h("div", { class: "lt-dim", text: t("Задач нет — добавь то, что повторяется каждый день") }),
+    tasks.map(k => {
       if (dailyEdit) {
-        const del = confirmButton("×", "Стереть?", () => E.dailyRemove(t.id), "lt-x");
-        del.title = "Удалить задачу вместе с историей отметок (нажми дважды)";
-        return h("div", { class: "lt-daily-row" }, h("input", { type: "text", class: "lt-grow", value: t.name, maxLength: 200, "aria-label": "Название задачи",
-          on: { change: e => { if (!E.dailyRename(t.id, e.target.value)) e.target.value = t.name; } } }), del);
+        const del = confirmButton("×", t("Стереть?"), () => E.dailyRemove(k.id), "lt-x");
+        del.title = t("Удалить задачу вместе с историей отметок (нажми дважды)");
+        return h("div", { class: "lt-daily-row" }, h("input", { type: "text", class: "lt-grow", value: k.name, maxLength: 200, "aria-label": t("Название задачи"),
+          on: { change: e => { if (!E.dailyRename(k.id, e.target.value)) e.target.value = k.name; } } }), del);
       }
-      const m = mark(t), streak = E.dailyStatsOf(t.id).current;
-      return h("div", { class: "lt-daily-row" }, h("span", { class: "lt-daily-name", text: t.name, title: t.name }),
-        streak > 0 && h("small", { class: "lt-dim", text: `${streak} дн`, title: "Серия дней подряд" }),
-        h("button", { class: "lt-daily-yes", text: "✓", title: "Сделал (ещё раз — снять отметку)", "aria-label": "Сделал", "aria-pressed": String(m === 1),
-          on: { click: () => E.dailyMark(t.id, today, E.toggleMark(m, 1)) } }),
-        h("button", { class: "lt-daily-no", text: "✗", title: "Не сделал (ещё раз — снять отметку)", "aria-label": "Не сделал", "aria-pressed": String(m === 0),
-          on: { click: () => E.dailyMark(t.id, today, E.toggleMark(m, 0)) } }));
+      const m = mark(k), streak = E.dailyStatsOf(k.id).current;
+      return h("div", { class: "lt-daily-row" }, h("span", { class: "lt-daily-name", text: k.name, title: k.name }),
+        streak > 0 && h("small", { class: "lt-dim", text: t("{0} дн", streak), title: t("Серия дней подряд") }),
+        h("button", { class: "lt-daily-yes", text: "✓", title: t("Сделал (ещё раз — снять отметку)"), "aria-label": t("Сделал"), "aria-pressed": String(m === 1),
+          on: { click: () => E.dailyMark(k.id, today, E.toggleMark(m, 1)) } }),
+        h("button", { class: "lt-daily-no", text: "✗", title: t("Не сделал (ещё раз — снять отметку)"), "aria-label": t("Не сделал"), "aria-pressed": String(m === 0),
+          on: { click: () => E.dailyMark(k.id, today, E.toggleMark(m, 0)) } }));
     }),
     !dailyEdit && !dailyError && add);
 }
@@ -112,30 +123,31 @@ function dailyStatsBlock() {
   const today = E.dailyToday(), WEEKS = 12, pct = v => (v === null ? "—" : `${v}%`);
   const monday = E.shiftDate(today, -((new Date(`${today}T12:00:00`).getDay() + 6) % 7)), first = E.shiftDate(monday, -7 * (WEEKS - 1));
   const dates = Array.from({ length: WEEKS * 7 }, (_, i) => E.shiftDate(first, i)); // по неделям: 7 подряд — пн…вс
-  return [h("h3", { text: "Каждый день" }), daily.tasks.map(t => {
-    const st = E.dailyStatsOf(t.id);
+  const monDays = [0, 2, 4, 6].map(i => new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" })); // 1 января 2024 — понедельник
+  return [h("h3", { text: t("Каждый день") }), daily.tasks.map(k => {
+    const st = E.dailyStatsOf(k.id);
     return h("div", { class: "lt-daily-stat" },
-      h("div", { class: "lt-daily-stat-head" }, h("b", { text: t.name }), h("small", { class: "lt-dim", text: `с ${dateTitle(t.created, { day: "numeric", month: "long" })} · сделано ${st.doneAll} из ${st.days}` })),
-      h("div", { class: "lt-cards" }, [["Серия", `${st.current} дн`], ["Лучшая серия", `${st.best} дн`], ["За 30 дней", pct(st.pct30)], ["За всё время", pct(st.pctAll)]]
+      h("div", { class: "lt-daily-stat-head" }, h("b", { text: k.name }), h("small", { class: "lt-dim", text: t("с {0} · сделано {1} из {2}", dateTitle(k.created, { day: "numeric", month: "long" }), st.doneAll, st.days) })),
+      h("div", { class: "lt-cards" }, [[t("Серия"), t("{0} дн", st.current)], [t("Лучшая серия"), t("{0} дн", st.best)], [t("За 30 дней"), pct(st.pct30)], [t("За всё время"), pct(st.pctAll)]]
         .map(([k, v], i) => h("div", { class: `lt-card${i == 0 ? " lt-card-main" : ""}` }, h("small", { text: k }), h("b", { text: v })))),
       h("div", { class: "lt-cal" },
-        h("div", { class: "lt-cal-days" }, ["Пн", "", "Ср", "", "Пт", "", "Вс"].map(d => h("span", { text: d }))),
-        h("div", { class: "lt-cal-grid", role: "group", "aria-label": `Отметки: ${t.name}` }, dates.map(date => {
-          const m = daily.marks[date]?.[t.id];
+        h("div", { class: "lt-cal-days" }, [monDays[0], "", monDays[1], "", monDays[2], "", monDays[3]].map(d => h("span", { text: d && d[0].toLocaleUpperCase(locale) + d.slice(1) }))),
+        h("div", { class: "lt-cal-grid", role: "group", "aria-label": t("Отметки: {0}", k.name) }, dates.map(date => {
+          const m = daily.marks[date]?.[k.id];
           return h("button", { class: `lt-cell${m === 1 ? " lt-cell-yes" : m === 0 ? " lt-cell-no" : ""}${date == today ? " lt-cell-today" : ""}`, text: m === 1 ? "✓" : m === 0 ? "✗" : "",
-            disabled: date < t.created || date > today, title: `${dateTitle(date)} — ${m === 1 ? "сделал" : m === 0 ? "не сделал" : "не отмечено"}`,
-            on: { click: () => E.dailyMark(t.id, date, E.cycleMark(m)) } });
+            disabled: date < k.created || date > today, title: dateTitle(date) + " — " + (m === 1 ? t("сделал") : m === 0 ? t("не сделал") : t("не отмечено")),
+            on: { click: () => E.dailyMark(k.id, date, E.cycleMark(m)) } });
         }))));
   })];
 }
 
 // ---------- каркас панели ----------
-const TITLES = { settings: "Настройки LumiTime", stats: "Статистика", journal: "Журнал", day: "День" };
+const TITLES = () => ({ settings: t("Настройки LumiTime"), stats: t("Статистика"), journal: t("Журнал"), day: t("День") });
 let panel = null, body = null, current = null, view = null;
 function ensure() {
   if (panel) return;
   panel = h("section", { id: "lumi-time-panel", role: "dialog", inert: true },
-    h("header", {}, h("h2"), h("button", { class: "lt-close", title: "Закрыть (Esc)", text: "×", on: { click: () => closePanel() } })),
+    h("header", {}, h("h2"), h("button", { class: "lt-close", title: t("Закрыть (Esc)"), text: "×", on: { click: () => closePanel() } })),
     body = h("div", { class: "lt-panel-body" }));
   document.body.append(panel);
   document.addEventListener("keydown", e => { if (e.key == "Escape" && current && !e.defaultPrevented) { e.preventDefault(); closePanel(); } });
@@ -145,8 +157,9 @@ export function openPanel(name) {
   ensure();
   if (current == name) return document.body.hasAttribute("lumi-full") ? undefined : closePanel(); // в большом режиме панель всегда открыта: повтор клика ничего не делает
   current = name;
-  panel.querySelector("h2").textContent = TITLES[name];
-  panel.setAttribute("aria-label", TITLES[name]);
+  const title = TITLES()[name];
+  panel.querySelector("h2").textContent = title;
+  panel.setAttribute("aria-label", title);
   panel.dataset.panel = name;
   body.replaceChildren();
   body.scrollTop = 0;
@@ -166,6 +179,7 @@ export function refreshPanel(kind) { try { view?.update?.(kind); } catch (e) { c
 
 // ---------- Настройки ----------
 function settingsView(root) {
+  let colorOpen = null; // тема, у которой открыта палитра цвета
   const save = async mutate => {
     const next = plain(E.data.settings);
     mutate(next);
@@ -179,85 +193,91 @@ function settingsView(root) {
   function render() {
     const S = E.data.settings;
     fill(root, 
-      h("h3", { text: "Фокус и перерыв" }),
+      h("h3", { text: t("Фокус и перерыв") }),
       h("div", { class: "lt-rows" }, S.pairs.map((p, i) => h("div", { class: "lt-row" },
-        h("span", { class: "lt-row-label", text: `Пара ${i + 1}` }),
+        h("span", { class: "lt-row-label", text: t("Пара {0}", i + 1) }),
         num(p.focus, 1, 720, 1, v => E.validMinutes(v) && !void save(n => (n.pairs[i].focus = v))),
         h("span", { text: "/" }),
         num(p.rest, 1, 720, 1, v => E.validMinutes(v) && !void save(n => (n.pairs[i].rest = v))),
-        h("span", { class: "lt-dim", text: "мин" }),
-        h("button", { class: "lt-x", title: "Удалить пару", text: "×", disabled: S.pairs.length == 1, on: { click: () => save(n => {
+        h("span", { class: "lt-dim", text: t("мин") }),
+        h("button", { class: "lt-x", title: t("Удалить пару"), text: "×", disabled: S.pairs.length == 1, on: { click: () => save(n => {
           n.pairs.splice(i, 1);
           n.presets = n.presets.filter(x => x.pairIndex != i).map(x => ({ ...x, pairIndex: x.pairIndex > i ? x.pairIndex - 1 : x.pairIndex }));
         }).then(render) } })))),
-      h("button", { class: "lt-add", text: "+ Пара", on: { click: () => save(n => n.pairs.push({ focus: 25, rest: 5 })).then(render) } }),
-      field("Длинные перерывы, мин (через запятую)", list(S.longBreaks, E.validMinutes, v => save(n => {
+      h("button", { class: "lt-add", text: t("+ Пара"), on: { click: () => save(n => n.pairs.push({ focus: 25, rest: 5 })).then(render) } }),
+      field(t("Длинные перерывы, мин (через запятую)"), list(S.longBreaks, E.validMinutes, v => save(n => {
         n.longBreaks = v; n.presets = n.presets.filter(x => v.includes(x.longBreak));
       }).then(render))),
-      field("Длинный перерыв после N фокусов (через запятую)", list(S.counts, E.validCount, v => save(n => {
+      field(t("Длинный перерыв после N фокусов (через запятую)"), list(S.counts, E.validCount, v => save(n => {
         n.counts = v; n.presets = n.presets.filter(x => v.includes(x.every));
       }).then(render))),
 
-      h("h3", { text: "Пресеты" }),
+      h("h3", { text: t("Пресеты") }),
       h("div", { class: "lt-rows" }, S.presets.map((p, i) => h("div", { class: "lt-preset-item" }, h("div", { class: "lt-row lt-preset" },
-        h("input", { type: "text", value: p.name, maxLength: 60, on: { change: e => { const v = e.target.value.trim(); e.target.classList.toggle("lt-bad", !v); if (v) save(n => (n.presets[i].name = v)); } } }),
+        h("input", { type: "text", value: presetName(p.name), maxLength: 60, on: { change: e => { const v = e.target.value.trim(); e.target.classList.toggle("lt-bad", !v); if (v) save(n => (n.presets[i].name = v)); } } }),
         select(S.pairs.map((x, j) => [j, `${x.focus}/${x.rest}`]), p.pairIndex, v => save(n => (n.presets[i].pairIndex = Number(v)))),
-        select(S.longBreaks.map(x => [x, `${x} мин`]), p.longBreak, v => save(n => (n.presets[i].longBreak = Number(v)))),
+        select(S.longBreaks.map(x => [x, t("{0} мин", x)]), p.longBreak, v => save(n => (n.presets[i].longBreak = Number(v)))),
         select(S.counts.map(x => [x, `×${x}`]), p.every, v => save(n => (n.presets[i].every = Number(v)))),
-        h("button", { class: "lt-x", title: "Удалить пресет", text: "×", on: { click: () => save(n => n.presets.splice(i, 1)).then(render) } })),
+        h("button", { class: "lt-x", title: t("Удалить пресет"), text: "×", on: { click: () => save(n => n.presets.splice(i, 1)).then(render) } })),
         h("details", { class: "lt-block", open: p.block.enabled },
-          h("summary", { text: p.block.enabled ? "Блок сайтов · включён" : "Блок сайтов" }),
+          h("summary", { text: p.block.enabled ? t("Блок сайтов · включён") : t("Блок сайтов") }),
           blockEditor(S, i))))),
-      h("button", { class: "lt-add", text: "+ Пресет", on: { click: () => save(n => n.presets.push({ id: crypto.randomUUID(), name: "Новый пресет",
+      h("button", { class: "lt-add", text: t("+ Пресет"), on: { click: () => save(n => n.presets.push({ id: crypto.randomUUID(), name: t("Новый пресет"),
         pairIndex: 0, longBreak: n.longBreaks[0], every: n.counts[0], block: { enabled: false, sites: [], breaks: false } })).then(render) } }),
 
-      h("h3", { text: "Темы" }),
-      h("p", { class: "lt-dim", text: "Список тем в выпадающем списке таймера. «Новая тема…» там же добавляет тему сюда. Переименование меняет и цели по теме; старые записи журнала остаются под прежним названием." }),
-      h("div", { class: "lt-rows" }, S.topics.map((t, i) => h("div", { class: "lt-row" },
-        h("input", { type: "text", class: "lt-grow", value: t, maxLength: 200, on: { change: e => {
+      h("h3", { text: t("Темы") }),
+      h("p", { class: "lt-dim", text: t("Список тем в выпадающем списке таймера. «Новая тема…» там же добавляет тему сюда. Переименование меняет и цели по теме; старые записи журнала остаются под прежним названием.") }),
+      h("div", { class: "lt-rows" }, S.topics.map((tp, i) => h("div", { class: "lt-row" },
+        h("button", { class: "lt-swatch lt-swatch-btn" + (topicColor(tp) ? "" : " lt-swatch-none"), title: t("Цвет темы"), "aria-label": t("Цвет темы"), style: topicColor(tp) ? `background:${topicColor(tp)}` : null,
+          on: { click: () => { colorOpen = colorOpen === tp ? null : tp; render(); } } }),
+        h("input", { type: "text", class: "lt-grow", value: tp, maxLength: 200, on: { change: e => {
           const v = e.target.value.trim(), dup = E.data.settings.topics.some((x, j) => j != i && x.toLocaleLowerCase() == v.toLocaleLowerCase());
           e.target.classList.toggle("lt-bad", !v || dup);
           if (v && !dup) save(n => {
             const old = n.topics[i];
             n.topics[i] = v;
+            if (n.topicColors[old]) { n.topicColors[v] = n.topicColors[old]; delete n.topicColors[old]; }
             for (const k of ["topicMonthGoals", "topicWeekGoals", "topicStreakGoals"]) for (const g of n[k]) if (g.topic.toLocaleLowerCase() == old.toLocaleLowerCase()) g.topic = v;
           });
         } } }),
-        h("button", { class: "lt-x", title: "Удалить тему", text: "×", disabled: S.topics.length == 1, on: { click: () => save(n => n.topics.splice(i, 1)).then(render) } })))),
-      h("button", { class: "lt-add", text: "+ Тема", on: { click: () => save(n => {
+        h("button", { class: "lt-x", title: t("Удалить тему"), text: "×", disabled: S.topics.length == 1, on: { click: () => save(n => { delete n.topicColors[n.topics[i]]; n.topics.splice(i, 1); }).then(render) } }),
+        colorOpen === tp && h("div", { class: "lt-palette" }, [...Object.entries(COLORS), [null, null]].map(([k, hex]) => h("button", { class: "lt-swatch" + (k ? "" : " lt-swatch-none") + ((S.topicColors[tp] ?? null) == k ? " on" : ""),
+          title: k ? COLOR_NAMES()[k] : t("Без цвета"), "aria-label": k ? COLOR_NAMES()[k] : t("Без цвета"), style: hex ? `background:${hex}` : null,
+          on: { click: () => { colorOpen = null; save(n => (k ? (n.topicColors[tp] = k) : delete n.topicColors[tp])).then(render); } } })))))),
+      h("button", { class: "lt-add", text: t("+ Тема"), on: { click: () => save(n => {
         let k = n.topics.length + 1;
-        while (n.topics.some(t => t.toLocaleLowerCase() == `тема ${k}`)) k++;
-        n.topics.push(`Тема ${k}`);
+        while (n.topics.some(x => x.toLocaleLowerCase() == t("Тема {0}", k).toLocaleLowerCase())) k++;
+        n.topics.push(t("Тема {0}", k));
       }).then(render) } }),
 
-      h("h3", { text: "Звук и уведомления" }),
-      toggle("Звук", S.sound, v => save(n => (n.sound = v))),
-      field("Сигнал", select([["classic", "Двойной сигнал"], ["bell", "Колокол"], ["chime", "Перезвон"]], S.soundPreset, v => save(n => (n.soundPreset = v)))),
-      h("div", { class: "lt-field" }, h("span", { text: "Свой файл (заменяет сигнал)" }),
+      h("h3", { text: t("Звук и уведомления") }),
+      toggle(t("Звук"), S.sound, v => save(n => (n.sound = v))),
+      field(t("Сигнал"), select([["classic", t("Двойной сигнал")], ["bell", t("Колокол")], ["chime", t("Перезвон")]], S.soundPreset, v => save(n => (n.soundPreset = v)))),
+      h("div", { class: "lt-field" }, h("span", { text: t("Свой файл (заменяет сигнал)") }),
         h("div", { class: "lt-row" },
-          h("span", { class: "lt-file", title: S.soundFile, text: S.soundFile ? S.soundFile.split(/[\\/]/).pop() : "не выбран" }),
-          h("button", { text: "Выбрать…", on: { click: pickSound } }),
-          S.soundFile && h("button", { class: "lt-x", title: "Убрать файл", text: "×", on: { click: () => save(n => (n.soundFile = "")).then(render) } }))),
-      field(`Громкость: ${S.volume}%`, h("input", { type: "range", min: 0, max: 100, step: 5, value: S.volume,
-        on: { input: e => (e.target.previousSibling.textContent = `Громкость: ${e.target.value}%`), change: e => save(n => (n.volume = Number(e.target.value))) } })),
-      h("div", { class: "lt-row" }, h("button", { text: "▶ Проверить звук", on: { click: () => E.playSound() } }),
-        h("button", { text: "Проверить уведомление", on: { click: () => E.notify("Уведомления LumiTime работают.") } })),
-      toggle("Системные уведомления", S.systemNotifications, v => save(n => (n.systemNotifications = v)), "Когда время фокуса или перерыва вышло"),
+          h("span", { class: "lt-file", title: S.soundFile, text: S.soundFile ? S.soundFile.split(/[\\/]/).pop() : t("не выбран") }),
+          h("button", { text: t("Выбрать…"), on: { click: pickSound } }),
+          S.soundFile && h("button", { class: "lt-x", title: t("Убрать файл"), text: "×", on: { click: () => save(n => (n.soundFile = "")).then(render) } }))),
+      field(t("Громкость: {0}%", S.volume), h("input", { type: "range", min: 0, max: 100, step: 5, value: S.volume,
+        on: { input: e => (e.target.previousSibling.textContent = t("Громкость: {0}%", e.target.value)), change: e => save(n => (n.volume = Number(e.target.value))) } })),
+      h("div", { class: "lt-row" }, h("button", { text: t("▶ Проверить звук"), on: { click: () => E.playSound() } }),
+        h("button", { text: t("Проверить уведомление"), on: { click: () => E.notify(t("Уведомления LumiTime работают.")) } })),
+      toggle(t("Системные уведомления"), S.systemNotifications, v => save(n => (n.systemNotifications = v)), t("Когда время фокуса или перерыва вышло")),
 
-      goalSettings("Цели на серию дней", "streakGoalsEnabled", "streakGoalHours", "topicStreakGoals"),
-      h("div", { class: "lt-row" }, h("span", { class: "lt-dim", text: "Серия — дни подряд с фокусом." }),
-        confirmButton("Сбросить серию", "Точно сбросить?", () => { E.endStreak(); render(); })),
-      goalSettings("Цели на неделю (пн–вс)", "weekGoalsEnabled", "weekGoalHours", "topicWeekGoals"),
-      goalSettings("Цели на месяц", "monthGoalsEnabled", "monthGoalHours", "topicMonthGoals"),
+      goalSettings(t("Цели на серию дней"), "streakGoalsEnabled", "streakGoalHours", "topicStreakGoals"),
+      h("div", { class: "lt-row" }, h("span", { class: "lt-dim", text: t("Серия — дни подряд с фокусом.") }),
+        confirmButton(t("Сбросить серию"), t("Точно сбросить?"), () => { E.endStreak(); render(); })),
+      goalSettings(t("Цели на неделю (пн–вс)"), "weekGoalsEnabled", "weekGoalHours", "topicWeekGoals"),
+      goalSettings(t("Цели на месяц"), "monthGoalsEnabled", "monthGoalHours", "topicMonthGoals"),
 
-      h("h3", { text: "Каждый день" }),
-      toggle("Показывать «Каждый день»", S.dailyEnabled, v => save(n => (n.dailyEnabled = v)), "Ежедневные задачи в окне LumiTime и их статистика. Задачи добавляются и меняются в самом блоке"),
+      h("h3", { text: t("Каждый день") }),
+      toggle(t("Показывать «Каждый день»"), S.dailyEnabled, v => save(n => (n.dailyEnabled = v)), t("Ежедневные задачи в окне LumiTime и их статистика. Задачи добавляются и меняются в самом блоке")),
 
-      h("h3", { text: "Блок сайтов без пресета" }),
-      h("p", { class: "lt-dim", text: "Блок настраивается у каждого пресета (выше, «Блок сайтов»). Здесь — для таймера «Свой», когда длительности выбраны вручную." }),
+      h("h3", { text: t("Блок сайтов без пресета") }),
+      h("p", { class: "lt-dim", text: t("Блок настраивается у каждого пресета (выше, «Блок сайтов»). Здесь — для таймера «Свой», когда длительности выбраны вручную.") }),
       blockEditor(S, -1),
 
-      h("p", { class: "lt-dim", text: `Файлы: ${store.path("time")}` }),
+      h("p", { class: "lt-dim", text: t("Файлы: {0}", store.path("time")) }),
     );
   }
   // блок сайтов пресета i (или «Свой», i = -1): вкл/выкл, «и в перерывах», список
@@ -265,9 +285,9 @@ function settingsView(root) {
     const b = i < 0 ? { enabled: S.blockEnabled, sites: S.blockSites, breaks: S.blockBreaks } : S.presets[i].block;
     const set = (n, k, v) => (i < 0 ? (n[{ enabled: "blockEnabled", sites: "blockSites", breaks: "blockBreaks" }[k]] = v) : (n.presets[i].block[k] = v));
     return h("div", { class: "lt-block-body" },
-      toggle("Блокировать сайты", b.enabled, v => save(n => set(n, "enabled", v)).then(() => i >= 0 && render()),
-        "Пока идёт фокус (не пауза), эти сайты и их поддомены открываются заглушкой «Фокус — вернись после чч:мм»"),
-      toggle("Блокировать и в перерывах", b.breaks, v => save(n => set(n, "breaks", v)), "Строгий режим: сайты закрыты и во время перерыва. Выключено — только во время фокуса"),
+      toggle(t("Блокировать сайты"), b.enabled, v => save(n => set(n, "enabled", v)).then(() => i >= 0 && render()),
+        t("Пока идёт фокус (не пауза), эти сайты и их поддомены открываются заглушкой «Фокус — вернись после чч:мм»")),
+      toggle(t("Блокировать и в перерывах"), b.breaks, v => save(n => set(n, "breaks", v)), t("Строгий режим: сайты закрыты и во время перерыва. Выключено — только во время фокуса")),
       h("textarea", { class: "lt-sites", rows: 4, placeholder: "youtube.com\nreddit.com", value: b.sites.join("\n"),
         on: { change: e => save(n => set(n, "sites", e.target.value.split(/[\s,]+/).map(E.normDomain).filter(Boolean)))
           .then(() => (e.target.value = (i < 0 ? E.data.settings.blockSites : E.data.settings.presets[i].block.sites).join("\n"))) } }));
@@ -276,9 +296,9 @@ function settingsView(root) {
     const S = E.data.settings;
     return h("div", { class: "lt-goal-settings" },
       h("h3", { text: title }),
-      toggle("Показывать цели", S[onKey], v => save(n => (n[onKey] = v)).then(render)),
+      toggle(t("Показывать цели"), S[onKey], v => save(n => (n[onKey] = v)).then(render)),
       S[onKey] && h("div", { class: "lt-rows" },
-        h("div", { class: "lt-row" }, h("span", { class: "lt-row-label", text: "Всего, ч" }),
+        h("div", { class: "lt-row" }, h("span", { class: "lt-row-label", text: t("Всего, ч") }),
           num(S[totalKey], 0.25, 744, 0.25, v => (v === null || E.validGoalHours(v)) && !void save(n => (n[totalKey] = v)), "lt-num lt-wide")),
         S[topicsKey].map((g, i) => h("div", { class: "lt-row" },
           h("input", { type: "text", value: g.topic, list: topicList(), on: { change: e => {
@@ -287,17 +307,17 @@ function settingsView(root) {
             if (v && !dup) save(n => (n[topicsKey][i].topic = v));
           } } }),
           num(g.hours, 0.25, 744, 0.25, v => E.validGoalHours(v) && !void save(n => (n[topicsKey][i].hours = v))),
-          h("span", { class: "lt-dim", text: "ч" }),
-          h("button", { class: "lt-x", title: "Удалить цель", text: "×", on: { click: () => save(n => n[topicsKey].splice(i, 1)).then(render) } }))),
-        h("button", { class: "lt-add", text: "+ Цель по теме", on: { click: () => save(n => {
+          h("span", { class: "lt-dim", text: t("ч") }),
+          h("button", { class: "lt-x", title: t("Удалить цель"), text: "×", on: { click: () => save(n => n[topicsKey].splice(i, 1)).then(render) } }))),
+        h("button", { class: "lt-add", text: t("+ Цель по теме"), on: { click: () => save(n => {
           const used = new Set(n[topicsKey].map(x => x.topic.toLocaleLowerCase()));
-          n[topicsKey].push({ topic: n.topics.find(t => !used.has(t.toLocaleLowerCase())) ?? `Тема ${n[topicsKey].length + 1}`, hours: 1 });
+          n[topicsKey].push({ topic: n.topics.find(x => !used.has(x.toLocaleLowerCase())) ?? t("Тема {0}", n[topicsKey].length + 1), hours: 1 });
         }).then(render) } })));
   }
   function pickSound() {
     const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
-    fp.init(window.browsingContext, "Звук LumiTime", Ci.nsIFilePicker.modeOpen);
-    fp.appendFilter("Аудио", "*.mp3;*.wav;*.ogg;*.oga;*.m4a;*.aac;*.flac;*.opus;*.webm");
+    fp.init(window.browsingContext, t("Звук LumiTime"), Ci.nsIFilePicker.modeOpen);
+    fp.appendFilter(t("Аудио"), "*.mp3;*.wav;*.ogg;*.oga;*.m4a;*.aac;*.flac;*.opus;*.webm");
     fp.open(rv => { if (rv == Ci.nsIFilePicker.returnOK && fp.file) save(n => (n.soundFile = fp.file.path)).then(render); });
   }
   render();
@@ -311,13 +331,13 @@ function statsView(root) {
     const W = 640, H = 220, L = 34, B = 22, T = 8, max = Math.max(0, ...st.buckets.map(b => b.focusMs + b.breakMs));
     const ticks = E.chartYAxisTicks(max, period), top = ticks.at(-1) * 3600000, y = ms => H - B - (H - B - T) * ms / top;
     const bw = (W - L) / st.buckets.length, gap = Math.min(6, bw * 0.25);
-    return s("svg", { viewBox: `0 0 ${W} ${H}`, class: "lt-chart", role: "img", "aria-label": "График фокуса и перерывов" },
-      ticks.map(t => s("g", {}, s("line", { x1: L, x2: W, y1: y(t * 3600000), y2: y(t * 3600000), class: "lt-grid" }),
-        s("text", { x: L - 6, y: y(t * 3600000) + 4, "text-anchor": "end", class: "lt-axis" }, `${t} ч`))),
+    return s("svg", { viewBox: `0 0 ${W} ${H}`, class: "lt-chart", role: "img", "aria-label": t("График фокуса и перерывов") },
+      ticks.map(tk => s("g", {}, s("line", { x1: L, x2: W, y1: y(tk * 3600000), y2: y(tk * 3600000), class: "lt-grid" }),
+        s("text", { x: L - 6, y: y(tk * 3600000) + 4, "text-anchor": "end", class: "lt-axis" }, t("{0} ч", tk)))),
       st.buckets.map((b, i) => {
         const x = L + i * bw + gap / 2, w = bw - gap;
         return s("g", { class: "lt-bar" },
-          s("title", {}, `${b.label}: фокус ${hm(b.focusMs)}, перерывы ${hm(b.breakMs)}`),
+          s("title", {}, t("{0}: фокус {1}, перерывы {2}", b.label, hm(b.focusMs), hm(b.breakMs))),
           b.focusMs > 0 && s("rect", { x, width: w, y: y(b.focusMs), height: H - B - y(b.focusMs), rx: 3, class: "lt-bar-focus" }),
           b.breakMs > 0 && s("rect", { x, width: w, y: y(b.focusMs + b.breakMs), height: y(b.focusMs) - y(b.focusMs + b.breakMs), rx: 3, class: "lt-bar-break" }),
           (period != "month" || i % 2 == 0 || st.buckets.length < 20) && s("text", { x: x + w / 2, y: H - 6, "text-anchor": "middle", class: "lt-axis" }, b.label));
@@ -327,24 +347,24 @@ function statsView(root) {
     const st = E.buildStatistics(E.data.records, period, at), maxTopic = st.topics[0]?.[1] ?? 0;
     const go = dir => { at = E.shiftStatisticsDate(at, period, dir); render(); };
     fill(root, 
-      h("div", { class: "lt-seg" }, [["week", "Неделя"], ["month", "Месяц"], ["year", "Год"]].map(([p, t]) =>
-        h("button", { text: t, "aria-pressed": String(p == period), on: { click: () => { period = p; render(); } } }))),
-      h("div", { class: "lt-period" }, h("button", { class: "lt-nav-arrow", title: "Назад", text: "‹", on: { click: () => go(-1) } }),
+      h("div", { class: "lt-seg" }, [["week", t("Неделя")], ["month", t("Месяц")], ["year", t("Год")]].map(([p, lb]) =>
+        h("button", { text: lb, "aria-pressed": String(p == period), on: { click: () => { period = p; render(); } } }))),
+      h("div", { class: "lt-period" }, h("button", { class: "lt-nav-arrow", title: t("Назад"), text: "‹", on: { click: () => go(-1) } }),
         h("b", { class: "lt-period-title", text: st.title }),
-        h("button", { class: "lt-nav-arrow", title: "Вперёд", text: "›", on: { click: () => go(1) } }),
-        h("button", { class: "lt-link", text: "Сейчас", on: { click: () => { at = new Date(E.now()); render(); } } })),
+        h("button", { class: "lt-nav-arrow", title: t("Вперёд"), text: "›", on: { click: () => go(1) } }),
+        h("button", { class: "lt-link", text: t("Сейчас"), on: { click: () => { at = new Date(E.now()); render(); } } })),
       h("div", { class: "lt-cards" },
-        [["Фокус", clockOf(st.focusMs)], ["Перерывы", clockOf(st.breakMs)], ["Сессий фокуса", String(st.focusSessions)],
-          ["Средняя сессия", clockOf(st.averageFocusMs)], ["Дней с фокусом", String(st.focusDays)]]
+        [[t("Фокус"), clockOf(st.focusMs)], [t("Перерывы"), clockOf(st.breakMs)], [t("Сессий фокуса"), String(st.focusSessions)],
+          [t("Средняя сессия"), clockOf(st.averageFocusMs)], [t("Дней с фокусом"), String(st.focusDays)]]
           .map(([k, v], i) => h("div", { class: `lt-card${i == 0 ? " lt-card-main" : ""}` }, h("small", { text: k }), h("b", { text: v })))),
       chart(st),
-      h("div", { class: "lt-legend" }, h("span", { class: "lt-key-focus", text: "Фокус" }), h("span", { class: "lt-key-break", text: "Перерывы" })),
-      h("h3", { text: "По темам" }),
-      st.topics.length ? h("div", { class: "lt-topics" }, st.topics.map(([t, ms]) => h("div", { class: "lt-topic" },
-        h("span", { text: t }), h("span", { class: "lt-dim", text: `${clockOf(ms)} · ${Math.round(ms / st.focusMs * 100)}%` }),
-        h("div", { class: "lt-goal-track" }, h("div", { class: "lt-goal-fill", style: `width:${ms / maxTopic * 100}%` })))))
-        : h("p", { class: "lt-dim", text: "За этот период фокуса нет." }),
-      goalsBlock("streak", "Цели на серию"), goalsBlock("week", "Цели на неделю"), goalsBlock("month", "Цели на месяц"),
+      h("div", { class: "lt-legend" }, h("span", { class: "lt-key-focus", text: t("Фокус") }), h("span", { class: "lt-key-break", text: t("Перерывы") })),
+      h("h3", { text: t("По темам") }),
+      st.topics.length ? h("div", { class: "lt-topics" }, st.topics.map(([tp, ms]) => h("div", { class: "lt-topic" },
+        topicTag(tp), h("span", { class: "lt-dim", text: `${clockOf(ms)} · ${Math.round(ms / st.focusMs * 100)}%` }),
+        h("div", { class: "lt-goal-track" }, h("div", { class: "lt-goal-fill", style: `width:${ms / maxTopic * 100}%${topicColor(tp) ? `;background:${topicColor(tp)}` : ""}` })))))
+        : h("p", { class: "lt-dim", text: t("За этот период фокуса нет.") }),
+      goalsBlock("streak", t("Цели на серию")), goalsBlock("week", t("Цели на неделю")), goalsBlock("month", t("Цели на месяц")),
       dailyStatsBlock(),
       E.data.journalError && h("p", { class: "lt-error", text: E.data.journalError }),
     );
@@ -358,10 +378,10 @@ function journalView(root) {
   let shown = 14;
   function render() {
     const days = E.journalDays(), last = E.lastRecord(), S = E.data;
-    const type = select([["Focus", "Фокус"], ["Break", "Перерыв"]], "Focus", v => (topic.hidden = v != "Focus"));
-    const topic = h("input", { type: "text", maxLength: 200, list: topicList(), placeholder: "Тема", value: S.selection.topic.trim() || S.settings.topics[0] || "" });
-    const hours = h("input", { type: "number", class: "lt-num", min: 0, max: 23, step: 1, value: 0, title: "часы" });
-    const mins = h("input", { type: "number", class: "lt-num", min: 0, max: 59, step: 1, value: 25, title: "минуты" });
+    const type = select([["Focus", t("Фокус")], ["Break", t("Перерыв")]], "Focus", v => (topic.hidden = v != "Focus"));
+    const topic = h("input", { type: "text", maxLength: 200, list: topicList(), placeholder: t("Тема"), value: S.selection.topic.trim() || S.settings.topics[0] || "" });
+    const hours = h("input", { type: "number", class: "lt-num", min: 0, max: 23, step: 1, value: 0, title: t("часы") });
+    const mins = h("input", { type: "number", class: "lt-num", min: 0, max: 59, step: 1, value: 25, title: t("минуты") });
     const add = () => {
       const ms = (Number(hours.value) * 60 + Number(mins.value)) * 60000;
       const ok = Number.isInteger(Number(hours.value)) && Number.isInteger(Number(mins.value)) && ms > 0 && ms <= 24 * 3600000;
@@ -371,28 +391,28 @@ function journalView(root) {
     fill(root, 
       h("div", { class: "lt-box" },
         h("div", { class: "lt-row" },
-          h("span", { class: "lt-grow", text: last ? `Последняя: ${KIND[last.kind]}${last.kind == "Focus" ? ` · ${last.topic}` : ""} · ${clockOf(E.countedRecordMs(last))}` : "Записей пока нет" }),
-          h("button", { title: "Убрать минуту у последней записи", text: "−1 мин", disabled: !last || !E.adjustRecordDuration(last, -1), on: { click: () => E.adjust(-1) } }),
-          h("button", { title: "Добавить минуту к последней записи", text: "+1 мин", disabled: !last, on: { click: () => E.adjust(1) } })),
-        S.state.phase != "idle" && h("small", { class: "lt-dim", text: "Пока идёт цикл, ± в кольце правят его время; здесь — последняя запись журнала." })),
-      h("div", { class: "lt-box" }, h("b", { text: "Добавить время вручную" }),
-        h("div", { class: "lt-row lt-manual" }, type, topic, hours, h("span", { text: "ч" }), mins, h("span", { text: "мин" }),
-          h("button", { class: "lt-primary", text: "Добавить", on: { click: add } }))),
+          h("span", { class: "lt-grow", text: last ? (last.kind == "Focus" ? t("Последняя: {0} · {1} · {2}", KIND()[last.kind], topicName(last.topic), clockOf(E.countedRecordMs(last))) : t("Последняя: {0} · {1}", KIND()[last.kind], clockOf(E.countedRecordMs(last)))) : t("Записей пока нет") }),
+          h("button", { title: t("Убрать минуту у последней записи"), text: t("−1 мин"), disabled: !last || !E.adjustRecordDuration(last, -1), on: { click: () => E.adjust(-1) } }),
+          h("button", { title: t("Добавить минуту к последней записи"), text: t("+1 мин"), disabled: !last, on: { click: () => E.adjust(1) } })),
+        S.state.phase != "idle" && h("small", { class: "lt-dim", text: t("Пока идёт цикл, ± в кольце правят его время; здесь — последняя запись журнала.") })),
+      h("div", { class: "lt-box" }, h("b", { text: t("Добавить время вручную") }),
+        h("div", { class: "lt-row lt-manual" }, type, topic, hours, h("span", { text: t("ч") }), mins, h("span", { text: t("мин") }),
+          h("button", { class: "lt-primary", text: t("Добавить"), on: { click: add } }))),
       S.journalError && h("p", { class: "lt-error", text: S.journalError }),
-      S.writeError && h("p", { class: "lt-error", text: `Запись не удалась: ${S.writeError}. Записи (${E.pendingCount()}) ждут.` }),
-      E.pendingCount() > 0 && h("button", { text: `Повторить запись (${E.pendingCount()})`, on: { click: () => E.flushJournal() } }),
+      S.writeError && h("p", { class: "lt-error", text: t("Запись не удалась: {0}. Записи ({1}) ждут.", S.writeError, E.pendingCount()) }),
+      E.pendingCount() > 0 && h("button", { text: t("Повторить запись ({0})", E.pendingCount()), on: { click: () => E.flushJournal() } }),
       days.length ? days.slice(0, shown).map(d => h("div", { class: "lt-day" },
         h("div", { class: "lt-day-head" }, h("b", { text: dateTitle(d.date, { weekday: "short", day: "numeric", month: "long", year: "numeric" }) }),
-          h("span", { class: "lt-dim", text: `фокус ${clockOf(d.focusMs)}${d.breakMs ? ` · перерывы ${clockOf(d.breakMs)}` : ""}` })),
+          h("span", { class: "lt-dim", text: d.breakMs ? t("фокус {0} · перерывы {1}", clockOf(d.focusMs), clockOf(d.breakMs)) : t("фокус {0}", clockOf(d.focusMs)) })),
         h("table", { class: "lt-table" },
-          h("thead", {}, h("tr", {}, ["Тип", "Режим", "Тема", "Время", "Пауза", "Итог"].map(t => h("th", { text: t })))),
+          h("thead", {}, h("tr", {}, [t("Тип"), t("Режим"), t("Тема"), t("Время"), t("Пауза"), t("Итог")].map(lb => h("th", { text: lb })))),
           h("tbody", {}, d.rows.map(({ record: r, ms, pausedMs }) => h("tr", { class: r.kind == "Focus" ? "lt-row-focus" : "" },
-            h("td", { text: KIND[r.kind] }), h("td", { text: (MODE[r.timerMode ?? "Countdown"]) + (r.manual ? " · вручную" : "") }),
-            h("td", { text: r.kind == "Focus" ? r.topic : "—" }), h("td", { text: clockOf(ms) }),
-            h("td", { text: pausedMs ? clockOf(pausedMs) : "—" }), h("td", { text: RESULT[r.result] })))))))
-        : h("p", { class: "lt-dim", text: "Журнал пуст. Сессии от 3 минут записываются сами; короче — можно добавить вручную." }),
-      days.length > shown && h("button", { class: "lt-add", text: "Показать ещё", on: { click: () => { shown += 14; render(); } } }),
-      h("p", { class: "lt-dim", text: `Файл: ${store.path("time/journal.json")}` }),
+            h("td", { text: KIND()[r.kind] }), h("td", { text: r.manual ? t("{0} · вручную", MODE()[r.timerMode ?? "Countdown"]) : MODE()[r.timerMode ?? "Countdown"] }),
+            r.kind == "Focus" ? topicTag(r.topic, "td") : h("td", { text: "—" }), h("td", { text: clockOf(ms) }),
+            h("td", { text: pausedMs ? clockOf(pausedMs) : "—" }), h("td", { text: RESULT()[r.result] })))))))
+        : h("p", { class: "lt-dim", text: t("Журнал пуст. Сессии от 3 минут записываются сами; короче — можно добавить вручную.") }),
+      days.length > shown && h("button", { class: "lt-add", text: t("Показать ещё"), on: { click: () => { shown += 14; render(); } } }),
+      h("p", { class: "lt-dim", text: t("Файл: {0}", store.path("time/journal.json")) }),
     );
   }
   render();
@@ -408,50 +428,50 @@ function dayView(root) {
     date = d; error = null; day = null;
     try {
       const v = await store.readJSON(E.dayFile(d), null);
-      if (v && !valid(v)) throw new Error("неизвестный формат");
+      if (v && !valid(v)) throw new Error(t("неизвестный формат"));
       if (d == date) day = v ?? empty(d);
-    } catch (e) { error = `Файл дня не читается (${E.dayFile(d)}): ${e.message ?? e}. Он не будет перезаписан.`; }
+    } catch (e) { error = t("Файл дня не читается ({0}): {1}. Он не будет перезаписан.", E.dayFile(d), e.message ?? e); }
     render();
   }
   const save = () => {
     const snap = plain(day), rel = E.dayFile(snap.date);
-    saving = saving.then(() => store.writeJSON(rel, snap)).catch(e => { error = `Не сохранилось: ${e.message ?? e}`; render(); });
+    saving = saving.then(() => store.writeJSON(rel, snap)).catch(e => { error = t("Не сохранилось: {0}", e.message ?? e); render(); });
     return saving;
   };
   const change = fn => { fn(day); save(); render(); };
   function render() {
     const today = E.localDate(E.now()), focus = E.journalDays().find(d => d.date == date);
     const done = day ? day.tasks.filter(t => t.done).length : 0, total = day?.tasks.length ?? 0, pct = total ? Math.round(done / total * 100) : 0;
-    const newTask = h("input", { type: "text", class: "lt-grow", placeholder: "Новая задача — Enter", maxLength: 500,
+    const newTask = h("input", { type: "text", class: "lt-grow", placeholder: t("Новая задача — Enter"), maxLength: 500,
       on: { keydown: e => { if (e.key == "Enter" && newTask.value.trim()) { const text = newTask.value.trim(); change(d => d.tasks.push({ id: crypto.randomUUID(), text, done: false })); root.querySelector(".lt-new-task")?.focus(); } } } });
     newTask.classList.add("lt-new-task");
-    const note = h("textarea", { rows: 3, placeholder: "Комментарий к дню… (Ctrl+Enter — добавить)", maxLength: 4000,
+    const note = h("textarea", { rows: 3, placeholder: t("Комментарий к дню… (Ctrl+Enter — добавить)"), maxLength: 4000,
       on: { keydown: e => { if (e.key == "Enter" && e.ctrlKey) addNote(); } } });
     const addNote = () => { const text = note.value.trim(); if (text) change(d => d.comments.push({ id: crypto.randomUUID(), text, at: E.now() })); };
     fill(root, 
       h("div", { class: "lt-period" },
-        h("button", { class: "lt-nav-arrow", title: "Предыдущий день", text: "‹", on: { click: () => load(E.shiftDate(date, -1)) } }),
-        h("b", { class: "lt-period-title", text: dateTitle(date, { weekday: "long", day: "numeric", month: "long" }) + (date == today ? " · сегодня" : "") }),
-        h("button", { class: "lt-nav-arrow", title: "Следующий день", text: "›", on: { click: () => load(E.shiftDate(date, 1)) } }),
-        date != today && h("button", { class: "lt-link", text: "Сегодня", on: { click: () => load(today) } })),
+        h("button", { class: "lt-nav-arrow", title: t("Предыдущий день"), text: "‹", on: { click: () => load(E.shiftDate(date, -1)) } }),
+        h("b", { class: "lt-period-title", text: dateTitle(date, { weekday: "long", day: "numeric", month: "long" }) + (date == today ? t(" · сегодня") : "") }),
+        h("button", { class: "lt-nav-arrow", title: t("Следующий день"), text: "›", on: { click: () => load(E.shiftDate(date, 1)) } }),
+        date != today && h("button", { class: "lt-link", text: t("Сегодня"), on: { click: () => load(today) } })),
       h("div", { class: "lt-cards" },
-        h("div", { class: "lt-card lt-card-main" }, h("small", { text: "Задачи" }), h("b", { text: `${done} / ${total}` }),
+        h("div", { class: "lt-card lt-card-main" }, h("small", { text: t("Задачи") }), h("b", { text: `${done} / ${total}` }),
           h("div", { class: "lt-goal-track" }, h("div", { class: "lt-goal-fill", style: `width:${pct}%` }))),
-        h("div", { class: "lt-card" }, h("small", { text: "Фокус за день" }), h("b", { text: clockOf(focus?.focusMs ?? 0) }))),
+        h("div", { class: "lt-card" }, h("small", { text: t("Фокус за день") }), h("b", { text: clockOf(focus?.focusMs ?? 0) }))),
       error && h("p", { class: "lt-error", text: error }),
-      day && h("h3", { text: "Задачи" }),
-      day && h("ul", { class: "lt-tasks" }, day.tasks.map((t, i) => h("li", { class: t.done ? "lt-done" : "" },
-        h("label", {}, h("input", { type: "checkbox", checked: t.done, on: { change: e => { E.playCheckSound(e.target.checked); change(d => (d.tasks[i].done = e.target.checked)); } } }),
-          h("span", { text: t.text })),
-        h("button", { class: "lt-x", title: "Удалить задачу", text: "×", on: { click: () => change(d => d.tasks.splice(i, 1)) } })))),
+      day && h("h3", { text: t("Задачи") }),
+      day && h("ul", { class: "lt-tasks" }, day.tasks.map((tk, i) => h("li", { class: tk.done ? "lt-done" : "" },
+        h("label", {}, h("input", { type: "checkbox", checked: tk.done, on: { change: e => { E.playCheckSound(e.target.checked); change(d => (d.tasks[i].done = e.target.checked)); } } }),
+          h("span", { text: tk.text })),
+        h("button", { class: "lt-x", title: t("Удалить задачу"), text: "×", on: { click: () => change(d => d.tasks.splice(i, 1)) } })))),
       day && h("div", { class: "lt-row" }, newTask),
-      day && h("h3", { text: "Комментарии" }),
+      day && h("h3", { text: t("Комментарии") }),
       day && h("div", { class: "lt-comments" }, day.comments.map((c, i) => h("div", { class: "lt-comment" },
-        h("small", { class: "lt-dim", text: new Date(c.at).toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" }) }),
+        h("small", { class: "lt-dim", text: new Date(c.at).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" }) }),
         h("p", { text: c.text }),
-        h("button", { class: "lt-x", title: "Удалить комментарий", text: "×", on: { click: () => change(d => d.comments.splice(i, 1)) } })))),
+        h("button", { class: "lt-x", title: t("Удалить комментарий"), text: "×", on: { click: () => change(d => d.comments.splice(i, 1)) } })))),
       day && note,
-      day && h("button", { class: "lt-add", text: "Добавить комментарий", on: { click: addNote } }),
+      day && h("button", { class: "lt-add", text: t("Добавить комментарий"), on: { click: addNote } }),
     );
   }
   root.lumiDay = { load: d => load(d), get: () => day, saved: () => saving }; // для проверок

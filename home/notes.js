@@ -10,13 +10,13 @@
 import * as md from "./notes-md.mjs";
 import { createLive } from "./notes-live.mjs";
 import { JS } from "./paths.js";
-const { locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
+const { locale, t } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
 const root = document.getElementById("lumi-notes");
 const win = window.browsingContext.topChromeWindow;
 const DIR = "luminoctis.home.dir", NEW = "luminoctis.home.notes.new"; // NEW: "task" | "note" — чем становится новый пункт
 const MIN_H = 140, MIN_W = 180, DEF_W = 320, DEF_H = 420, IND = 28; // IND — отступ подпункта, как --ind в notes.css
-const NAMES = { red: "Красный", orange: "Оранжевый", yellow: "Жёлтый", green: "Зелёный", teal: "Бирюзовый", blue: "Синий", purple: "Фиолетовый", pink: "Розовый", gray: "Серый" };
+const NAMES = { red: t("Красный"), orange: t("Оранжевый"), yellow: t("Жёлтый"), green: t("Зелёный"), teal: t("Бирюзовый"), blue: t("Синий"), purple: t("Фиолетовый"), pink: t("Розовый"), gray: t("Серый") };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const btn = (text, cls, title) => { const b = el("button", cls, text); b.type = "button"; if (title) b.title = title; return b; };
 // значки — встроенные SVG (контуры 24x24, цвет — currentColor из notes.css), без внешних файлов
@@ -42,7 +42,7 @@ let byMeta = new Map(); // meta → лист
 const box = el("div", "lumi-boards");
 const errBox = el("div", "lumi-notes-error");
 errBox.hidden = true;
-errBox.title = "Скрыть";
+errBox.title = t("Скрыть");
 errBox.onclick = () => (errBox.hidden = true);
 root.replaceChildren(box, errBox);
 
@@ -50,7 +50,7 @@ function fail(e, what) {
   console.error("LumiNotes:", what, e);
   const io = e instanceof DOMException; // ошибка диска — спокойная подсказка вместо текста ошибки
   errBox.classList.toggle("calm", io);
-  errBox.textContent = io ? "Не удалось открыть папку данных — выберите её в настройках" : `LumiNotes: не удалось ${what} — ${e?.message ?? e}`;
+  errBox.textContent = io ? t("Не удалось открыть папку данных — выберите её в настройках") : t("LumiNotes: не удалось {0} — {1}", what, e?.message ?? e);
   errBox.hidden = false;
 }
 
@@ -67,7 +67,7 @@ function flush(b) {
   const doc = isDoc(b), data = doc ? b.text ?? "" : b.cards.map(c => ({ ...c })), name = b.name;
   b.saving = (b.saving ?? Promise.resolve()).then(() => (doc ? md.writeRaw(name, data) : md.writeSheet(name, data)))
     .then(() => (lastSig = null)) // диск изменили мы — следующее чтение перерисует
-    .catch(e => { b.dirty = true; fail(e, `сохранить «${name}»`); });
+    .catch(e => { b.dirty = true; fail(e, t("сохранить «{0}»", name)); });
   return b.saving;
 }
 const flushAll = () => Promise.all(boards.map(flush));
@@ -79,10 +79,10 @@ const saveLayout = () => (lp = lp.then(async () => {
   if (text != null) return void (layoutBase = text);
   reload().then(() => {
     errBox.classList.add("calm");
-    errBox.textContent = "Раскладка изменилась в другом окне — правка не сохранена, повтори её";
+    errBox.textContent = t("Раскладка изменилась в другом окне — правка не сохранена, повтори её");
     errBox.hidden = false;
   });
-}).catch(e => fail(e, "сохранить раскладку")));
+}).catch(e => fail(e, t("сохранить раскладку"))));
 const sync = () => { boards = layout.rows.flatMap(r => r.sheets).map(m => byMeta.get(m)); }; // плоский список — по раскладке
 const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 
@@ -96,7 +96,7 @@ async function load() {
   try {
     await lp;
     let lay = await md.readLayout();
-    if (!lay.rows.some(r => r.sheets.length) && await md.seedDefaults()) lay = await md.readLayout(); // пусто из-за сбоя чтения — ничего не создаём
+    if (!lay.rows.some(r => r.sheets.length) && await md.seedDefaults([t("Сегодня"), t("Дела"), t("Идеи")], t("Нажми на текст, чтобы изменить; новый пункт — внизу листа"))) lay = await md.readLayout(); // пусто из-за сбоя чтения — ничего не создаём
     const old = new Map(boards.map(b => [b.name, b])), map = new Map();
     const raws = new Map(await Promise.all(lay.rows.flatMap(r => r.sheets).map(async m => [m.name, await md.readRaw(m.name)])));
     const sig = JSON.stringify([lay, [...raws]]);
@@ -115,7 +115,7 @@ async function load() {
     layoutBase = md.baseOf(lay);
     byMeta = map;
     sync();
-  } catch (e) { return fail(e, "прочитать заметки"); }
+  } catch (e) { return fail(e, t("прочитать заметки")); }
   render();
   Services.obs.notifyObservers(null, md.SAVED); // рейка пересчитывает точку задач; Home на SAVED не подписана
 }
@@ -194,12 +194,12 @@ function cardEl(c, p, depth, today, more) {
   if (c.heading) { // заголовок-разделитель: без галочки, свёртки и подпунктов
     li.classList.add("lumi-heading");
     li.dataset.level = c.heading;
-    const t = el("div", "lumi-card-text"), body = el("span", "lumi-card-body");
+    const txt = el("div", "lumi-card-text"), body = el("span", "lumi-card-body");
     renderInline(body, c.text);
-    t.append(body);
+    txt.append(body);
     const tools = el("span", "lumi-card-tools");
-    tools.append(ibtn("x", "lumi-card-del", "Удалить заголовок"));
-    li.append(t, tools);
+    tools.append(ibtn("x", "lumi-card-del", t("Удалить заголовок")));
+    li.append(txt, tools);
     return li;
   }
   for (let j = 0; j < depth; j++) { // линии дерева: колонка j — вертикаль детей предка j; последняя колонка — ветка к самому пункту
@@ -210,7 +210,7 @@ function cardEl(c, p, depth, today, more) {
     li.append(g);
     if (j == depth - 1 && more[depth]) { const v = el("span", "lumi-guide"); v.style.setProperty("--j", j); v.style.setProperty("--dd", depth); li.append(v); }
   }
-  li.append(c.children.length ? ibtn("chev", "lumi-fold" + (collapsed.has(c) ? "" : " open"), collapsed.has(c) ? "Развернуть" : "Свернуть") : el("span", "lumi-fold"));
+  li.append(c.children.length ? ibtn("chev", "lumi-fold" + (collapsed.has(c) ? "" : " open"), collapsed.has(c) ? t("Развернуть") : t("Свернуть")) : el("span", "lumi-fold"));
   if (c.check != null) {
     const cb = el("input");
     cb.type = "checkbox";
@@ -218,20 +218,20 @@ function cardEl(c, p, depth, today, more) {
     li.append(cb);
     li.classList.toggle("done", c.check);
   }
-  const t = el("div", "lumi-card-text"), body = el("span", "lumi-card-body");
+  const txt = el("div", "lumi-card-text"), body = el("span", "lumi-card-body");
   renderInline(body, c.text);
-  t.append(body);
+  txt.append(body);
   if (c.start || c.due) {
     const dates = el("span", "lumi-card-dates");
     dates.dataset.state = dateState(c, today);
     for (const k of ["start", "due"]) if (c[k]) { const s = el("span"); s.append(svg(k), fmtDate(c[k])); s.title = c[k]; dates.append(s); }
-    t.append(dates);
+    txt.append(dates);
   }
   const [done, all] = c.check == null ? [0, 0] : tally(c);
-  if (all) t.append(el("span", "lumi-card-count", `${done}/${all}`));
+  if (all) txt.append(el("span", "lumi-card-count", `${done}/${all}`));
   const tools = el("span", "lumi-card-tools");
-  tools.append(ibtn("plus", "lumi-card-add-sub", "Добавить подпункт"), ibtn("x", "lumi-card-del", "Удалить пункт"));
-  li.append(t, tools);
+  tools.append(ibtn("plus", "lumi-card-add-sub", t("Добавить подпункт")), ibtn("x", "lumi-card-del", t("Удалить пункт")));
+  li.append(txt, tools);
   return li;
 }
 
@@ -241,8 +241,8 @@ function composer(d, field, onKind) {
   const wrap = el("div", "lumi-comp"), main = el("div", "lumi-comp-main"), dates = el("div", "lumi-comp-dates");
   const kind = btn("", "lumi-kind"), parts = [];
   main.append(kind, field);
-  for (const [key, icon, name] of [["start", "start", "начало"], ["due", "due", "срок"]]) {
-    const w = el("span", "lumi-date"), b = btn("", "lumi-date-btn"), clear = ibtn("x", "lumi-date-clear", "Убрать дату"), inp = el("input");
+  for (const [key, icon, name] of [["start", "start", t("начало")], ["due", "due", t("срок")]]) {
+    const w = el("span", "lumi-date"), b = btn("", "lumi-date-btn"), clear = ibtn("x", "lumi-date-clear", t("Убрать дату")), inp = el("input");
     inp.type = "date";
     inp.tabIndex = -1;
     b.onclick = () => { try { inp.showPicker(); } catch { inp.focus(); } };
@@ -255,12 +255,12 @@ function composer(d, field, onKind) {
   function refresh() {
     kind.replaceChildren(svg(d.task ? "task" : "note"));
     kind.dataset.kind = d.task ? "task" : "note";
-    kind.title = d.task ? "Задача с галочкой. Нажми — сделать заметкой" : "Заметка без галочки. Нажми — сделать задачей";
+    kind.title = d.task ? t("Задача с галочкой. Нажми — сделать заметкой") : t("Заметка без галочки. Нажми — сделать задачей");
     dates.hidden = !d.task;
     wrap.classList.toggle("has-date", !!(d.task && (d.start || d.due)));
     for (const { key, icon, name, b, inp, clear } of parts) {
       b.replaceChildren(svg(icon), d[key] ? fmtDate(d[key]) : name);
-      b.title = d[key] ? `${name[0].toUpperCase()}${name.slice(1)}: ${d[key]}` : `Дата: ${name}`;
+      b.title = d[key] ? (key == "start" ? t("Начало: {0}", d[key]) : t("Срок: {0}", d[key])) : (key == "start" ? t("Дата: начало") : t("Дата: срок"));
       inp.value = d[key];
       clear.hidden = !d[key];
     }
@@ -278,7 +278,7 @@ function composer(d, field, onKind) {
   return wrap;
 }
 function grip(cls, title) { const g = el("div", cls); g.title = title; return g; }
-const grips = s => s.append(grip("lumi-sheet-grip", "Ширина листа"), grip("lumi-sheet-grip-b", "Высота листа"), grip("lumi-sheet-grip-c", "Размер листа"));
+const grips = s => s.append(grip("lumi-sheet-grip", t("Ширина листа")), grip("lumi-sheet-grip-b", t("Высота листа")), grip("lumi-sheet-grip-c", t("Размер листа")));
 const isDoc = b => b.meta.mode == "doc";
 function docEl(b) { // живой редактор: правка сразу в b.text, запись — save(b); при уходе фокуса — сразу
   return createLive({ text: b.text ?? "", onChange: t => { b.text = t; save(b); }, onLink: href => win.openTrustedLinkIn(href, "tab"), onBlur: () => flush(b) }).el;
@@ -293,16 +293,16 @@ function sheetEl(b, row) {
   const head = el("header", "lumi-sheet-head");
   head.draggable = true;
   const tools = el("span", "lumi-sheet-tools");
-  const dot = btn("", "lumi-sheet-color", "Цвет листа");
+  const dot = btn("", "lumi-sheet-color", t("Цвет листа"));
   dot.append(el("span", "lumi-dot"));
   tools.append(dot);
-  if (boards.length > 1) tools.append(ibtn("x", "lumi-sheet-del", "Удалить лист"));
+  if (boards.length > 1) tools.append(ibtn("x", "lumi-sheet-del", t("Удалить лист")));
   if (b.meta.icon) head.append(sheetIcon(b.meta.icon));
   head.append(el("h3", "lumi-sheet-title", b.name), el("span", "lumi-sheet-count", b.cards.length || ""), tools);
   s.append(head);
   if (b.confirm) {
     const c = el("div", "lumi-confirm");
-    c.append(el("span", null, `Удалить лист «${b.name}» вместе с файлом?`), btn("Удалить", "lumi-confirm-yes"), btn("Отмена", "lumi-confirm-no"));
+    c.append(el("span", null, t("Удалить лист «{0}» вместе с файлом?", b.name)), btn(t("Удалить"), "lumi-confirm-yes"), btn(t("Отмена"), "lumi-confirm-no"));
     s.append(c);
   }
   if (isDoc(b)) { // лист-документ: цельный оформленный текст, без строки добавления
@@ -314,7 +314,7 @@ function sheetEl(b, row) {
   const list = el("ul", "lumi-cards"), today = todayStr();
   list.append(...flat(b.cards).map(([c, p, depth, more]) => cardEl(c, p, depth, today, more)));
   const foot = el("footer", "lumi-sheet-foot"), input = inputBox("lumi-add-input"), d = (b.draft ??= freshDraft(b));
-  input.placeholder = "Новый пункт…";
+  input.placeholder = t("Новый пункт…");
   input.addEventListener("keydown", e => {
     const text = input.value.trim();
     if (e.key != "Enter" || e.shiftKey || e.isComposing) return;
@@ -334,10 +334,10 @@ function sheetEl(b, row) {
   return s;
 }
 function rowHead(r) { // шапка ряда: цветная точка, название (пусто — приглушённое «Без названия»), «⋯»; за неё ряд перетаскивается
-  const h = el("div", "lumi-row-head"), name = el("span", "lumi-row-name" + (r.name ? "" : " empty"), r.name || "Без названия");
+  const h = el("div", "lumi-row-head"), name = el("span", "lumi-row-name" + (r.name ? "" : " empty"), r.name || t("Без названия"));
   h.draggable = true;
-  name.title = "Двойной клик — переименовать. Шапку можно перетащить, чтобы переставить ряд";
-  h.append(el("span", "lumi-row-dot"), name, ibtn("plus", "lumi-add-sheet", "Новый лист в этом ряду"), ibtn("more", "lumi-row-more", "Меню ряда"));
+  name.title = t("Двойной клик — переименовать. Шапку можно перетащить, чтобы переставить ряд");
+  h.append(el("span", "lumi-row-dot"), name, ibtn("plus", "lumi-add-sheet", t("Новый лист в этом ряду")), ibtn("more", "lumi-row-more", t("Меню ряда")));
   return h;
 }
 function sheetIcon(v) { // эмодзи — текстом, значок Zen (chrome://…svg) — маской, чтобы красился в цвет текста
@@ -358,7 +358,7 @@ function render() {
   const keep = new Map([...box.querySelectorAll(".lumi-sheet")].map(s => [s._b, s.querySelector(".lumi-cards")?.scrollTop ?? 0]));
   const left = new Map([...box.querySelectorAll(".lumi-row")].map(r => [r._r, r.querySelector(".lumi-row-scroll").scrollLeft]));
   for (const e of box.querySelectorAll(".lumi-live")) e.lumiDestroy?.();
-  box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", "Новый ряд", "ряд"));
+  box.replaceChildren(...layout.rows.map(rowEl), ibtn("plus", "lumi-add-row", t("Новый ряд"), t("ряд")));
   for (const s of box.querySelectorAll(".lumi-sheet")) { const c = s.querySelector(".lumi-cards"); if (c) c.scrollTop = keep.get(s._b) ?? 0; }
   for (const r of box.querySelectorAll(".lumi-row")) r.querySelector(".lumi-row-scroll").scrollLeft = left.get(r._r) ?? 0;
 }
@@ -384,7 +384,7 @@ function openMenu(x, y, fill) {
   setMenu(fill);
 }
 const item = (label, fn, off, title) => { const b = btn(label, "lumi-menu-item", title); b.disabled = !!off; b.onclick = fn; return b; };
-const confirmView = (text, yes) => m => m.append(el("div", "lumi-menu-text", text), item("Удалить", yes), item("Отмена", closeMenu));
+const confirmView = (text, yes) => m => m.append(el("div", "lumi-menu-text", text), item(t("Удалить"), yes), item(t("Отмена"), closeMenu));
 const palette = (cur, pick) => m => {
   const w = el("div", "lumi-swatches");
   for (const [k, hex] of Object.entries(md.COLORS)) {
@@ -393,7 +393,7 @@ const palette = (cur, pick) => m => {
     b.onclick = () => pick(k);
     w.append(b);
   }
-  const none = btn("⊘", "lumi-swatch none" + (cur == null ? " on" : ""), "Без цвета");
+  const none = btn("⊘", "lumi-swatch none" + (cur == null ? " on" : ""), t("Без цвета"));
   none.onclick = () => pick(null);
   w.append(none);
   m.append(w);
@@ -403,22 +403,22 @@ const changed = () => { closeMenu(); saveLayout(); render(); };
 function rowMenu(r, x, y) {
   const i = layout.rows.indexOf(r);
   openMenu(x, y, m => m.append(
-    item("Переименовать ряд", () => { closeMenu(); openRowRename(r); }),
-    item("Цвет ряда", () => setMenu(palette(r.color, k => { r.color = k; changed(); }))),
-    item((r.fill ? "✓ " : "") + "Растянуть листы по ширине", () => { r.fill = !r.fill; changed(); }),
-    item("Добавить лист", () => addSheet(r)),
-    item("Выше", () => moveRow(r, i - 1), i < 1),
-    item("Ниже", () => moveRow(r, i + 2), i > layout.rows.length - 2),
-    item("Удалить ряд", () => setMenu(confirmView("Удалить ряд? Его листы переедут в соседний ряд.", () => deleteRow(r))), layout.rows.length < 2, "Единственный ряд удалить нельзя")));
+    item(t("Переименовать ряд"), () => { closeMenu(); openRowRename(r); }),
+    item(t("Цвет ряда"), () => setMenu(palette(r.color, k => { r.color = k; changed(); }))),
+    item((r.fill ? "✓ " : "") + t("Растянуть листы по ширине"), () => { r.fill = !r.fill; changed(); }),
+    item(t("Добавить лист"), () => addSheet(r)),
+    item(t("Выше"), () => moveRow(r, i - 1), i < 1),
+    item(t("Ниже"), () => moveRow(r, i + 2), i > layout.rows.length - 2),
+    item(t("Удалить ряд"), () => setMenu(confirmView(t("Удалить ряд? Его листы переедут в соседний ряд."), () => deleteRow(r))), layout.rows.length < 2, t("Единственный ряд удалить нельзя"))));
 }
 function sheetMenu(b, x, y) {
   openMenu(x, y, m => m.append(
-    item("Цвет листа", () => setMenu(palette(b.meta.color, k => { b.meta.color = k; changed(); }))),
-    item("Переименовать", () => { closeMenu(); openRename(b); }),
-    item("Иконка…", () => pickIcon(b, x, y)),
-    ...(b.meta.icon ? [item("Убрать иконку", () => { delete b.meta.icon; changed(); })] : []),
-    item(isDoc(b) ? "Сделать карточками" : "Сделать документом", () => setMode(b, !isDoc(b))),
-    item("Удалить лист", () => { closeMenu(); b.confirm = true; render(); }, boards.length < 2, "Последний лист удалить нельзя")));
+    item(t("Цвет листа"), () => setMenu(palette(b.meta.color, k => { b.meta.color = k; changed(); }))),
+    item(t("Переименовать"), () => { closeMenu(); openRename(b); }),
+    item(t("Иконка…"), () => pickIcon(b, x, y)),
+    ...(b.meta.icon ? [item(t("Убрать иконку"), () => { delete b.meta.icon; changed(); })] : []),
+    item(isDoc(b) ? t("Сделать карточками") : t("Сделать документом"), () => setMode(b, !isDoc(b))),
+    item(t("Удалить лист"), () => { closeMenu(); b.confirm = true; render(); }, boards.length < 2, t("Последний лист удалить нельзя"))));
 }
 
 // ---------- правка ----------
@@ -499,7 +499,7 @@ function openAdd(b, p) { // строка ввода подпункта под п
   while (li.nextElementSibling?.dataset.p?.startsWith(prefix)) li = li.nextElementSibling;
   const row = el("li", "lumi-card-adding"), input = inputBox("lumi-sub-input"), d = freshDraft(b);
   row.style.setProperty("--d", depth);
-  input.placeholder = "Подпункт…";
+  input.placeholder = t("Подпункт…");
   row.append(composer(d, input));
   li.after(row);
   let done = false;
@@ -531,14 +531,14 @@ function openRename(b) {
     done = true;
     const name = md.cleanName(input.value);
     if (ok && name && name != b.name) {
-      if (boards.some(o => o != b && o.name.toLowerCase() == name.toLowerCase())) fail(new Error("такой лист уже есть"), `переименовать в «${name}»`);
+      if (boards.some(o => o != b && o.name.toLowerCase() == name.toLowerCase())) fail(new Error(t("такой лист уже есть")), t("переименовать в «{0}»", name));
       else {
         try {
           await flush(b);
           await lp;
           layoutBase = md.baseOf(await md.renameSheet(b.name, name)); // сам обновляет boards.json на диске
           b.name = b.meta.name = name;
-        } catch (e) { fail(e, `переименовать «${b.name}»`); }
+        } catch (e) { fail(e, t("переименовать «{0}»", b.name)); }
       }
     }
     render();
@@ -556,7 +556,7 @@ function openRowRename(r) {
   if (!name) return;
   const input = el("input", "lumi-row-rename");
   input.value = r.name ?? "";
-  input.placeholder = "Название ряда";
+  input.placeholder = t("Название ряда");
   input.spellcheck = false;
   row.querySelector(".lumi-row-head").draggable = false;
   name.replaceWith(input);
@@ -577,7 +577,7 @@ function openRowRename(r) {
 // иконка листа: родной выбор значков Zen (gZenEmojiPicker окна браузера); якорь — невидимая точка окна на месте клика
 function pickIcon(b, x, y) {
   closeMenu();
-  if (!win.gZenEmojiPicker) return fail(new Error("в окне нет выбора значков Zen"), "открыть выбор иконки");
+  if (!win.gZenEmojiPicker) return fail(new Error(t("в окне нет выбора значков Zen")), t("открыть выбор иконки"));
   const d = win.document, NS = "http://www.w3.org/1999/xhtml", br = window.browsingContext.embedderElement.getBoundingClientRect();
   const wrap = d.createElementNS(NS, "div"), a = d.createElementNS(NS, "div");
   wrap.style.cssText = `position:fixed;left:${br.left + x}px;top:${br.top + y}px;width:1px;height:1px;pointer-events:none`;
@@ -589,8 +589,8 @@ function pickIcon(b, x, y) {
 }
 
 async function newSheet() {
-  let name = "Новый лист";
-  for (let k = 2; boards.some(b => b.name.toLowerCase() == name.toLowerCase()); k++) name = `Новый лист ${k}`;
+  let name = t("Новый лист");
+  for (let k = 2; boards.some(b => b.name.toLowerCase() == name.toLowerCase()); k++) name = t("Новый лист {0}", k);
   await md.writeSheet(name, []);
   const meta = { name, color: null, width: null, height: null }, b = { name, meta, cards: [] };
   byMeta.set(meta, b);
@@ -599,7 +599,7 @@ async function newSheet() {
 async function addSheet(r, newRow) {
   closeMenu();
   let b;
-  try { b = await newSheet(); } catch (e) { return fail(e, "создать лист"); }
+  try { b = await newSheet(); } catch (e) { return fail(e, t("создать лист")); }
   if (newRow) layout.rows.push((r = { color: null, fill: false, sheets: [] }));
   r.sheets.push(b.meta);
   sync();
@@ -613,7 +613,7 @@ async function deleteSheet(b) { // файл — в Корзину Windows (md.tr
   clearTimeout(b.timer);
   let text;
   try { b.dirty = true; await flush(b); await b.saving; await lp; text = await md.readRaw(b.name); layoutBase = md.baseOf(await md.removeSheet(b.name)); }
-  catch (e) { b.confirm = false; render(); return fail(e, `удалить «${b.name}»`); }
+  catch (e) { b.confirm = false; render(); return fail(e, t("удалить «{0}»", b.name)); }
   b.dirty = false;
   for (const r of layout.rows) r.sheets = r.sheets.filter(m => m != b.meta);
   layout.rows = layout.rows.filter(r => r.sheets.length);
@@ -621,7 +621,7 @@ async function deleteSheet(b) { // файл — в Корзину Windows (md.tr
   byMeta.delete(b.meta);
   sync();
   render();
-  pushUndo(`лист «${b.name}»`, async () => {
+  pushUndo(t("лист «{0}»", b.name), async () => {
     let name = meta.name;
     for (let k = 2; boards.some(o => o.name.toLowerCase() == name.toLowerCase()); k++) name = `${meta.name} ${k}`; // имя заняли — берём соседнее
     await md.writeRaw(name, text);
@@ -641,7 +641,7 @@ async function setMode(b, doc) { // лист ↔ документ: файл то
     await flush(b);
     await b.saving;
     if (doc) { b.text = await md.readRaw(b.name); b.cards = []; } else { b.cards = md.parse(b.text ?? ""); delete b.text; }
-  } catch (e) { return fail(e, `переключить «${b.name}»`); }
+  } catch (e) { return fail(e, t("переключить «{0}»", b.name)); }
   if (doc) b.meta.mode = "doc"; else delete b.meta.mode;
   b.confirm = false;
   saveLayout();
@@ -657,7 +657,7 @@ function pushUndo(what, restore) {
   clearTimeout(undoTimer);
   undoBar?.remove();
   undoBar = el("div", "lumi-undo");
-  const label = el("span", null, `Удалено: ${what}`.slice(0, 80)), yes = btn("Отменить", "lumi-undo-btn");
+  const label = el("span", null, t("Удалено: {0}", what).slice(0, 80)), yes = btn(t("Отменить"), "lumi-undo-btn");
   yes.onclick = () => undo();
   undoBar.append(label, yes);
   document.body.append(undoBar);
@@ -668,7 +668,7 @@ async function undo() {
   const u = undoStack.pop();
   hideUndo();
   if (!u) return;
-  try { await u.restore(); } catch (e) { fail(e, `вернуть ${u.what}`); }
+  try { await u.restore(); } catch (e) { fail(e, t("вернуть {0}", u.what)); }
 }
 function deleteRow(r) { // листы не пропадают: уезжают в соседний ряд (выше, иначе ниже)
   const i = layout.rows.indexOf(r), up = i > 0, to = layout.rows[up ? i - 1 : i + 1];
@@ -707,23 +707,23 @@ function moveSheet(b, r, k) { // лист в ряд r на место k (инд�
 
 // ---------- события ----------
 box.addEventListener("click", e => {
-  const t = e.target;
-  const a = t.closest("a.lumi-card-link");
+  const tg = e.target;
+  const a = tg.closest("a.lumi-card-link");
   if (a) { e.preventDefault(); return win.openTrustedLinkIn(a.href, "tab"); }
-  if (t.closest(".lumi-add-row")) return addSheet(null, true);
-  const row = t.closest(".lumi-row")?._r, s = t.closest(".lumi-sheet"), b = s?._b;
-  const more = t.closest(".lumi-row-more");
+  if (tg.closest(".lumi-add-row")) return addSheet(null, true);
+  const row = tg.closest(".lumi-row")?._r, s = tg.closest(".lumi-sheet"), b = s?._b;
+  const more = tg.closest(".lumi-row-more");
   if (more) { const q = more.getBoundingClientRect(); return rowMenu(row, q.left, q.bottom + 4); }
-  if (t.closest(".lumi-add-sheet")) return addSheet(row);
-  if (!b || t.matches("input, textarea")) return;
-  const li = t.closest(".lumi-card"), p = li && pathOf(li), c = p && itemAt(b, p);
-  if (t.closest(".lumi-fold")) { if (c.children.length) { if (!collapsed.delete(c)) collapsed.add(c); render(); } }
-  else if (t.closest(".lumi-card-add-sub")) openAdd(b, p);
-  else if (t.closest(".lumi-card-del")) {
-    const del = t.closest(".lumi-card-del");
+  if (tg.closest(".lumi-add-sheet")) return addSheet(row);
+  if (!b || tg.matches("input, textarea")) return;
+  const li = tg.closest(".lumi-card"), p = li && pathOf(li), c = p && itemAt(b, p);
+  if (tg.closest(".lumi-fold")) { if (c.children.length) { if (!collapsed.delete(c)) collapsed.add(c); render(); } }
+  else if (tg.closest(".lumi-card-add-sub")) openAdd(b, p);
+  else if (tg.closest(".lumi-card-del")) {
+    const del = tg.closest(".lumi-card-del");
     if (c.children.length && !del.classList.contains("armed")) { // дерево удаляется целиком — второй клик подтверждает
       del.classList.add("armed");
-      del.replaceChildren("Удалить с подпунктами?");
+      del.replaceChildren(t("Удалить с подпунктами?"));
       return;
     }
     const up = p.slice(0, -1), at = p.at(-1);
@@ -739,11 +739,11 @@ box.addEventListener("click", e => {
       render();
     });
   }
-  else if (t.closest(".lumi-card-text")) openEditor(b, p);
-  else if (t.closest(".lumi-sheet-color")) { const r = t.getBoundingClientRect(); openMenu(r.left, r.bottom + 4, palette(b.meta.color, k => { b.meta.color = k; changed(); })); }
-  else if (t.closest(".lumi-sheet-del")) { b.confirm = true; render(); }
-  else if (t.closest(".lumi-confirm-yes")) deleteSheet(b);
-  else if (t.closest(".lumi-confirm-no")) { b.confirm = false; render(); }
+  else if (tg.closest(".lumi-card-text")) openEditor(b, p);
+  else if (tg.closest(".lumi-sheet-color")) { const r = tg.getBoundingClientRect(); openMenu(r.left, r.bottom + 4, palette(b.meta.color, k => { b.meta.color = k; changed(); })); }
+  else if (tg.closest(".lumi-sheet-del")) { b.confirm = true; render(); }
+  else if (tg.closest(".lumi-confirm-yes")) deleteSheet(b);
+  else if (tg.closest(".lumi-confirm-no")) { b.confirm = false; render(); }
 });
 box.addEventListener("dblclick", e => {
   const rn = e.target.closest(".lumi-row-name");

@@ -4,9 +4,11 @@
 // ==/UserScript==
 
 (() => {
+  const { t, locale } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-i18n.sys.mjs"));
   const PREF = "luminoctis.tabs.hover-memory", DELAY = 400, FRESH = 5000;
   const enabled = () => Services.prefs.getBoolPref(PREF, true);
-  const mb = bytes => (bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(1)} ГБ` : `${Math.round(bytes / 1024 ** 2)} МБ`);
+  const num = (n, digits) => n.toLocaleString(locale, { maximumFractionDigits: digits });
+  const mb = bytes => (bytes >= 1024 ** 3 ? t("{0} ГБ", num(bytes / 1024 ** 3, 1)) : t("{0} МБ", num(bytes / 1024 ** 2, 0)));
 
   // ---------- память вкладки: тот же способ, что в about:processes (toolkit/content/global/aboutProcesses.js) ----------
   // ChromeUtils.requestProcInfo() даёт память ПРОЦЕССОВ и окна в них (outerWindowId); окно вкладки = browser.outerWindowID.
@@ -34,11 +36,11 @@
     return { bytes: proc.memory, tabs: proc.windows.filter(w => tabIds.has(w.outerWindowId)).length || 1 };
   }
   const lines = m =>
-    m.unloaded ? ["Выгружена — 0 МБ"]
-    : m.internal ? ["Внутренняя страница Zen"]
-    : m.unknown ? ["Память: нет данных"]
-    : m.tabs > 1 ? [`Память: ${mb(m.bytes)}`, `общий процесс с ещё ${m.tabs - 1} вкл.`]
-    : [`Память: ${mb(m.bytes)}`];
+    m.unloaded ? [t("Выгружена — 0 МБ")]
+    : m.internal ? [t("Внутренняя страница Zen")]
+    : m.unknown ? [t("Память: нет данных")]
+    : m.tabs > 1 ? [t("Память: {0}", mb(m.bytes)), t("общий процесс с ещё {0} вкл.", m.tabs - 1)]
+    : [t("Память: {0}", mb(m.bytes))];
 
   UC_API.Windows.waitWindowLoading(window).then(() => {
     const card = Object.assign(document.createElement("div"), { id: "lumi-hovercard", hidden: true });

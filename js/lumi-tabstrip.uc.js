@@ -3,9 +3,12 @@
 // @description    Своя полоса вкладок сверху — зеркало gBrowser. Родной вертикальный список Zen остаётся рабочим, но спрятан (chrome.css, раздел 9).
 // ==/UserScript==
 
+(() => {
+
 // Новые вкладки (Ctrl+T, «+») должны вставать в конец. Zen при zen.view.show-newtab-button-top (по умолчанию true — «+» вверху
 // родного списка) вставляет их в НАЧАЛО обычных вкладок (Tabbrowser::addTab при атрибуте zen-newtab у адресной строки),
 // и в нашей полосе они оказывались слева. Настройка читается при каждом открытии вкладки — достаточно выставить её здесь.
+const { t } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-i18n.sys.mjs"));
 Services.prefs.setBoolPref("zen.view.show-newtab-button-top", false);
 
 UC_API.Windows.waitWindowLoading(window).then(() => {
@@ -24,7 +27,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   newTab.id = "lumi-newtab-button";
   newTab.className = "toolbarbutton-1";
   newTab.setAttribute("command", "cmd_newNavigatorTab");
-  newTab.setAttribute("tooltiptext", "Новая вкладка");
+  newTab.setAttribute("tooltiptext", t("Новая вкладка"));
   const separator = document.createElement("div");
   separator.id = "lumi-strip-separator";
   strip.append(row, dropLine, newTab, separator);
@@ -40,15 +43,15 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       item.draggable = true;
       item.tab = tab; // по .tab родное меню вкладки (TabContextMenu) узнаёт, для какой вкладки оно открыто
       item.icon = Object.assign(document.createElement("img"), { className: "lumi-tab-icon", alt: "" });
-      item.glanceEl = Object.assign(document.createElement("img"), { className: "lumi-tab-glance", alt: "", title: "Показать Glance" }); // значок сайта из Glance
+      item.glanceEl = Object.assign(document.createElement("img"), { className: "lumi-tab-glance", alt: "", title: t("Показать Glance") }); // значок сайта из Glance
       item.labelEl = Object.assign(document.createElement("span"), { className: "lumi-tab-label" });
       item.append(
         item.icon,
         item.labelEl,
         item.glanceEl,
         Object.assign(document.createElement("span"), { className: "lumi-tab-audio" }),
-        Object.assign(document.createElement("span"), { className: "lumi-tab-unload", title: "Выгрузить из памяти" }),
-        Object.assign(document.createElement("span"), { className: "lumi-tab-close", title: "Закрыть вкладку" })
+        Object.assign(document.createElement("span"), { className: "lumi-tab-unload", title: t("Выгрузить из памяти") }),
+        Object.assign(document.createElement("span"), { className: "lumi-tab-close", title: t("Закрыть вкладку") })
       );
       items.set(tab, item);
     }
@@ -273,7 +276,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const fList = Object.assign(document.createElement("div"), { id: "lumi-folder-list" });
   folderPanel.append(fList);
   document.getElementById("mainPopupSet").append(folderPanel);
-  const emptyRow = Object.assign(document.createElement("div"), { className: "lumi-fr lumi-fr-head", textContent: "Пусто" });
+  const emptyRow = Object.assign(document.createElement("div"), { className: "lumi-fr lumi-fr-head", textContent: t("Пусто") });
   const rowEls = new WeakMap(); // tab | folder -> строка списка
   const rowFor = ({ tab, folder }) => {
     const key = tab ?? folder;
@@ -286,11 +289,11 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
         el.draggable = true;
         el.icon = Object.assign(document.createElement("img"), { className: "lumi-fr-icon", alt: "" });
         el.labelEl = Object.assign(document.createElement("span"), { className: "lumi-fr-label" });
-        el.glanceEl = Object.assign(document.createElement("img"), { className: "lumi-fr-glance", alt: "", title: "Показать Glance" });
+        el.glanceEl = Object.assign(document.createElement("img"), { className: "lumi-fr-glance", alt: "", title: t("Показать Glance") });
         el.append(el.icon, el.labelEl, el.glanceEl,
           Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-audio" }),
-          Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-unload", title: "Выгрузить" }),
-          Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-close", title: "Закрыть" }));
+          Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-unload", title: t("Выгрузить") }),
+          Object.assign(document.createElement("span"), { className: "lumi-fr-btn lumi-fr-close", title: t("Закрыть") }));
       }
       rowEls.set(key, el);
     }
@@ -796,3 +799,4 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   }
   keepButtons();
 });
+})();

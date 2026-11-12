@@ -14,7 +14,7 @@ export const emptyDaily = () => ({ version: 1, tasks: [], marks: {} });
 // shortcut: задачи/отметки с неверными полями молча отбрасываются и пропадут при следующей записи; пока формат пишем только мы — достаточно
 export function normDaily(raw) {
   if (raw == null) return emptyDaily();
-  if (typeof raw != "object" || !Array.isArray(raw.tasks) || (raw.marks != null && typeof raw.marks != "object")) throw new Error("неизвестный формат");
+  if (typeof raw != "object" || !Array.isArray(raw.tasks) || (raw.marks != null && typeof raw.marks != "object")) throw new Error("неизвестный формат"); // l10n-skip: показывается через t() в движке
   const tasks = [], ids = new Set();
   for (const t of raw.tasks) {
     const name = typeof t?.name == "string" ? t.name.trim().slice(0, 200) : "";

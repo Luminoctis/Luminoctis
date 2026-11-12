@@ -3,7 +3,9 @@
 // страница только рисует: перерисовка по событиям движка, тик раз в секунду — пока вкладка видна.
 import { JS } from "./paths.js";
 import * as store from "./store.js";
-import { E, h, s, clockOf, goalsBlock, dailyBlock, dailyKey, openPanel, closePanel, panelName, refreshPanel } from "./time-panels.js";
+import { E, h, s, clockOf, goalsBlock, dailyBlock, dailyKey, openPanel, closePanel, panelName, refreshPanel, topicName, topicTag, topicColor, presetName } from "./time-panels.js";
+const { t, localize } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
+localize(document); // <html lang dir>
 
 ChromeUtils.importESModule(JS("lumi-palette.sys.mjs")).watch(document);
 const root = document.getElementById("lumi-time");
@@ -15,7 +17,7 @@ document.body.toggleAttribute("lumi-mini", mini);
 document.body.toggleAttribute("lumi-full", full); // большой режим: столбца нет, панель стыкуется к мини-окну рейки (place), всегда открыта
 await E.init();
 
-// Большой режим: за панелями тот же кадр, что на Home (текущие обои из wallpapers/state.json, затемнение «Затемнение» из настроек обоев), а не сплошной bg0 страницы
+// Большой режим: за панелями тот же кадр, что на Home (текущие обои из wallpapers/state.json, без затемнения), а не сплошной bg0 страницы
 // и не затемнение рейки (#lumi-time-backdrop[lumi-passive]). Обоев нет (видео, NSFW, инкогнито, режим «Прозрачный») — страница прозрачна, как окно под ней.
 // Как у Home: слой = прямоугольник всего окна, сдвинутый на место вкладки (cover считается от окна). Только читает state.json — не листает обои и окно не трогает.
 async function backdrop() {
@@ -25,10 +27,10 @@ async function backdrop() {
   if (!item || item.kind == "video" || item.nsfw) return;
   const src = item.file ? PathUtils.toFileURI(item.file) : URL.createObjectURL(await (await fetch(item.url, { credentials: "omit" })).blob());
   const { windowMode } = ChromeUtils.importESModule(JS("lumi-palette.sys.mjs"));
-  const clamp = (v, a, b) => Math.min(Math.max(v, a), b), dim = clamp(prefs.getIntPref(P + "dim", 25), 0, 90) / 100;
+  const clamp = (v, a, b) => Math.min(Math.max(v, a), b);
   const alpha = windowMode(win) == "transparent" ? 1 - clamp(prefs.getIntPref("luminoctis.look.homeTransparency", 0), 0, 90) / 100 : 1;
   const el = Object.assign(document.createElement("div"), { id: "lt-backdrop" });
-  el.style.background = `linear-gradient(rgba(0,0,0,${dim}), rgba(0,0,0,${dim})), url("${src}") center / cover`;
+  el.style.background = `url("${src}") center / cover`; // без затемнения (2026-11-12): в большом LumiTime обои ярче, чем на Home
   el.style.opacity = alpha;
   const place = () => {
     const b = window.browsingContext.embedderElement, r = b?.getBoundingClientRect(), k = win.devicePixelRatio / devicePixelRatio;
@@ -40,23 +42,24 @@ async function backdrop() {
   win.addEventListener("resize", place);
   addEventListener("unload", () => win.removeEventListener("resize", place), { once: true });
 }
-if (full) backdrop().catch(e => console.warn("LumiTime: фон не показан", e));
+if (full) backdrop().catch(e => console.warn("LumiTime: фон не показан", e) /* l10n-skip */);
 
 let els = {}, buttonsKey = "";
 const D = () => E.data;
-const phaseName = { focus: "Фокус", break: "Перерыв", "long-break": "Длинный перерыв" };
+const phaseName = () => ({ focus: t("Фокус"), break: t("Перерыв"), "long-break": t("Длинный перерыв") });
 
 let addingTopic = false;
 // тема — выпадающий список из настроек; «Новая тема…» заменяет его полем ввода (Enter — добавить, Esc/уход — отмена)
 function topicSelect(S, value, on) { // on — свой обработчик (окошко «Добавить время»): { pick(v), isNew() }
-  const el = h("select", { class: "lt-topic-pick", "aria-label": "Тема фокуса", title: "Тема фокуса", on: { change: () => {
+  const el = h("select", { class: "lt-topic-pick", "aria-label": t("Тема фокуса"), title: t("Тема фокуса"), on: { change: () => {
     if (on) return el.value == NEW ? on.isNew() : on.pick(el.value);
     if (el.value == NEW) { addingTopic = true; build(); els.topic.focus(); return; }
     E.changeTopic(el.value); E.changeSelection({});
-  } } }, h("option", { value: "", text: "Без темы" }),
-    [...new Set([...S.topics, ...(value && !S.topics.includes(value) ? [value] : [])])].map(t => h("option", { value: t, text: t })),
-    h("option", { value: NEW, text: "Новая тема…" }));
+  } } }, h("option", { value: "", text: t("Без темы") }),
+    [...new Set([...S.topics, ...(value && !S.topics.includes(value) ? [value] : [])])].map(tp => h("option", { value: tp, text: topicName(tp), style: topicColor(tp) ? `color:${topicColor(tp)}` : null })),
+    h("option", { value: NEW, text: t("Новая тема…") }));
   el.value = value;
+  if (topicColor(value)) el.style.borderLeft = `3px solid ${topicColor(value)}`; // цвет выбранной темы
   return el;
 }
 const NEW = "__new__";
@@ -75,15 +78,15 @@ function build() {
       h("b", { class: "lt-title", text: "LumiTime" }),
       els.streak = h("span", { class: "lt-chip" }),
       els.month = h("span", { class: "lt-chip" })),
-    h("div", { class: "lt-seg lt-mode", title: idle ? "" : "Режим меняется, когда таймер стоит" },
-      ["Countdown", "Stopwatch"].map(m => h("button", { text: m == "Countdown" ? "Отсчёт" : "Секундомер", "aria-pressed": String(timerMode == m),
+    h("div", { class: "lt-seg lt-mode", title: idle ? "" : t("Режим меняется, когда таймер стоит") },
+      ["Countdown", "Stopwatch"].map(m => h("button", { text: m == "Countdown" ? t("Отсчёт") : t("Секундомер"), "aria-pressed": String(timerMode == m),
         disabled: !idle, on: { click: () => E.changeTimerMode(m) } }))),
     h("div", { class: "lt-pick" },
-      sel_("Пресет", [opt("", "Свой"), ...S.presets.map(p => opt(p.id, p.name))], sel.presetId, v => {
+      sel_(t("Пресет"), [opt("", t("Свой")), ...S.presets.map(p => opt(p.id, presetName(p.name)))], sel.presetId, v => {
         const p = S.presets.find(x => x.id == v);
         E.changeSelection(p ? { presetId: p.id, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every } : { presetId: "" });
       }),
-      addingTopic ? els.topic = h("input", { type: "text", class: "lt-topic-pick", placeholder: "Новая тема — Enter", "aria-label": "Новая тема", maxLength: 200,
+      addingTopic ? els.topic = h("input", { type: "text", class: "lt-topic-pick", placeholder: t("Новая тема — Enter"), "aria-label": t("Новая тема"), maxLength: 200,
         on: { keydown: e => {
           if (e.key == "Enter" && e.target.value.trim()) { addingTopic = false; E.addTopic(e.target.value); }
           else if (e.key == "Escape") { e.stopPropagation(); addingTopic = false; build(); }
@@ -103,17 +106,17 @@ function build() {
     els.last = h("div", { class: "lt-last" }),
     els.buttons = h("div", { class: "lt-buttons" }),
     h("div", { class: "lt-lengths", hidden: timerMode == "Stopwatch" },
-      sel_("Фокус / перерыв", S.pairs.map((p, i) => opt(i, `${p.focus} / ${p.rest}`)), sel.pairIndex, v => E.changeSelection({ pairIndex: Number(v), presetId: "" })),
-      sel_("Длинный перерыв", S.longBreaks.map(v => opt(v, `${v} мин`)), sel.longBreak, v => E.changeSelection({ longBreak: Number(v), presetId: "" })),
-      sel_("Длинный перерыв после N фокусов", S.counts.map(v => opt(v, `×${v}`)), sel.every, v => E.changeSelection({ every: Number(v), presetId: "" }))),
+      sel_(t("Фокус / перерыв"), S.pairs.map((p, i) => opt(i, `${p.focus} / ${p.rest}`)), sel.pairIndex, v => E.changeSelection({ pairIndex: Number(v), presetId: "" })),
+      sel_(t("Длинный перерыв"), S.longBreaks.map(v => opt(v, t("{0} мин", v))), sel.longBreak, v => E.changeSelection({ longBreak: Number(v), presetId: "" })),
+      sel_(t("Длинный перерыв после N фокусов"), S.counts.map(v => opt(v, `×${v}`)), sel.every, v => E.changeSelection({ every: Number(v), presetId: "" }))),
     els.count = h("div", { class: "lt-count" }),
-    h("div", { class: "lt-today" }, h("div", { class: "lt-today-head" }, h("h4", { text: "Сегодня" }),
-      h("button", { class: "lt-add-btn", text: "+ Добавить время", title: "Записать время в журнал вручную", on: { click: e => toggleAdd(e.currentTarget) } })), els.today = h("div", { class: "lt-today-list" })),
+    h("div", { class: "lt-today" }, h("div", { class: "lt-today-head" }, h("h4", { text: t("Сегодня") }),
+      h("button", { class: "lt-add-btn", text: t("+ Добавить время"), title: t("Записать время в журнал вручную"), on: { click: e => toggleAdd(e.currentTarget) } })), els.today = h("div", { class: "lt-today-list" })),
     els.daily = h("div"),
     els.goals = h("div"),
     els.status = h("div", { class: "lt-status" }),
-    h("nav", { class: "lt-nav" }, [["settings", "Настройки"], ["stats", "Статистика"], ["journal", "Журнал"], ["day", "День"]].map(([p, t]) =>
-      h("button", { "data-panel": p, text: t, "aria-pressed": String(panelName() == p),
+    h("nav", { class: "lt-nav" }, [["settings", t("Настройки")], ["stats", t("Статистика")], ["journal", t("Журнал")], ["day", t("День")]].map(([p, lb]) =>
+      h("button", { "data-panel": p, text: lb, "aria-pressed": String(panelName() == p),
       on: { click: () => (mini ? window.browsingContext.topChromeWindow.luminoctis.openTime(p) : openPanel(p)) } }))), // в мини-окне панель открывает большой LumiTime (скрытая вкладка)
   );
   buttonsKey = ""; goalsKey = ""; dailyShown = "";
@@ -133,12 +136,12 @@ function toggleAdd(anchor) {
   if (addPop) return closeAdd();
   const { settings: S, selection: sel } = D();
   let kind = "Focus", topic = sel.topic ?? "", newTopic = false;
-  const minutes = h("input", { type: "number", min: 1, max: 600, step: 1, class: "lt-num", "aria-label": "Минуты", title: "Минуты (1–600)",
+  const minutes = h("input", { type: "number", min: 1, max: 600, step: 1, class: "lt-num", "aria-label": t("Минуты"), title: t("Минуты (1–600)"),
     value: String((S.pairs[sel.pairIndex] ?? S.pairs[0]).focus), on: { input: valid, keydown: e => { if (e.key == "Enter" && !ok.disabled) ok.click(); } } });
   const topicBox = h("div", { class: "lt-add-topic" });
   const drawTopic = () => {
     topicBox.hidden = kind != "Focus";
-    topicBox.replaceChildren(newTopic ? h("input", { type: "text", class: "lt-topic-pick", placeholder: "Новая тема — Enter", "aria-label": "Новая тема", maxLength: 200,
+    topicBox.replaceChildren(newTopic ? h("input", { type: "text", class: "lt-topic-pick", placeholder: t("Новая тема — Enter"), "aria-label": t("Новая тема"), maxLength: 200,
       on: { keydown: e => {
         if (e.key == "Enter" && e.target.value.trim()) {
           e.stopPropagation(); const t = e.target.value.trim().slice(0, 200), known = D().settings.topics.find(x => x.toLocaleLowerCase() == t.toLocaleLowerCase());
@@ -147,13 +150,13 @@ function toggleAdd(anchor) {
       } } })
       : topicSelect(D().settings, topic, { pick: v => { topic = v; }, isNew: () => { newTopic = true; drawTopic(); topicBox.firstChild.focus(); } }));
   };
-  const seg = h("div", { class: "lt-seg" }, [["Focus", "Фокус"], ["Break", "Перерыв"]].map(([k, t]) => h("button", { text: t, "aria-pressed": String(kind == k),
+  const seg = h("div", { class: "lt-seg" }, [["Focus", t("Фокус")], ["Break", t("Перерыв")]].map(([k, lb]) => h("button", { text: lb, "aria-pressed": String(kind == k),
     on: { click: () => { kind = k; for (const b of seg.children) b.setAttribute("aria-pressed", String(b == seg.children[k == "Focus" ? 0 : 1])); drawTopic(); } } })));
-  const ok = h("button", { class: "lt-primary", text: "Добавить", on: { click: () => { if (E.addManual({ kind, topic, minutes: Number(minutes.value) })) closeAdd(); } } });
+  const ok = h("button", { class: "lt-primary", text: t("Добавить"), on: { click: () => { if (E.addManual({ kind, topic, minutes: Number(minutes.value) })) closeAdd(); } } });
   function valid() { ok.disabled = !(/^[0-9]+$/.test(minutes.value) && minutes.value >= 1 && minutes.value <= 600); minutes.classList.toggle("lt-bad", ok.disabled); }
-  addPop = h("div", { id: "lumi-time-add", role: "dialog", "aria-label": "Добавить время" },
-    h("div", { class: "lt-add-row" }, h("label", { text: "Минут" }), minutes), seg, topicBox,
-    h("div", { class: "lt-add-actions" }, h("button", { text: "Отмена", on: { click: closeAdd } }), ok));
+  addPop = h("div", { id: "lumi-time-add", role: "dialog", "aria-label": t("Добавить время") },
+    h("div", { class: "lt-add-row" }, h("label", { text: t("Минут") }), minutes), seg, topicBox,
+    h("div", { class: "lt-add-actions" }, h("button", { text: t("Отмена"), on: { click: closeAdd } }), ok));
   drawTopic(); valid(); document.body.append(addPop);
   const r = anchor.getBoundingClientRect(), w = addPop.offsetWidth, hh = addPop.offsetHeight;
   addPop.style.left = Math.max(8, Math.min(r.right - w, innerWidth - w - 8)) + "px";
@@ -169,7 +172,7 @@ function button(label, action, cls = "") {
 let goalsKey = "", dailyShown = "";
 function update() {
   if (!els.main) return;
-  const { state: st, settings: S, selection: sel, timerMode } = D(), t = E.now(), info = E.display(st, t), idle = st.phase == "idle";
+  const { state: st, settings: S, selection: sel, timerMode } = D(), tm = E.now(), info = E.display(st, tm), idle = st.phase == "idle";
   const pair = S.pairs[sel.pairIndex] ?? S.pairs[0], paused = !idle && st.runningSince === null;
   root.dataset.phase = idle ? "idle" : st.phase == "focus" ? "focus" : "break";
   root.toggleAttribute("data-paused", paused);
@@ -178,46 +181,46 @@ function update() {
   els.progress.style.strokeDashoffset = String(100 * (1 - info.progress));
   els.progress.style.opacity = info.progress === 0 ? "0" : "1";
   const last = E.lastRecord();
-  els.minus.disabled = idle ? !last || !E.adjustRecordDuration(last, -1) : E.elapsedMs(st, t) < 60000;
+  els.minus.disabled = idle ? !last || !E.adjustRecordDuration(last, -1) : E.elapsedMs(st, tm) < 60000;
   els.plus.disabled = idle && !last;
-  els.minus.title = idle ? "Убрать минуту у последней записи журнала" : "Убрать минуту прошедшего времени";
-  els.plus.title = idle ? "Добавить минуту к последней записи журнала" : "Добавить минуту прошедшего времени";
-  els.phase.textContent = idle ? "Готов к фокусу" : `${paused ? "Пауза · " : ""}${phaseName[st.phase]}${st.phase == "focus" && st.topic ? ` · ${st.topic}` : ""}`;
+  els.minus.title = idle ? t("Убрать минуту у последней записи журнала") : t("Убрать минуту прошедшего времени");
+  els.plus.title = idle ? t("Добавить минуту к последней записи журнала") : t("Добавить минуту прошедшего времени");
+  els.phase.textContent = idle ? t("Готов к фокусу") : (paused ? t("Пауза · ") : "") + phaseName()[st.phase] + (st.phase == "focus" && st.topic ? " · " + topicName(st.topic) : "");
   els.last.hidden = !idle;
-  if (idle) els.last.textContent = last ? `Последняя запись: ${last.kind == "Focus" ? `фокус · ${last.topic}` : "перерыв"} · ${clockOf(E.countedRecordMs(last))}` : "";
+  if (idle) els.last.textContent = last ? (last.kind == "Focus" ? t("Последняя запись: фокус · {0} · {1}", topicName(last.topic), clockOf(E.countedRecordMs(last))) : t("Последняя запись: перерыв · {0}", clockOf(E.countedRecordMs(last)))) : "";
   const every = idle ? sel.every : st.every;
   els.count.hidden = timerMode == "Stopwatch";
-  els.count.textContent = `${st.completedFocuses} / ${every} до длинного перерыва`;
+  els.count.textContent = t("{0} / {1} до длинного перерыва", st.completedFocuses, every);
 
-  const overtime = st.timerMode != "Stopwatch" && !idle && E.elapsedMs(st, t) >= st.plannedMs && st.acceptedOvertime;
+  const overtime = st.timerMode != "Stopwatch" && !idle && E.elapsedMs(st, tm) >= st.plannedMs && st.acceptedOvertime;
   const key = `${st.phase}:${paused}:${overtime}:${timerMode}`;
   if (key != buttonsKey) {
     buttonsKey = key;
-    const list = idle ? [button("Начать фокус", "start-focus", "lt-primary")] : [
-      timerMode == "Stopwatch" ? button(st.phase == "focus" ? "На перерыв" : "На фокус", "toggle-mode", "lt-primary")
-        : st.phase == "focus" ? button("Начать перерыв", "start-break", "lt-primary") : button("Начать фокус", "start-focus", "lt-primary"),
-      paused ? button("Продолжить", "resume") : button("Пауза", "pause"),
-      overtime && button("Не считать переработку", "uncount-overtime", "lt-wide"),
-      button("Стоп", "stop", "lt-stop")];
+    const list = idle ? [button(t("Начать фокус"), "start-focus", "lt-primary")] : [
+      timerMode == "Stopwatch" ? button(st.phase == "focus" ? t("На перерыв") : t("На фокус"), "toggle-mode", "lt-primary")
+        : st.phase == "focus" ? button(t("Начать перерыв"), "start-break", "lt-primary") : button(t("Начать фокус"), "start-focus", "lt-primary"),
+      paused ? button(t("Продолжить"), "resume") : button(t("Пауза"), "pause"),
+      overtime && button(t("Не считать переработку"), "uncount-overtime", "lt-wide"),
+      button(t("Стоп"), "stop", "lt-stop")];
     els.buttons.replaceChildren(...list.filter(Boolean));
   }
 
   // сводка: серия и месяц (с живым фокусом), сегодня по темам
-  const sum = E.summary(), liveToday = E.countedTodayMs(st, t), liveTopic = st.topic.trim() || "Фокус";
-  const tip = topics => topics.map(([k, ms]) => `${k} — ${clockOf(ms)}`).join("\n") || "Записей нет";
-  els.streak.textContent = `Серия ${sum.streak.days} дн · ${clockOf(sum.streak.totalMs + E.countedSinceMs(st, t, sum.resetAt))}`;
-  els.streak.title = `Серия — дни подряд с фокусом\n${tip(sum.streak.topics)}`;
-  els.month.textContent = `Месяц ${clockOf(sum.month.totalMs + E.countedMonthMs(st, t))}`;
-  els.month.title = `За месяц\n${tip(sum.month.topics)}`;
+  const sum = E.summary(), liveToday = E.countedTodayMs(st, tm), liveTopic = st.topic.trim() || "Фокус"; // l10n-skip
+  const tip = topics => topics.map(([k, ms]) => `${topicName(k)} — ${clockOf(ms)}`).join("\n") || t("Записей нет");
+  els.streak.textContent = t("Серия {0} дн · {1}", sum.streak.days, clockOf(sum.streak.totalMs + E.countedSinceMs(st, tm, sum.resetAt)));
+  els.streak.title = t("Серия — дни подряд с фокусом") + "\n" + tip(sum.streak.topics);
+  els.month.textContent = t("Месяц {0}", clockOf(sum.month.totalMs + E.countedMonthMs(st, tm)));
+  els.month.title = t("За месяц") + "\n" + tip(sum.month.topics);
   const today = new Map(sum.today.topics);
   if (liveToday > 0) today.set(liveTopic, (today.get(liveTopic) ?? 0) + liveToday);
   const rows = [...today].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const todayKey = JSON.stringify(rows.map(([k, ms]) => [k, Math.floor(ms / 1000)]));
+  const todayKey = JSON.stringify(rows.map(([k, ms]) => [k, Math.floor(ms / 1000), topicColor(k)]));
   if (els.today.dataset.key != todayKey) {
     els.today.dataset.key = todayKey;
     els.today.replaceChildren(...(rows.length ? rows.map(([k, ms]) => h("div", { class: "lt-today-row" },
-      h("span", { text: k }), h("span", { text: clockOf(ms) + (k == liveTopic && liveToday > 0 ? " ●" : ""), title: k == liveTopic && liveToday > 0 ? `в том числе идёт сейчас: ${clockOf(liveToday)}` : "" })))
-      : [h("div", { class: "lt-dim", text: "Сегодня фокуса ещё не было" })]));
+      topicTag(k), h("span", { text: clockOf(ms) + (k == liveTopic && liveToday > 0 ? " ●" : ""), title: k == liveTopic && liveToday > 0 ? t("в том числе идёт сейчас: {0}", clockOf(liveToday)) : "" })))
+      : [h("div", { class: "lt-dim", text: t("Сегодня фокуса ещё не было") })]));
   }
   const dk = dailyKey(); // «Каждый день» между «Сегодня» и целями; перерисовывается только при изменении данных/дня
   if (dk != dailyShown) {
@@ -227,9 +230,9 @@ function update() {
   const g = JSON.stringify(["streak", "week", "month"].map(p => E.goalRows(p)));
   if (g != goalsKey) {
     goalsKey = g;
-    els.goals.replaceChildren(...[goalsBlock("streak", "Цели на серию"), goalsBlock("week", "Цели на неделю"), goalsBlock("month", "Цели на месяц")].filter(Boolean));
+    els.goals.replaceChildren(...[goalsBlock("streak", t("Цели на серию")), goalsBlock("week", t("Цели на неделю")), goalsBlock("month", t("Цели на месяц"))].filter(Boolean));
   }
-  const status = D().journalError || (D().writeError ? `Запись журнала не удалась — ${E.pendingCount()} ждут (Журнал → «Повторить»)` : "");
+  const status = D().journalError || (D().writeError ? t("Запись журнала не удалась — {0} ждут (Журнал → «Повторить»)", E.pendingCount()) : "");
   if (els.status.textContent != status) els.status.textContent = status;
 }
 

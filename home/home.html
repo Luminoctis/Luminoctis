@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <title>Luminoctis Home</title>
 <link rel="stylesheet" href="home.css">
-<!-- Виджеты — каждый в своих файлах, подключаются здесь (стиль — <link>, скрипт — <script type="module">):
+<!-- l10n-skip Виджеты — каждый в своих файлах, подключаются здесь (стиль — <link>, скрипт — <script type="module">):
      home/wallpaper.css + wallpaper.js → #lumi-wallpaper (обои, эффекты)
      home/clock.css     + clock.js     → #lumi-clock     (часы и дата; заменяет заглушку из home.js)
      home/search.css    + search.js    → #lumi-search    (поиск с подсказками)
@@ -28,16 +28,16 @@
 <div id="lumi-wallpaper"></div>
 <main id="lumi-home">
   <div id="lumi-first">
-    <section id="lumi-clock" aria-label="Часы">
+    <section id="lumi-clock" aria-label="Часы" data-lumi-l10n-aria-label>
       <div class="lumi-clock-time"></div>
       <div class="lumi-clock-date"></div>
     </section>
-    <section id="lumi-search" aria-label="Поиск"></section>
-    <section id="lumi-shortcuts" aria-label="Ярлыки"></section>
-    <button type="button" id="lumi-scroll-down" class="lumi-scroll" title="Заметки" aria-label="К заметкам"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+    <section id="lumi-search" aria-label="Поиск" data-lumi-l10n-aria-label></section>
+    <section id="lumi-shortcuts" aria-label="Ярлыки" data-lumi-l10n-aria-label></section>
+    <button type="button" id="lumi-scroll-down" class="lumi-scroll" title="Заметки" aria-label="К заметкам" data-lumi-l10n-title data-lumi-l10n-aria-label><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 9l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </div>
   <section id="lumi-notes" aria-label="LumiNotes"></section>
-  <button type="button" id="lumi-scroll-up" class="lumi-scroll" title="Наверх" aria-label="Наверх"><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+  <button type="button" id="lumi-scroll-up" class="lumi-scroll" title="Наверх" aria-label="Наверх" data-lumi-l10n-title data-lumi-l10n-aria-label><svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path d="M6 15l6-6 6 6" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
 </main>
 </body>
 </html>

@@ -7,6 +7,7 @@
 // pref luminoctis.strict.enabled (bool) — общий выключатель; luminoctis.strict.lists — JSON-массив списков:
 // { id, name, sites: [домены], days: [0..6] (0 = пн), from: "HH:MM", to: "HH:MM", focus: "off"|"focus"|"focus+breaks", on: true }
 // Расписание может переходить через полночь (22:00–07:00): день недели — день начала интервала. from == to — расписания нет.
+const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
 import { normDomain, matchHost, activePhase, now as engineNow } from "./lumi-time.sys.mjs";
 
 export const PREF_ENABLED = "luminoctis.strict.enabled", PREF_LISTS = "luminoctis.strict.lists";
@@ -17,7 +18,7 @@ const uuid = () => Services.uuid.generateUUID().toString().slice(1, -1);
 
 export const enabled = () => Services.prefs.getBoolPref(PREF_ENABLED, false);
 export function newList(n = 1) {
-  return { id: uuid(), name: `Список ${n}`, sites: [], days: [0, 1, 2, 3, 4], from: "09:00", to: "18:00", focus: "off", on: true };
+  return { id: uuid(), name: t("Список {0}", n), sites: [], days: [0, 1, 2, 3, 4], from: "09:00", to: "18:00", focus: "off", on: true };
 }
 function clean(l) {
   if (!l || typeof l != "object") return null;

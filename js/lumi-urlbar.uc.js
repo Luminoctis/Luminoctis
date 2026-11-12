@@ -3,12 +3,15 @@
 // @description    Поисковик, выбранный в адресной строке, становится поисковиком по умолчанию, а адрес в поле не стирается; раскрытая строка встаёт на место закрытой.
 // ==/UserScript==
 
+(() => {
+
 // Родной выбор поисковика Firefox включает разовый «режим поиска» и стирает адрес из поля.
 // Здесь обычный клик по поисковику (или Enter на нём) делает его поисковиком по умолчанию — родной настройкой
 // SearchService, как в about:preferences#search. Shift/средняя кнопка и «Настройки поиска» работают по-родному.
 // Плавающая адресная строка Zen (Ctrl+T, «+») складывается, как только фокус уходит из поля, а родное меню поисковиков
 // ещё и закрывает список результатов (без него строка теряет позицию по центру): меню оказывалось у свёрнутой верхней строки.
 // Пока меню открыто из плавающей строки, фокус остаётся в поле (mousedown не отдаёт его кнопке), а список результатов не закрывается.
+const { t } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-i18n.sys.mjs"));
 UC_API.Windows.waitWindowLoading(window).then(() => {
   // Результаты — продолжение строки (chrome.css, раздел 2б): раскрытая строка должна встать ровно туда, где стояла закрытая.
   // Размеры закрытой снимаем перед раскрытием (нажатие мыши или фокус) и отдаём CSS переменными.
@@ -91,8 +94,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     else if (ms) hintTimer = setTimeout(() => hint(), ms);
   };
   const searchImage = async file => {
-    if (file.size > MAX_IMG) return hint("Картинка больше 20 МБ", 3000);
-    hint("Ищу по картинке…");
+    if (file.size > MAX_IMG) return hint(t("Картинка больше 20 МБ"), 3000);
+    hint(t("Ищу по картинке…"));
     try {
       const { url, postData } = await lensRequest(file, window);
       const where = gBrowser.selectedTab.hasAttribute("lumi-home") ? "tab" : "current";
@@ -102,8 +105,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       gURLBar.blur();
       hint();
     } catch (e) {
-      console.error("Luminoctis адресная строка, поиск по картинке:", e);
-      hint("Не удалось отправить картинку", 3000);
+      console.error("Luminoctis адресная строка, поиск по картинке:", e); // l10n-skip
+      hint(t("Не удалось отправить картинку"), 3000);
     }
   };
   const onPaste = e => {
@@ -120,7 +123,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // в родной строке заголовок «This time search with:» (разовый поиск); у нас пункт меняет поисковик по умолчанию
   const header = gURLBar.querySelector(".searchmode-switcher-panel-description");
   header.removeAttribute("data-l10n-id");
-  header.textContent = "Поиск по умолчанию:";
+  header.textContent = t("Поиск по умолчанию:");
   let holdFloating = false;
   // Стекло: раскрытая строка (результаты, плавающая строка Zen) над сайтом размывает его под собой (js/lumi-site-blur.uc.js, chrome.css §14)
   const ubBg = gURLBar.querySelector(".urlbar-background");
@@ -157,3 +160,4 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   list.addEventListener("click", pick, true);
   list.addEventListener("keydown", pick, true);
 });
+})();

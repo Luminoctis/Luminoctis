@@ -7,6 +7,7 @@
 // Панель ⚙ (.lumi-wp-panel): громкость локальных видео-обоев (volume/muted).
 import { JS } from "./paths.js";
 import * as store from "./store.js";
+const { t } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 import { sources, SOURCES, sourceOn, net, nsfwOn, env } from "./wallpaper-sources.js";
 
 const P = "luminoctis.home.wallpaper.", ACCENT = "luminoctis.home.accentFromWallpaper", OVERRIDE = "luminoctis.palette.accentOverride";
@@ -25,7 +26,7 @@ const kinds = {
   image: { create: src => Object.assign(new Image(), { src, decoding: "async", alt: "" }), ready: el => el.decode() },
   video: {
     create: src => Object.assign(document.createElement("video"), { src, muted: true, loop: true, autoplay: true, playsInline: true, preload: "auto" }),
-    ready: el => new Promise((ok, fail) => { el.onloadeddata = ok; el.onerror = () => fail(new Error("видео не открылось")); }),
+    ready: el => new Promise((ok, fail) => { el.onloadeddata = ok; el.onerror = () => fail(new Error("видео не открылось" /* l10n-skip */)); }), /* l10n-skip */
   },
 };
 // источники (wallpaper-sources.js): каждый возвращает список { source, id, kind, url|file, page, author }
@@ -35,7 +36,7 @@ let state = { current: null, shownAt: 0, queue: [] };
 let favs = [], bans = new Set(); // favs = null — favorites.json битый: избранное не трогаем, чтобы не затереть
 const favFile = f => store.path("wallpapers/favorites/" + f.file);
 const fromFav = f => ({ ...f, file: favFile(f) });
-const save = () => store.writeJSON(STATE, state).catch(e => console.error("Luminoctis обои:", e));
+const save = () => store.writeJSON(STATE, state).catch(e => console.error("Luminoctis обои:", e)); /* l10n-skip */
 const shuffle = a => { for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; };
 
 let noSources = false; // нечего показывать по настройкам (ни одного источника / пустое избранное) — next() уберёт обои, останется цвет
@@ -49,7 +50,7 @@ async function refill() {
   }
   noSources = !on.length;
   const list = (await Promise.allSettled(on.map(s => sources[s]()))).flatMap(r => {
-    if (r.status == "rejected") console.warn("Luminoctis обои: источник недоступен", r.reason);
+    if (r.status == "rejected") console.warn("Luminoctis обои: источник недоступен", r.reason); /* l10n-skip */
     return r.value ?? [];
   });
   const fresh = list.filter(i => !bans.has(key(i)) && !hidden(i));
@@ -84,7 +85,7 @@ async function load(item) {
   return { item, el, blob, src };
 }
 const drop = layer => { layer.box?.remove(); if (layer.blob) URL.revokeObjectURL(layer.src); };
-const preload = () => (pending = nextItem().then(it => it && load(it)).catch(e => (console.warn("Luminoctis обои:", e), null)));
+const preload = () => (pending = nextItem().then(it => it && load(it)).catch(e => (console.warn("Luminoctis обои:", e), null))); /* l10n-skip */
 
 function show(layer) {
   const box = layer.box = Object.assign(document.createElement("div"), { className: "lumi-wp-layer" });
@@ -157,7 +158,7 @@ function reset() {
 export async function favorite() {
   const it = current?.item;
   if (!it || !favs) return false;
-  try { await toggleFav(it); } catch (e) { console.error("LumiHome: избранное:", e); return false; } // нет доступа к папке данных — тихо
+  try { await toggleFav(it); } catch (e) { console.error("LumiHome: избранное:", e); return false; } // нет доступа к папке данных — тихо /* l10n-skip */
   syncButtons();
   return true;
 }
@@ -184,7 +185,7 @@ export async function ban() {
   if (!it) return;
   bans.add(key(it));
   state.queue = state.queue.filter(i => !bans.has(key(i)));
-  await store.writeJSON(BANS, [...bans]).catch(e => console.error("LumiHome: бан:", e));
+  await store.writeJSON(BANS, [...bans]).catch(e => console.error("LumiHome: бан:", e)); /* l10n-skip */
   await next();
 }
 export function openSource() {
@@ -197,8 +198,8 @@ const isFav = () => !!favs?.some(f => key(f) == key(current?.item));
 function syncButtons() {
   const fav = bar.querySelector("[data-act=fav]");
   fav.classList.toggle("on", isFav());
-  fav.title = isFav() ? "Убрать из избранного" : "В избранное (копия — в папке Luminoctis Home)";
-  bar.querySelector("[data-act=open]").title = current?.item.source == "local" ? "Показать файл в папке" : "Открыть страницу обоев";
+  fav.title = isFav() ? t("Убрать из избранного") : t("В избранное (копия — в папке Luminoctis Home)");
+  bar.querySelector("[data-act=open]").title = current?.item.source == "local" ? t("Показать файл в папке") : t("Открыть страницу обоев");
   for (const b of bar.querySelectorAll("[data-act=fav], [data-act=ban], [data-act=open]")) b.disabled = !current;
   bar.querySelector("[data-act=next]").disabled = transparent();
 }
@@ -239,7 +240,7 @@ function applyAccent() {
   try {
     const color = accentOf(current.el);
     color ? prefs.setStringPref(OVERRIDE, color) : prefs.clearUserPref(OVERRIDE);
-  } catch (e) { console.warn("Luminoctis обои: цвет не прочитан", e); }
+  } catch (e) { console.warn("Luminoctis обои: цвет не прочитан", e); } /* l10n-skip */
 }
 
 // ---------- цветной фон: мягкий градиент из одного цвета (pref color; пусто — акцент палитры) ----------
@@ -443,11 +444,11 @@ function fillPanel() {
   vol.addEventListener("input", () => { out.value = vol.value; prefs.setIntPref(P + "volume", Number(vol.value)); });
   const mute = h("input", { type: "checkbox", checked: bool("muted") });
   mute.addEventListener("change", () => prefs.setBoolPref(P + "muted", mute.checked));
-  const close = h("button", { type: "button", className: "wp-close", textContent: "×", title: "Закрыть" });
+  const close = h("button", { type: "button", className: "wp-close", textContent: "×", title: t("Закрыть") });
   close.addEventListener("click", () => togglePanel(false));
-  panel.replaceChildren(h("header", {}, h("b", { textContent: transparent() ? "Прозрачная Home" : "Обои" }), close),
-    h("label", { className: "wp-prop" }, h("span", { textContent: "Громкость" }), h("span", { className: "wp-prop-range" }, vol, out)),
-    h("label", { className: "wp-prop wp-prop-bool" }, mute, h("span", { textContent: "Без звука" })));
+  panel.replaceChildren(h("header", {}, h("b", { textContent: transparent() ? t("Прозрачная Главная") : t("Обои") }), close),
+    h("label", { className: "wp-prop" }, h("span", { textContent: t("Громкость") }), h("span", { className: "wp-prop-range" }, vol, out)),
+    h("label", { className: "wp-prop wp-prop-bool" }, mute, h("span", { textContent: t("Без звука") })));
 }
 function togglePanel(on = !panel.classList.contains("open")) {
   panel.classList.toggle("open", on);
@@ -457,8 +458,8 @@ function togglePanel(on = !panel.classList.contains("open")) {
 document.addEventListener("keydown", e => e.key == "Escape" && panel.classList.contains("open") && togglePanel(false));
 
 // ---------- старт ----------
-const ACTS = { next: ["⟳", "Следующие обои", () => next()], fav: ["♥", "", favorite], ban: ["✕", "Больше не показывать", ban], open: ["↗", "", openSource],
-  props: ["⚙", "Звук обоев", () => togglePanel()] };
+const ACTS = { next: ["⟳", t("Следующие обои"), () => next()], fav: ["♥", "", favorite], ban: ["✕", t("Больше не показывать"), ban], open: ["↗", "", openSource],
+  props: ["⚙", t("Звук обоев"), () => togglePanel()] };
 for (const [act, [icon, title, run]] of Object.entries(ACTS)) {
   const b = Object.assign(document.createElement("button"), { textContent: icon, title, type: "button" });
   b.dataset.act = act;
@@ -470,7 +471,7 @@ syncButtons();
 effects();
 
 async function readData() {
-  const safe = async (rel, fb) => { try { return await store.readJSON(rel, fb); } catch (e) { console.error("Luminoctis обои:", rel, e); return undefined; } };
+  const safe = async (rel, fb) => { try { return await store.readJSON(rel, fb); } catch (e) { console.error("Luminoctis обои:", rel, e); return undefined; } }; /* l10n-skip */
   favs = (await safe(FAV, [])) ?? null;
   bans = new Set((await safe(BANS, [])) ?? []);
   state = { current: null, shownAt: 0, queue: [], ...(await safe(STATE, {})) };

@@ -8,6 +8,7 @@
 // Настройки luminoctis.update.*: url (откуда), auto-check, relaunch (поднять Zen после обновления), available (найденная версия, "" — нет),
 // page (адрес страницы релиза), last-check (секунды).
 import { setTimeout, setInterval } from "resource://gre/modules/Timer.sys.mjs";
+const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
 
 const P = "luminoctis.update.";
 const defaults = Services.prefs.getDefaultBranch(P);
@@ -35,24 +36,24 @@ const newer = (a, b) => {
 const HOSTS = ["api.github.com", "github.com", "objects.githubusercontent.com", "release-assets.githubusercontent.com"];
 export function checkUrl(u) {
   let x;
-  try { x = new URL(u); } catch { throw new Error("неверный адрес обновления: " + u); }
-  if (x.protocol !== "https:" || !HOSTS.includes(x.hostname)) throw new Error("адрес обновления не разрешён: " + u);
+  try { x = new URL(u); } catch { throw new Error(t("неверный адрес обновления: {0}", u)); }
+  if (x.protocol !== "https:" || !HOSTS.includes(x.hostname)) throw new Error(t("адрес обновления не разрешён: {0}", u));
   return u;
 }
 
 async function latest() {
   const r = await fetch(checkUrl(Services.prefs.getStringPref(P + "url")), { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
-  if (!r.ok) throw new Error("GitHub ответил " + r.status);
+  if (!r.ok) throw new Error(t("GitHub ответил {0}", r.status));
   const rel = await r.json();
   const version = String(rel.tag_name || "").replace(/^v/, "");
-  if (!/^\d+(\.\d+)*$/.test(version)) throw new Error("странный тег релиза: " + rel.tag_name); // версия идёт в имена файлов и папок
+  if (!/^\d+(\.\d+)*$/.test(version)) throw new Error(t("странный тег релиза: {0}", rel.tag_name)); // версия идёт в имена файлов и папок
   return { ...rel, version };
 }
 
 // -> { available: "версия" | "" } или { error }. Без состояния установки в сеть не ходит.
 export async function check() {
   const have = await installedVersion();
-  if (!have) return { error: "мод не установлен установщиком" };
+  if (!have) return { error: t("мод не установлен установщиком") };
   try {
     const rel = await latest();
     const found = rel.version && newer(rel.version, have) ? rel.version : "";
@@ -75,7 +76,7 @@ const file = path => {
 async function download(url) {
   const r = await fetch(checkUrl(url), { cache: "no-store" });
   checkUrl(r.url); // после перенаправлений тоже
-  if (!r.ok) throw new Error("не скачалось: " + url + " (" + r.status + ")");
+  if (!r.ok) throw new Error(t("не скачалось: {0} ({1})", url, r.status));
   return r;
 }
 
@@ -83,16 +84,16 @@ async function download(url) {
 // Любая ошибка до запуска скрипта — исключение, ничего в профиле не меняется.
 export async function apply() {
   const have = await installedVersion();
-  if (!have) throw new Error("мод не установлен установщиком");
+  if (!have) throw new Error(t("мод не установлен установщиком"));
   const rel = await latest();
-  if (!newer(rel.version, have)) throw new Error("новой версии нет");
+  if (!newer(rel.version, have)) throw new Error(t("новой версии нет"));
   const name = `Luminoctis-${rel.version}.zip`;
   const asset = n => rel.assets?.find(a => a.name == n)?.browser_download_url;
-  if (!asset(name) || !asset(name + ".sha256")) throw new Error("в релизе нет " + name + " или .sha256");
+  if (!asset(name) || !asset(name + ".sha256")) throw new Error(t("в релизе нет {0} или .sha256", name));
 
   const zip = await (await download(asset(name))).arrayBuffer();
   const want = (await (await download(asset(name + ".sha256"))).text()).trim().split(/\s+/)[0].toLowerCase();
-  if (hex(await crypto.subtle.digest("SHA-256", zip)) != want) throw new Error("SHA-256 не совпал — обновление отменено");
+  if (hex(await crypto.subtle.digest("SHA-256", zip)) != want) throw new Error(t("SHA-256 не совпал — обновление отменено"));
 
   const dir = PathUtils.join(PathUtils.tempDir, "luminoctis-update-" + rel.version);
   await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
@@ -105,7 +106,7 @@ export async function apply() {
   try {
     for (const entry of zr.findEntries("*")) {
       const rel2 = entry.replaceAll("\\", "/");
-      if (rel2.split("/").includes("..")) throw new Error("в архиве недопустимый путь: " + entry);
+      if (rel2.split("/").includes("..")) throw new Error(t("в архиве недопустимый путь: {0}", entry));
       if (rel2.endsWith("/")) { await IOUtils.makeDirectory(PathUtils.join(out, ...rel2.split("/")), { createAncestors: true }); continue; }
       const target = PathUtils.join(out, ...rel2.split("/"));
       await IOUtils.makeDirectory(PathUtils.parent(target), { createAncestors: true });
@@ -115,7 +116,7 @@ export async function apply() {
     zr.close();
   }
   const script = PathUtils.join(out, "installer", "update.ps1");
-  if (!(await IOUtils.exists(script))) throw new Error("в архиве нет installer\\update.ps1");
+  if (!(await IOUtils.exists(script))) throw new Error(t("в архиве нет installer\\update.ps1"));
 
   const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script,
     "-ZenPid", String(Services.appinfo.processID), "-ProfileDir", PathUtils.profileDir,

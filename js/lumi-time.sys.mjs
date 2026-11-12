@@ -702,8 +702,60 @@ function context() {
   if (!audio || audio.win != win || audio.win.closed || audio.ctx.state == "closed") audio = { win, ctx: new win.AudioContext() };
   return audio;
 }
-const TONES = { classic: [880, 1100], bell: [659, 988, 1319], chime: [523, 659, 784] };
-export function playSound() {
+// Синтез сигналов без файлов: общий граф для живого и офлайн-контекста (образцы dev/sound-preview).
+// Колокол — негармоничные обертоны с разным затуханием; перезвон — калимба (синус + быстрый «тук»); двойной — тёплый треугольник через ФНЧ.
+const NOTE = { C5: 523.25, D5: 587.33, E5: 659.25, G5: 783.99, A5: 880, C6: 1046.5 };
+const BELL = [[1, 1, 2.4], [2.0, 0.45, 1.5], [2.76, 0.3, 1.0], [4.07, 0.14, 0.6], [5.4, 0.07, 0.35]]; // [кратность, громкость, затухание с]
+const reverbs = new WeakMap();
+function reverb(ctx) {
+  let ir = reverbs.get(ctx);
+  if (!ir) {
+    const len = Math.floor(ctx.sampleRate * 1.8);
+    ir = ctx.createBuffer(2, len, ctx.sampleRate);
+    for (let c = 0; c < 2; c++) {
+      const d = ir.getChannelData(c);
+      for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 3);
+    }
+    reverbs.set(ctx, ir);
+  }
+  return ir;
+}
+function voice(ctx, out, at, freq, parts, attack, wave = "sine") {
+  for (const [ratio, amp, decay] of parts) {
+    const f = freq * ratio;
+    if (f > 9000) continue;
+    const osc = ctx.createOscillator(), g = ctx.createGain();
+    osc.type = wave; osc.frequency.value = f;
+    g.gain.setValueAtTime(0.0001, at);
+    g.gain.linearRampToValueAtTime(amp, at + attack);
+    g.gain.setTargetAtTime(0, at + attack, decay / 4);
+    osc.connect(g); g.connect(out);
+    osc.start(at); osc.stop(at + attack + decay * 2);
+  }
+}
+// phase: "focus" — фраза вниз (отдых), "break" — вверх (за работу). Возвращает длительность в секундах.
+export function buildSound(ctx, dest, preset, phase, volume, at = 0) {
+  const master = ctx.createGain(), comp = ctx.createDynamicsCompressor();
+  master.gain.value = Math.max(0, Math.min(100, volume)) / 100 * 0.5;
+  master.connect(comp); comp.connect(dest);
+  const mix = ctx.createGain(), wet = ctx.createGain(), conv = ctx.createConvolver();
+  conv.buffer = reverb(ctx); wet.gain.value = 0.25;
+  mix.connect(master); mix.connect(conv); conv.connect(wet); wet.connect(master);
+  const dir = notes => (phase == "break" ? notes.slice().reverse() : notes); // списки записаны «вниз»
+  if (preset == "bell") {
+    dir([NOTE.A5, NOTE.E5]).forEach((f, i) => voice(ctx, mix, at + i * 0.55, f, BELL.map(p => [p[0], p[1] * 0.5, p[2]]), 0.008));
+    return 3;
+  }
+  if (preset == "chime") {
+    const tock = [[1, 1, 1.1], [3, 0.12, 0.12], [4, 0.06, 0.08]];
+    dir([NOTE.C6, NOTE.G5, NOTE.E5, NOTE.C5]).forEach((f, i) => voice(ctx, mix, at + i * 0.13, f, tock.map(p => [p[0], p[1] * 0.55, p[2]]), 0.004));
+    return 2.6;
+  }
+  const lp = ctx.createBiquadFilter(); lp.type = "lowpass"; lp.frequency.value = 2400; lp.connect(mix);
+  dir([NOTE.E5, NOTE.C5]).forEach((f, i) => voice(ctx, lp, at + i * 0.4, f, [[1, 0.6, 0.9], [2, 0.12, 0.5]], 0.03, "triangle"));
+  return 2.2;
+}
+export function playSound(phase = "focus") {
   const s = data.settings;
   if (!s.sound) return;
   try {
@@ -716,20 +768,7 @@ export function playSound() {
       return;
     }
     const ctx = a.ctx;
-    ctx.resume().then(() => {
-      const start = ctx.currentTime;
-      TONES[s.soundPreset].forEach((freq, i) => {
-        const tone = ctx.createOscillator(), gain = ctx.createGain();
-        tone.frequency.value = freq;
-        tone.type = s.soundPreset == "chime" ? "triangle" : "sine";
-        tone.connect(gain); gain.connect(ctx.destination);
-        const at = start + i * 0.25;
-        gain.gain.setValueAtTime(0, at);
-        gain.gain.linearRampToValueAtTime(s.volume / 400, at + 0.03);
-        gain.gain.exponentialRampToValueAtTime(0.001, at + 0.21);
-        tone.start(at); tone.stop(at + 0.22);
-      });
-    }).catch(() => {});
+    ctx.resume().then(() => buildSound(ctx, ctx.destination, s.soundPreset, phase, s.volume, ctx.currentTime + 0.02)).catch(() => {});
   } catch (e) { console.error("LumiTime sound:", e); }
 }
 // короткий «тик» для галочек Daily Log
@@ -761,7 +800,7 @@ export function notify(text) {
 function alertFinished(phase) {
   const text = phase == "focus" ? t("Время фокуса вышло. Начни перерыв, когда будешь готов.") : t("Перерыв закончился. Можно начинать фокус.");
   lastAlert = { at: now(), text };
-  playSound();
+  playSound(phase);
   if (data.settings.systemNotifications) notify(text);
 }
 

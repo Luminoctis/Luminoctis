@@ -896,7 +896,13 @@
   function closeFull() {
     const tab = full;
     full = null;
-    if (tab && !tab.closing && isFull(tab)) gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }); // без следа (ушла на сайт — lumi-home.uc.js снял метку — не трогаем) в «недавно закрытых»
+    if (tab && !tab.closing && isFull(tab)) {
+      if (gBrowser.selectedTab === tab) { // иначе Zen сам выберет соседнюю: возвращаем, откуда пришли, а если её нет — на Home этого пространства
+        const prev = tab.lumiPrev;
+        if (prev && !prev.closing && gBrowser.tabs.includes(prev)) gBrowser.selectedTab = prev; else window.lumiHome?.open();
+      }
+      gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }); // без следа (ушла на сайт — lumi-home.uc.js снял метку — не трогаем) в «недавно закрытых»
+    }
   }
   // выбрали не LumiTime-целиком — вкладка и мини-окно уходят вместе; выбрали её — мини-окно перенастраивается
   window.addEventListener("TabSelect", event => {

@@ -158,7 +158,7 @@ body[lumi-time-panel] #lumi-time-panel { translate: 0 0; opacity: 1; }
 .lt-card { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, var(--lumi-raised) 60%, transparent);
   & small { color: var(--lumi-muted); font-size: 11px; } & b { font: 600 19px/1.1 var(--lumi-mono, monospace); font-variant-numeric: tabular-nums; } }
 .lt-card-main b { color: var(--lumi-accent); }
-.lt-chart { width: 100%; height: auto; max-height: 260px;
+.lt-chart { width: 100%; height: auto; max-height: 260px; flex-shrink: 0; /* в колонке .lt-panel-body svg сжимался до 0 высоты */
   & .lt-grid { stroke: var(--lt-line); stroke-width: 1; } & .lt-axis { fill: var(--lumi-dim); font-size: 10px; }
   & .lt-bar-focus { fill: var(--lumi-accent); } & .lt-bar-break { fill: color-mix(in srgb, var(--lumi-muted) 45%, transparent); }
   & .lt-bar:hover rect { filter: brightness(1.2); } }

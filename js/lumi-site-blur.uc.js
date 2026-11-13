@@ -25,11 +25,11 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     el.append(...kids);
     return el;
   };
-  const filter = make("filter", { id: "lumi-site-blur", x: 0, y: 0, width: "100%", height: "100%", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
-  root.append(make("svg", { "aria-hidden": "true", style: "position:fixed;width:0;height:0;pointer-events:none" }, filter));
+  const svg = make("svg", { "aria-hidden": "true", style: "position:fixed;width:0;height:0;pointer-events:none" });
+  root.append(svg);
   const reduced = matchMedia("(prefers-reduced-transparency: reduce)");
   const rects = new Map(), loops = new Map(); // ключ панели → { left, top, right, bottom }; ключ → id кадра слежения
-  let boxes = [], sig = "", under = null, applied = null; // under — вкладка под закреп-окошком; applied — элемент, на котором сейчас висит фильтр
+  let under = null; // вкладка под закреп-окошком
   const hostOf = () => { const el = under?.linkedBrowser?.closest(".browserSidebarContainer"); return el?.isConnected ? el : panels; };
   const unhost = el => { el?.style.removeProperty("filter"); el?.removeAttribute("lumi-site-blurred"); };
 
@@ -40,46 +40,65 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const solidPage = () => { const tab = under?.isConnected ? under : gBrowser.selectedTab; // под закрепом — вкладка под ним, а не сам закреп
     return !!tab.linkedBrowser?.isRemoteBrowser && !Services.prefs.getBoolPref(TRANSPARENT, false) && !root.hasAttribute("lumi-home-live") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("lumi-time-full"); };
 
+  // Слой — свой фильтр на своей области (host): сайты, а с 0.7.7 ещё полоса вкладок и адресная строка. backdrop-filter панели их НЕ размывает: фон у них прозрачный
+  // (стекло окна), и Firefox кладёт размытый «задник» поверх резкого — резкий остаётся виден сквозь слабую дымку (замер 0.7.7: пятно зелёного 40×28 под blur(32px) осталось
+  // квадратом). Поэтому полосу и адресную строку размывает такой же фильтр, как сайт, по честной цепочке с вырезом резкого. skip — ключи панелей, которые сами лежат в области
+  // (выехавшая в Compacting полоса, раскрытая адресная строка): фильтр на хозяине размыл бы саму панель
+  const layer = (id, getHost, { solid = () => false, skip = [], mark = false } = {}) => {
+    const filter = make("filter", { id, x: 0, y: 0, width: "100%", height: "100%", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
+    svg.append(filter);
+    let boxes = [], sig = "", applied = null; // applied — элемент, на котором сейчас висит фильтр
+    const update = on => {
+      const host = getHost(), p = on && host && rects.size ? host.getBoundingClientRect() : null; // без панелей лишнего пересчёта раскладки нет
+      boxes = [];
+      if (p) for (const [key, r] of rects) { // подобласть — часть панели над областью, в координатах хозяина
+        if (skip.includes(key)) continue;
+        const x = Math.max(r.left - p.left, 0), y = Math.max(r.top - p.top, 0), w = Math.min(r.right - p.left, p.width) - x, h = Math.min(r.bottom - p.top, p.height) - y;
+        if (w >= 1 && h >= 1) boxes.push([x, y, w, h].map(n => Math.round(n * 100) / 100));
+      }
+      const solidNow = solid(), now = boxes.length ? boxes.join("|") + "|" + p.width + "x" + p.height + (solidNow ? "s" : "t") : ""; // размер области — в подписи: от него зависят полосы у краёв
+      if (now == sig && (!now || host == applied)) return;
+      sig = now;
+      if (applied != host) unhost(applied); // фильтр перешёл с области сайтов на панель под закрепом или обратно
+      applied = null;
+      if (!boxes.length) {
+        unhost(host);
+        filter.replaceChildren();
+        return;
+      }
+      // На каждую панель: g — размытие подобласти; m — маска «здесь была страница» (альфа g, поднятая до 1); у края области сайтов (верх под полосой, лево под
+      // рейкой) g тает к прозрачному (часть окна размытия лежит за краем), поэтому альфу поднимают: feComponentTransfer снимает премультипликацию, цвет остаётся
+      // честным средним. Фильтр на анимированной странице стоит GPU за каждый примитив на всю область (замер 0.7.3), поэтому два пути:
+      // · сплошная страница: слой = m (g с альфой ×8) непрозрачен во всей подобласти, резкая страница под ним не видна — вырезать её не нужно (как в 0.7.1);
+      // · иначе страница может быть прозрачной (Home насквозь, прозрачные сайты): слой — «честный» g (белый текст на прозрачном фоне не превращается в сплошное
+      //   белое пятно, как при ×8), резкая страница вырезается по маскам m (×255). Подъёма у края здесь нет: полоса с ×3 у полупрозрачного сайта
+      //   была плотнее соседнего слоя — светлая полоса с резкой границей слева под рейкой и снизу (0.7.3); без неё слой у края просто плавно тает.
+      const rect = ([x, y, width, height]) => ({ x, y, width, height }), merge = (nodes, result) => make("feMerge", result ? { result } : {}, ...nodes.map(n => make("feMergeNode", { in: n })));
+      const ct = (src, box, slope, result) => make("feComponentTransfer", { in: src, ...rect(box), result }, make("feFuncA", { type: "linear", slope }));
+      const prims = [], top = []; // примитивы и слои, которые кладутся поверх страницы
+      boxes.forEach((box, i) => {
+        prims.push(make("feGaussianBlur", { in: "SourceGraphic", stdDeviation: RADIUS, ...rect(box), result: `g${i}` }), ct(`g${i}`, box, solidNow ? 8 : 255, `m${i}`));
+        if (solidNow) return top.push(`m${i}`);
+        top.push(`g${i}`);
+      });
+      const masks = boxes.map((_, i) => `m${i}`);
+      filter.replaceChildren(...prims, ...(solidNow ? [merge(["SourceGraphic", ...top])] : [...(masks.length > 1 ? [merge(masks, "m")] : []),
+        make("feComposite", { in: "SourceGraphic", in2: masks.length > 1 ? "m" : masks[0], operator: "out", result: "cut" }), merge(["cut", ...top])]));
+      host.style.filter = `url(#${id})`;
+      if (mark) host.setAttribute("lumi-site-blurred", ""); // chrome.css §14б: бесконечные анимации внутри области под фильтром ставятся на паузу
+      applied = host;
+    };
+    return { update, get boxes() { return boxes; }, get host() { return applied; } };
+  };
+  const site = layer("lumi-site-blur", hostOf, { solid: solidPage, mark: true });
+  const layers = [site,
+    layer("lumi-ui-blur-tabs", () => document.getElementById("lumi-tabstrip"), { skip: ["compact-top"] }),
+    layer("lumi-ui-blur-nav", () => document.getElementById("zen-appcontent-navbar-wrapper"), { skip: ["compact-top", "urlbar"] })];
+
   function apply() {
     const on = possible();
     root.toggleAttribute("lumi-site-blur", on);
-    const host = hostOf(), p = on && rects.size ? host.getBoundingClientRect() : null; // без панелей лишнего пересчёта раскладки нет
-    boxes = [];
-    if (p) for (const r of rects.values()) { // подобласть — часть панели над сайтом, в координатах #tabbrowser-tabpanels
-      const x = Math.max(r.left - p.left, 0), y = Math.max(r.top - p.top, 0), w = Math.min(r.right - p.left, p.width) - x, h = Math.min(r.bottom - p.top, p.height) - y;
-      if (w >= 1 && h >= 1) boxes.push([x, y, w, h].map(n => Math.round(n * 100) / 100));
-    }
-    const solid = solidPage(), now = boxes.length ? boxes.join("|") + "|" + p.width + "x" + p.height + (solid ? "s" : "t") : ""; // размер области — в подписи: от него зависят полосы у краёв
-    if (now == sig && (!now || host == applied)) return;
-    sig = now;
-    if (applied != host) unhost(applied); // фильтр перешёл с области сайтов на панель под закрепом или обратно
-    applied = null;
-    if (!boxes.length) {
-      unhost(host);
-      filter.replaceChildren();
-      return;
-    }
-    // На каждую панель: g — размытие подобласти; m — маска «здесь была страница» (альфа g, поднятая до 1); у края области сайтов (верх под полосой, лево под
-    // рейкой) g тает к прозрачному (часть окна размытия лежит за краем), поэтому альфу поднимают: feComponentTransfer снимает премультипликацию, цвет остаётся
-    // честным средним. Фильтр на анимированной странице стоит GPU за каждый примитив на всю область (замер 0.7.3), поэтому два пути:
-    // · сплошная страница: слой = m (g с альфой ×8) непрозрачен во всей подобласти, резкая страница под ним не видна — вырезать её не нужно (как в 0.7.1);
-    // · иначе страница может быть прозрачной (Home насквозь, прозрачные сайты): слой — «честный» g (белый текст на прозрачном фоне не превращается в сплошное
-    //   белое пятно, как при ×8), резкая страница вырезается по маскам m (×255). Подъёма у края здесь нет: полоса с ×3 у полупрозрачного сайта
-    //   была плотнее соседнего слоя — светлая полоса с резкой границей слева под рейкой и снизу (0.7.3); без неё слой у края просто плавно тает.
-    const rect = ([x, y, width, height]) => ({ x, y, width, height }), merge = (nodes, result) => make("feMerge", result ? { result } : {}, ...nodes.map(n => make("feMergeNode", { in: n })));
-    const ct = (src, box, slope, result) => make("feComponentTransfer", { in: src, ...rect(box), result }, make("feFuncA", { type: "linear", slope }));
-    const prims = [], top = []; // примитивы и слои, которые кладутся поверх страницы
-    boxes.forEach((box, i) => {
-      prims.push(make("feGaussianBlur", { in: "SourceGraphic", stdDeviation: RADIUS, ...rect(box), result: `g${i}` }), ct(`g${i}`, box, solid ? 8 : 255, `m${i}`));
-      if (solid) return top.push(`m${i}`);
-      top.push(`g${i}`);
-    });
-    const masks = boxes.map((_, i) => `m${i}`);
-    filter.replaceChildren(...prims, ...(solid ? [merge(["SourceGraphic", ...top])] : [...(masks.length > 1 ? [merge(masks, "m")] : []),
-      make("feComposite", { in: "SourceGraphic", in2: masks.length > 1 ? "m" : masks[0], operator: "out", result: "cut" }), merge(["cut", ...top])]));
-    host.style.filter = "url(#lumi-site-blur)";
-    host.setAttribute("lumi-site-blurred", ""); // chrome.css §14б: бесконечные анимации внутри области под фильтром ставятся на паузу
-    applied = host;
+    for (const l of layers) l.update(on);
   }
 
   const set = (key, r) => {
@@ -107,5 +126,6 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // вкладка под закреп-окошком (null — окошка нет): фильтр висит на её панели, а не на всей области сайтов
   const behind = tab => { if (under == tab) return; under = tab; apply(); };
 
-  window.lumiSiteBlur = { set, track, behind, apply, possible, get boxes() { return boxes; }, get host() { return applied; } };
+  window.lumiSiteBlur = { set, track, behind, apply, possible, layers, get boxes() { return site.boxes; }, get host() { return site.host; } };
 });
+

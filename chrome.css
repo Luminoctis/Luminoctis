@@ -184,7 +184,7 @@
   width: 48px;
   flex-shrink: 0;
   margin: 0 0 8px 0; /* вплотную к левому и верхнему краю окна */
-  padding: 9px 0;
+  padding: 3.15px 0 9px; /* сверху 3.15px (было 9): отступ «L» от верха окна равен отступу от левого края, 3.72px по getBoundingClientRect (рейка 48 с рамкой 1px, плитка 40px, дробный сдвиг DPI), 0.7.7 */
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
@@ -865,6 +865,7 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
     & #lumi-hot-left { display: block; }
     & #lumi-rail {
       position: fixed; top: 0; bottom: 0; left: 0; z-index: 6;
+      padding-top: 3.72px; /* в потоке рейка сдвинута на 1 физический пиксель вниз (0.57px), у fixed сдвига нет — «L» на тех же 3.72px от верха, 0.7.7 */
       translate: calc(-100% - 12px) 0; transition: translate 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
       background: var(--lumi-compact-bg1, var(--lumi-bg1));
     }

@@ -12,7 +12,7 @@ const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.met
 
 const P = "luminoctis.update.";
 const defaults = Services.prefs.getDefaultBranch(P);
-defaults.setStringPref("url", "https://api.github.com/repos/LaithsShadow/Luminoctis/releases/latest");
+defaults.setStringPref("url", "https://api.github.com/repos/Luminoctis/Luminoctis/releases/latest");
 defaults.setBoolPref("auto-check", true);
 defaults.setBoolPref("relaunch", true);
 defaults.setStringPref("available", "");

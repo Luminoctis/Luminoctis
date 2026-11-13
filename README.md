@@ -6,7 +6,7 @@ by Laith · [MPL-2.0](LICENSE)
 
 ## Download
 
-**[⬇ Latest release](https://github.com/LaithsShadow/Luminoctis/releases/latest)** — download `Luminoctis-Setup-<version>.exe` and run it.
+**[⬇ Latest release](https://github.com/Luminoctis/Luminoctis/releases/latest)** — download `Luminoctis-Setup-<version>.exe` and run it.
 
 1. Close Zen Browser.
 2. Run the installer and pick your Zen profile. It does everything in one click: installs the script loader ([fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig), asks for administrator rights once), copies the mod into the profile and sets the Zen options the mod needs.

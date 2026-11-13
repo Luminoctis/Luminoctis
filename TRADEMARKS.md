@@ -1,6 +1,6 @@
 # Luminoctis name and logo
 
-The code of Luminoctis is open source under the [Mozilla Public License 2.0](LICENSE). The name **Luminoctis™** and the Luminoctis logo are not: they belong to the author, Laith (GitHub: [LaithsShadow](https://github.com/LaithsShadow)), and are reserved for the official project published at https://github.com/LaithsShadow/Luminoctis. The MPL itself says it grants no rights to names or logos (section 2.3).
+The code of Luminoctis is open source under the [Mozilla Public License 2.0](LICENSE). The name **Luminoctis™** and the Luminoctis logo are not: they belong to the author, Laith (GitHub: [LaithsShadow](https://github.com/LaithsShadow)), and are reserved for the official project published at https://github.com/Luminoctis/Luminoctis. The MPL itself says it grants no rights to names or logos (section 2.3).
 
 The name has been in public use for this project since October 2026.
 
@@ -19,4 +19,4 @@ The name has been in public use for this project since October 2026.
 
 If you fork the code, pick your own name and logo, and keep the MPL notices as the license requires.
 
-Questions or permission requests: open an issue at https://github.com/LaithsShadow/Luminoctis/issues.
+Questions or permission requests: open an issue at https://github.com/Luminoctis/Luminoctis/issues.

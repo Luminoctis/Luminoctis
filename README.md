@@ -1,6 +1,6 @@
 # Luminoctis
 
-**A full makeover mod for [Zen Browser](https://zen-browser.app/) on Windows** — a tab strip on top, a slim side rail, a Home page with clock, notes and wallpapers, glass window modes, 8 colour palettes and interface sounds.
+**A full makeover mod for [Zen Browser](https://zen-browser.app/) on Windows** — a tab strip on top, a slim side rail, a Home page with clock, notes and wallpapers, glass window modes, 9 colour palettes and interface sounds.
 
 by Laith · [MPL-2.0](LICENSE)
 
@@ -38,7 +38,7 @@ The interface is available in English, 中文, Español, العربية, Portugu
 
 **Look**
 - Window modes: Opaque, Transparent (desktop shows through with blur) and Wallpaper.
-- 8 palettes — Tokyo Night, Tokyo Night Storm, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Rosé Pine, One Dark — every colour editable.
+- 9 palettes — Tokyo Night, Tokyo Night Storm, Catppuccin Mocha, Dracula, Nord, Gruvbox Dark, Rosé Pine, One Dark and GX (neon accent, cut corners) — every colour editable.
 - Rounded, square or slanted tabs; Compacting hides the rail, tab strip or address bar until the mouse reaches the edge.
 - If Windows colour settings break transparency, the mod tells you and fixes them with one click.
 

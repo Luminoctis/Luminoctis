@@ -212,6 +212,18 @@
     // Пустое пространство (переключились в него или закрыли последнюю вкладку): Zen выбирает серую пустую вкладку — вместо неё Home.
     // Отложено: пока Zen заканчивает переключение / закрытие, выбранная вкладка и активное пространство ещё не устоялись.
     if (!PrivateBrowsingUtils.isWindowPrivate(window) && window.toolbar.visible) {
+      // С Home — в пустое пространство: Home переезжает туда ДО выбора вкладки (Zen сам выбрал бы серую пустую и экран мигал бы на 12–14 кадров:
+      // «насквозь»/стена гаснут и снова включаются). Zen берёт «последнюю выбранную» вкладку пространства, если она видна там, — подсовываем Home.
+      const handleSel = gZenWorkspaces._handleTabSelection;
+      gZenWorkspaces._handleTabSelection = function (workspace, onInit, ...rest) {
+        const home = gBrowser.selectedTab, last = this.lastSelectedWorkspaceTabs[workspace.uuid];
+        if (armed && !onInit && isHome(home) && !home.closing && home.getAttribute("zen-workspace-id") != workspace.uuid &&
+          !(last && !last.closing && this._shouldShowTab(last, workspace.uuid, workspace.containerTabId?.toString(), this.getWorkspaces()))) {
+          this.moveTabToWorkspace(home, workspace.uuid);
+          this.lastSelectedWorkspaceTabs[workspace.uuid] = home;
+        }
+        return handleSel.call(this, workspace, onInit, ...rest);
+      };
       let timer;
       window.addEventListener("TabSelect", () => {
         clearTimeout(timer);

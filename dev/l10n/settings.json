@@ -703,6 +703,17 @@
     "ja": "タブの切り替え",
     "de": "Tab wechseln"
   },
+  "Пространства, LumiTime и библиотека": {
+    "en": "Spaces, LumiTime and library",
+    "zh": "空间、LumiTime 和资料库",
+    "es": "Espacios, LumiTime y biblioteca",
+    "ar": "المساحات وLumiTime والمكتبة",
+    "pt": "Espaços, LumiTime e biblioteca",
+    "id": "Ruang, LumiTime, dan pustaka",
+    "fr": "Espaces, LumiTime et bibliothèque",
+    "ja": "スペース、LumiTime、ライブラリ",
+    "de": "Spaces, LumiTime und Bibliothek"
+  },
   "Клик по рейке и закрепам": {
     "en": "Clicking the rail and pins",
     "zh": "点击侧栏和固定标签页",

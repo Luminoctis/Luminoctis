@@ -10,3 +10,5 @@ Folder lumitime/ (LumiTime cycle-end signals 1-5), from Freesound, converted to 
   3.ogg  "Acquire" by Kenneth_Cooney, https://freesound.org/s/781199/, CC0 1.0
   4.ogg  "Success.wav" by Kagateni, https://freesound.org/s/404358/, CC0 1.0
   5.ogg  "success2" by Kenneth_Cooney, https://freesound.org/s/779817/, CC0 1.0
+
+nav.ogg: "Futuristic UI Digital Click" by Davies Aguirre, a file provided by the Luminoctis author (original mp3 kept in src/, not shipped). Converted to ogg, leading silence trimmed, normalized in volume only.

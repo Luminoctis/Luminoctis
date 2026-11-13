@@ -510,6 +510,7 @@ export const strings = {
   "Прозрачный": "Transparente",
   "Пропорции": "Proporção",
   "Прослушать": "Ouvir",
+  "Пространства, LumiTime и библиотека": "Espaços, LumiTime e biblioteca",
   "Прятать панели": "Ocultar painéis",
   "Пусто": "Vazio",
   "Рабочие пространства": "Espaços de trabalho",

@@ -510,6 +510,7 @@ export const strings = {
   "Прозрачный": "Transparan",
   "Пропорции": "Rasio",
   "Прослушать": "Dengarkan",
+  "Пространства, LumiTime и библиотека": "Ruang, LumiTime, dan pustaka",
   "Прятать панели": "Sembunyikan panel",
   "Пусто": "Kosong",
   "Рабочие пространства": "Ruang kerja",

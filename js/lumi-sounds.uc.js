@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: звуки
-// @description    Звуки браузера: открытие/закрытие/переключение вкладок, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
+// @description    Звуки браузера: смена пространства/LumiTime/библиотека (nav), открытие/закрытие/переключение вкладок, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
 // ==/UserScript==
 
 // Файлы — sounds/<действие>.ogg: бывший пак «GX», синтезирован для Luminoctis (dev/make-gx-sounds.sh); glitch.ogg — Freesound CC0.
@@ -19,6 +19,7 @@
   const ACTIONS = {
     "tab-open": [1, 80, 0.01, 0.03], "tab-close": [1, 80, 0.01, 0.03], "tab-switch": [0.7, 80, 0.01, 0.03],
     click: [0.8, 60, 0.01, 0.03], download: [1, 300, 0, 0],
+    nav: [1, 400, 0.01, 0.03], // смена пространства, LumiTime, библиотека Zen
     glitch: [0.8, 0, 0, 0],
   };
   const t0 = Date.now();
@@ -109,13 +110,25 @@
   sync();
 
   const settled = () => Date.now() - t0 > 5000; // восстановление сессии открывает десятки вкладок разом
-  let openedAt = 0;
-  gBrowser.tabContainer.addEventListener("TabOpen", () => { if (settled()) (openedAt = performance.now(), play("tab-open")); });
+  let openedAt = 0, navAt = -1e9;
+  // nav: пока он недавно играл, tab-open/tab-switch/click молчат (иначе звуки накладываются)
+  const nav = () => { if (!settled()) return; navAt = performance.now(); play("nav"); };
+  const navNow = () => performance.now() - navAt < 250 || gZenWorkspaces.isChangingWorkspace; // только эхо самой смены: её TabSelect идёт сразу за слушателем
+  const isTime = tab => tab?.hasAttribute("lumi-time-full") || tab?.linkedBrowser?.currentURI?.spec.startsWith(pageUrl("home/time.html"));
+  gBrowser.tabContainer.addEventListener("TabOpen", e => { if (settled()) { openedAt = performance.now(); if (!isTime(e.target)) play("tab-open"); } });
   gBrowser.tabContainer.addEventListener("TabClose", () => { if (settled()) play("tab-close"); });
   // глитч (lumi-glitch) решает в своём TabSelect, порядок обработчиков не гарантирован — проверяем после них; при глитче играет только glitch
-  gBrowser.tabContainer.addEventListener("TabSelect", () => { if (settled() && performance.now() - openedAt > 200) setTimeout(() => { if (!window.lumiGlitch?.active) play("tab-switch"); }, 0); });
+  gBrowser.tabContainer.addEventListener("TabSelect", () => { if (settled() && performance.now() - openedAt > 200) { const tab = gBrowser.selectedTab, ws = gZenWorkspaces.isChangingWorkspace; setTimeout(() => { if (window.lumiGlitch?.active) return; if (ws || navNow()) return; if (isTime(tab)) nav(); else play("tab-switch"); }, 0); } });
+  // смена пространства (родной слушатель Zen: один раз на реальную смену), мини-окно LumiTime, библиотека Zen
+  gZenWorkspaces.addChangeListeners(() => nav());
+  new MutationObserver(list => { if (list.some(m => [...m.addedNodes].some(n => n.id == "lumi-time-frame"))) nav(); }).observe(gBrowser.tabbox, { childList: true });
+  const lib = document.querySelector("zen-library");
+  let libOpen = false; // nav только при переходе «закрыта → открыта»
+  if (lib) new MutationObserver(() => { const o = lib.hasAttribute("open"); if (o && !libOpen) nav(); libOpen = o; }).observe(lib, { attributes: true, attributeFilter: ["open"] });
 
   document.addEventListener("click", e => {
+    if (e.target.closest?.("#lumi-time-tile") && !document.getElementById("lumi-time-frame")) return; // открытие: сыграет nav от появления окна
+    if (e.target.closest?.("#lumi-spaces-button") && !lib?.hasAttribute("open")) return; // открывает библиотеку Zen: сыграет nav
     if (e.target.closest?.("#lumi-rail button, #lumi-rail toolbarbutton, #lumi-rail .lumi-pin, #lumi-pins .lumi-pin")) play("click");
   }, true);
 

@@ -75,7 +75,7 @@
       },
     },
     { group: "Значки закрепов", id: "badge-reset", label: "Сбросить значки", hint: "Вернуть настоящие значки всех закрепов", run: () => { for (const t of [...badged]) setBadge(t, null); } },
-    ...["type", "hover", "tab-open", "tab-close", "tab-switch", "click", "download"].map(a => (
+    ...["type", "tab-open", "tab-close", "tab-switch", "click", "download"].map(a => (
       { group: "Звуки", id: "sound-" + a, label: a, hint: "Играет, даже если звуки выключены", run: () => window.lumiSounds.play(a, { force: true, ignoreFocus: true }) })),
     { group: "Точки", id: "update-on", label: "Точка обновления: показать", hint: "На шестерёнке; настоящее состояние обновления не меняется", run: () => updateDot(true) },
     { group: "Точки", id: "update-off", label: "Точка обновления: убрать", hint: "Вернуть по настоящему состоянию", run: () => updateDot() },

@@ -1,6 +1,6 @@
 // ==UserScript==
 // @name           Luminoctis: звуки
-// @description    Звуки браузера: печать, открытие/закрытие/переключение вкладок, наведение, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
+// @description    Звуки браузера: печать, открытие/закрытие/переключение вкладок, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
 // ==/UserScript==
 
 // Пак звуков (luminoctis.sounds.pack: default = sounds/ (CC0 Kenney), gx = sounds/gx/ (синтез)).
@@ -18,7 +18,7 @@
   // действие -> [множитель громкости, минимальный интервал мс, разброс высоты (доля), разброс громкости (доля)]
   const ACTIONS = {
     type: [0.6, 40, 0.03, 0.1], "tab-open": [1, 80, 0.01, 0.03], "tab-close": [1, 80, 0.01, 0.03], "tab-switch": [0.7, 80, 0.01, 0.03],
-    hover: [0.35, 0, 0.03, 0.1], click: [0.8, 60, 0.01, 0.03], download: [1, 300, 0, 0],
+    click: [0.8, 60, 0.01, 0.03], download: [1, 300, 0, 0],
     glitch: [0.8, 0, 0, 0],
   };
   const t0 = Date.now();
@@ -129,32 +129,6 @@
   // глитч (lumi-glitch) решает в своём TabSelect, порядок обработчиков не гарантирован — проверяем после них; при глитче играет только glitch
   gBrowser.tabContainer.addEventListener("TabSelect", () => { if (settled() && performance.now() - openedAt > 200) setTimeout(() => { if (!window.lumiGlitch?.active) play("tab-switch"); }, 0); });
 
-  // Кнопки интерфейса: toolbarbutton/button (в т.ч. в popup-панелях и shadow DOM — берём composedPath), плитки мода, расширения в панели расширений.
-  // menuitem и всё внутри menupopup (меню и контекстные меню) — без звука. Из вложенных совпадений берём внешний: вкладка с кнопкой закрытия — один звук.
-  const HOVER = "toolbarbutton, button, moz-button, [role=button], [role=tab], .lumi-tab, .lumi-pin, .lumi-player, unified-extensions-item, .urlbar-page-action, .identity-box-button, .urlbar-go-button";
-  const IFRAME_HOVER = "button, [role=button], [role=tab], .t, .goto, select, a[href]"; // страницы мода в рамках: настройки, окно LumiTime
-  const hoverTarget = (e, sel) => {
-    const path = e.composedPath();
-    if (path.some(n => n.localName === "menupopup")) return null;
-    for (let i = path.length - 1; i >= 0; i--) if (path[i].matches?.(sel) && !path[i].disabled && !path[i].hasAttribute("disabled")) return path[i];
-    return null;
-  };
-  // звук один раз на вход в элемент: пока мышь над тем же элементом (в т.ч. над его детьми) — тишина; ушла на пустое место/за окно — сброс
-  const watchHover = (doc, sel) => {
-    let cur = null;
-    doc.addEventListener("mouseover", e => {
-      const el = hoverTarget(e, sel);
-      if (el !== cur) { cur = el; if (el) play("hover"); }
-    });
-    doc.addEventListener("mouseout", e => { if (!e.relatedTarget) cur = null; });
-  };
-  watchHover(document, HOVER);
-  // рамки с настройками и окном LumiTime: события мыши из них в этот документ не приходят, а load рамки не ловится — подключаемся, когда мышь входит в саму рамку
-  const framed = new WeakSet();
-  document.addEventListener("mouseover", e => {
-    const d = e.target.localName === "iframe" && e.target.contentDocument;
-    if (d?.documentElement && !framed.has(d)) { framed.add(d); watchHover(d, IFRAME_HOVER); }
-  });
   document.addEventListener("click", e => {
     if (e.target.closest?.("#lumi-rail button, #lumi-rail toolbarbutton, #lumi-rail .lumi-pin, #lumi-pins .lumi-pin")) play("click");
   }, true);

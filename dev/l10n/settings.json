@@ -747,28 +747,6 @@
     "ja": "タブの切り替え",
     "de": "Tab wechseln"
   },
-  "Наведение": {
-    "en": "Hover",
-    "zh": "悬停",
-    "es": "Pasar el ratón",
-    "ar": "التمرير بالفأرة",
-    "pt": "Passar o mouse",
-    "id": "Kursor di atas",
-    "fr": "Survol",
-    "ja": "ホバー",
-    "de": "Überfahren"
-  },
-  "На вкладку полосы и закреп, очень тихо": {
-    "en": "Over a strip tab or a pin, very quiet",
-    "zh": "悬停在标签栏的标签页或固定标签页上,声音很轻",
-    "es": "Sobre una pestaña de la barra o una fijada, muy suave",
-    "ar": "فوق لسان في الشريط أو لسان مثبّت، بصوت خافت جدًا",
-    "pt": "Sobre uma aba da faixa ou fixada, bem baixinho",
-    "id": "Di atas tab bilah atau tab disematkan, sangat pelan",
-    "fr": "Sur un onglet de la bande ou un onglet épinglé, très discret",
-    "ja": "タブバーのタブやピン留めの上で、とても小さく鳴ります",
-    "de": "Über einem Tab der Leiste oder einem angehefteten Tab, sehr leise"
-  },
   "Клик по рейке и закрепам": {
     "en": "Clicking the rail and pins",
     "zh": "点击侧栏和固定标签页",

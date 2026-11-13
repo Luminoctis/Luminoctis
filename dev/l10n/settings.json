@@ -648,38 +648,16 @@
     "ja": "サウンド",
     "de": "Töne"
   },
-  "Короткие звуки интерфейса. Пак «Стандартный» — набор CC0 от Kenney, «GX» — мягкие электронные щелчки, синтезированы для Luminoctis.": {
-    "en": "Short interface sounds. The “Standard” pack is a CC0 set by Kenney; “GX” is soft electronic clicks synthesized for Luminoctis.",
-    "zh": "简短的界面音效。“标准”音效包是 Kenney 制作的 CC0 素材;“GX”是为 Luminoctis 合成的柔和电子点击声。",
-    "es": "Sonidos breves de la interfaz. El pack «Estándar» es un conjunto CC0 de Kenney; «GX» son clics electrónicos suaves, sintetizados para Luminoctis.",
-    "ar": "أصوات قصيرة للواجهة. حزمة «قياسي» مجموعة CC0 من Kenney، أما «GX» فنقرات إلكترونية ناعمة صُنعت لـ Luminoctis.",
-    "pt": "Sons curtos da interface. O pacote «Padrão» é um conjunto CC0 da Kenney; «GX» são cliques eletrônicos suaves, sintetizados para o Luminoctis.",
-    "id": "Suara antarmuka singkat. Paket “Standar” adalah set CC0 dari Kenney; “GX” adalah klik elektronik lembut yang disintesis untuk Luminoctis.",
-    "fr": "Courts sons d’interface. Le pack « Standard » est un ensemble CC0 de Kenney ; « GX » est composé de clics électroniques doux, synthétisés pour Luminoctis.",
-    "ja": "短いインターフェース音。「標準」パックは Kenney 制作の CC0 素材、「GX」は Luminoctis 用に合成した柔らかい電子クリック音です。",
-    "de": "Kurze Oberflächentöne. Das Paket „Standard“ ist ein CC0-Set von Kenney; „GX“ sind weiche elektronische Klicks, für Luminoctis synthetisiert."
-  },
-  "Пак звуков": {
-    "en": "Sound pack",
-    "zh": "音效包",
-    "es": "Pack de sonidos",
-    "ar": "حزمة الأصوات",
-    "pt": "Pacote de sons",
-    "id": "Paket suara",
-    "fr": "Pack de sons",
-    "ja": "サウンドパック",
-    "de": "Tonpaket"
-  },
-  "Стандартный": {
-    "en": "Standard",
-    "zh": "标准",
-    "es": "Estándar",
-    "ar": "قياسي",
-    "pt": "Padrão",
-    "id": "Standar",
-    "fr": "Standard",
-    "ja": "標準",
-    "de": "Standard"
+  "Короткие звуки интерфейса — мягкие электронные щелчки, синтезированные для Luminoctis.": {
+    "en": "Short interface sounds: soft electronic clicks synthesized for Luminoctis.",
+    "zh": "简短的界面音效:为 Luminoctis 合成的柔和电子点击声。",
+    "es": "Sonidos breves de la interfaz: clics electrónicos suaves, sintetizados para Luminoctis.",
+    "ar": "أصوات قصيرة للواجهة: نقرات إلكترونية ناعمة صُنعت لـ Luminoctis.",
+    "pt": "Sons curtos da interface: cliques eletrônicos suaves, sintetizados para o Luminoctis.",
+    "id": "Suara antarmuka singkat: klik elektronik lembut yang disintesis untuk Luminoctis.",
+    "fr": "Courts sons d’interface : clics électroniques doux, synthétisés pour Luminoctis.",
+    "ja": "短いインターフェース音:Luminoctis 用に合成した柔らかい電子クリック音です。",
+    "de": "Kurze Oberflächentöne: weiche elektronische Klicks, für Luminoctis synthetisiert."
   },
   "Общий выключатель": {
     "en": "Master switch",
@@ -691,28 +669,6 @@
     "fr": "Interrupteur général",
     "ja": "全体のオン/オフ",
     "de": "Hauptschalter"
-  },
-  "Печать": {
-    "en": "Typing",
-    "zh": "键入声",
-    "es": "Escritura",
-    "ar": "الكتابة",
-    "pt": "Digitação",
-    "id": "Mengetik",
-    "fr": "Frappe",
-    "ja": "タイプ音",
-    "de": "Tippen"
-  },
-  "Разные «клавиши», в полях и на сайтах": {
-    "en": "Different “keys”, in fields and on websites",
-    "zh": "不同的“按键声”,在输入框和网站中",
-    "es": "«Teclas» variadas, en campos y en sitios web",
-    "ar": "«مفاتيح» متنوعة، في الحقول وعلى المواقع",
-    "pt": "«Teclas» variadas, em campos e em sites",
-    "id": "“Tuts” yang bervariasi, di kolom isian dan di situs web",
-    "fr": "Des « touches » variées, dans les champs et sur les sites",
-    "ja": "いろいろな「キー」音。入力欄やサイト上で鳴ります",
-    "de": "Verschiedene „Tasten“, in Feldern und auf Websites"
   },
   "Открытие вкладки": {
     "en": "Opening a tab",

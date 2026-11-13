@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Синтез пака звуков «GX» (sounds/gx/*.ogg) на ffmpeg. Запуск: bash dev/make-gx-sounds.sh
+# Синтез пака звуков «GX» (sounds/*.ogg, кроме glitch и lumitime) на ffmpeg. Запуск: bash dev/make-gx-sounds.sh
 # Каждый звук — формула aevalsrc (t — время, мс-огибающие exp(-t*k)), затем фейд-ин/аут, нормализация пика до -1.5 дБ и ogg Vorbis.
 set -euo pipefail
-OUT="$(cd "$(dirname "$0")/.." && pwd)/sounds/gx"
+OUT="$(cd "$(dirname "$0")/.." && pwd)/sounds"
 TMP="$(mktemp -d)"
 mkdir -p "$OUT"
 PI=3.14159265
@@ -22,9 +22,6 @@ make() {
   echo "$name: ${dur}s peak ${peak} dB -> gain ${gain} dB"
 }
 
-# печать: сухой щелчок клавиши (шум + глухой «стук») и тихий высокий шиммер
-make type 0.06 "0.55*exp(-t*700)*$N + 0.45*sin($TAU*170*t)*exp(-t*140) + 0.16*sin($TAU*3600*t)*exp(-t*90)"
-# наведение: едва слышный высокий «тик» с коротким шиммером
 # открытие вкладки: мягкий «вжух» вверх — свип 380→1100 Гц с шумовым хвостиком, плавная огибающая
 make tab-open 0.24 "pow(sin($PI*t/0.24)\,2)*(0.55*sin($TAU*(380*t+1500*t*t)) + 0.2*sin($TAU*2*(380*t+1500*t*t)) + 0.1*$N*sin($PI*t/0.24))"
 # закрытие вкладки: свип вниз 1000→300 Гц

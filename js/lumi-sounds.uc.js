@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name           Luminoctis: звуки
-// @description    Звуки браузера: печать, открытие/закрытие/переключение вкладок, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
+// @description    Звуки браузера: открытие/закрытие/переключение вкладок, клики по рейке, конец загрузки. Выключено по умолчанию (luminoctis.sounds.enabled).
 // ==/UserScript==
 
-// Пак звуков (luminoctis.sounds.pack: default = sounds/ (CC0 Kenney), gx = sounds/gx/ (синтез)).
+// Файлы — sounds/<действие>.ogg: бывший пак «GX», синтезирован для Luminoctis (dev/make-gx-sounds.sh); glitch.ogg — Freesound CC0.
 // Один файл на действие, при каждом проигрывании высота и громкость чуть гуляют (как в Opera GX).
 // Играем через Web Audio: один AudioContext на окно, файлы декодированы заранее (HTMLAudioElement стартовал ~100 мс и глотал звуки по 10–20 мс).
 // Chrome-документ не подпадает под запрет автозапуска — достаточно resume(). Контекст создаётся, только когда включены звуки или звук глитча (тогда разбирается только glitch.ogg, а между проигрываниями контекст на suspend()).
@@ -17,7 +17,7 @@
   const prefs = Services.prefs;
   // действие -> [множитель громкости, минимальный интервал мс, разброс высоты (доля), разброс громкости (доля)]
   const ACTIONS = {
-    type: [0.6, 40, 0.03, 0.1], "tab-open": [1, 80, 0.01, 0.03], "tab-close": [1, 80, 0.01, 0.03], "tab-switch": [0.7, 80, 0.01, 0.03],
+    "tab-open": [1, 80, 0.01, 0.03], "tab-close": [1, 80, 0.01, 0.03], "tab-switch": [0.7, 80, 0.01, 0.03],
     click: [0.8, 60, 0.01, 0.03], download: [1, 300, 0, 0],
     glitch: [0.8, 0, 0, 0],
   };
@@ -29,7 +29,7 @@
   const bufs = new Map(); // src -> AudioBuffer | null (null: файл не читается/не декодируется)
   const loading = new Map(); // src -> Promise
 
-  const sources = action => [pageUrl(`sounds/${prefs.getStringPref(P + "pack", "default") === "gx" ? "gx/" : ""}${action}.ogg`)];
+  const sources = action => [pageUrl(`sounds/${action}.ogg`)];
 
   function load(src) {
     if (!loading.has(src) && !bufs.has(src)) {
@@ -101,26 +101,12 @@
     list.forEach(preload);
     ctx?.suspend();
   }
-  const prefObserver = {
-    observe(_s, _t, name) {
-      if (name === P + "pack") {
-        if (!ctx) return;
-        bufs.clear(); // смена пака — применить сразу
-        wanted().forEach(preload);
-      } else sync();
-    },
-  };
+  const prefObserver = { observe: sync };
   prefs.addObserver(P, prefObserver);
   prefs.addObserver(GLITCH, prefObserver);
   prefs.addObserver(START, prefObserver);
   window.addEventListener("unload", () => { prefs.removeObserver(P, prefObserver); prefs.removeObserver(GLITCH, prefObserver); prefs.removeObserver(START, prefObserver); ctx?.close(); }, { once: true });
   sync();
-
-  const PRINT = /^(?: |Backspace|Enter)$/;
-  window.addEventListener("keydown", e => {
-    if (e.ctrlKey || e.altKey || e.metaKey || !(e.key.length === 1 || PRINT.test(e.key))) return;
-    play("type");
-  }, true);
 
   const settled = () => Date.now() - t0 > 5000; // восстановление сессии открывает десятки вкладок разом
   let openedAt = 0;

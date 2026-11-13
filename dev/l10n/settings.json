@@ -3947,5 +3947,60 @@
     "fr": "Jeux",
     "ja": "ゲーム",
     "de": "Spiele"
+  },
+  "Настройки Windows мешают прозрачности": {
+    "en": "Windows settings are blocking transparency",
+    "zh": "Windows 设置影响了透明效果",
+    "es": "Los ajustes de Windows impiden la transparencia",
+    "ar": "إعدادات ويندوز تمنع الشفافية",
+    "pt": "As configurações do Windows impedem a transparência",
+    "id": "Pengaturan Windows menghalangi transparansi",
+    "fr": "Les paramètres de Windows empêchent la transparence",
+    "ja": "Windows の設定が透明効果を妨げています",
+    "de": "Windows-Einstellungen verhindern die Transparenz"
+  },
+  "Исправить": {
+    "en": "Fix",
+    "zh": "修复",
+    "es": "Corregir",
+    "ar": "إصلاح",
+    "pt": "Corrigir",
+    "id": "Perbaiki",
+    "fr": "Corriger",
+    "ja": "修正",
+    "de": "Beheben"
+  },
+  "Открыть настройки Windows": {
+    "en": "Open Windows settings",
+    "zh": "打开 Windows 设置",
+    "es": "Abrir ajustes de Windows",
+    "ar": "فتح إعدادات ويندوز",
+    "pt": "Abrir configurações do Windows",
+    "id": "Buka pengaturan Windows",
+    "fr": "Ouvrir les paramètres de Windows",
+    "ja": "Windows の設定を開く",
+    "de": "Windows-Einstellungen öffnen"
+  },
+  "Не напоминать": {
+    "en": "Don't remind me",
+    "zh": "不再提醒",
+    "es": "No volver a recordar",
+    "ar": "عدم التذكير",
+    "pt": "Não lembrar",
+    "id": "Jangan ingatkan lagi",
+    "fr": "Ne plus me le rappeler",
+    "ja": "今後表示しない",
+    "de": "Nicht mehr erinnern"
+  },
+  "В Windows (Персонализация → Цвета) включите «Эффекты прозрачности» и выключите цвет акцента на заголовках окон и на панели задач и в меню «Пуск».": {
+    "en": "In Windows (Personalization → Colors) turn on \"Transparency effects\" and turn off the accent color on title bars and window borders, and on Start and the taskbar.",
+    "zh": "在 Windows(个性化 → 颜色)中开启“透明效果”,并关闭标题栏和窗口边框、“开始”菜单和任务栏上的强调色。",
+    "es": "En Windows (Personalización → Colores) active «Efectos de transparencia» y desactive el color de énfasis en las barras de título y los bordes de ventana, y en Inicio y la barra de tareas.",
+    "ar": "في ويندوز (التخصيص ← الألوان) فعّل «تأثيرات الشفافية» وأوقف لون التمييز على أشرطة العناوين وحدود النوافذ وعلى قائمة ابدأ وشريط المهام.",
+    "pt": "No Windows (Personalização → Cores), ative «Efeitos de transparência» e desative a cor de destaque nas barras de título e bordas de janela, e no Iniciar e na barra de tarefas.",
+    "id": "Di Windows (Personalisasi → Warna), aktifkan \"Efek transparansi\" dan matikan warna aksen pada bilah judul dan batas jendela, serta pada Start dan bilah tugas.",
+    "fr": "Dans Windows (Personnalisation → Couleurs), activez « Effets de transparence » et désactivez la couleur d'accentuation sur les barres de titre et les bordures de fenêtre, ainsi que sur Démarrer et la barre des tâches.",
+    "ja": "Windows の「個人用設定 → 色」で「透明効果」をオンにし、タイトルバーとウィンドウの境界線、スタートメニューとタスクバーのアクセントカラーをオフにしてください。",
+    "de": "Aktivieren Sie in Windows (Personalisierung → Farben) „Transparenzeffekte“ und deaktivieren Sie die Akzentfarbe auf Titelleisten und Fensterrändern sowie auf Start und Taskleiste."
   }
 }

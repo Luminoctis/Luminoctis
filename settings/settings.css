@@ -267,6 +267,9 @@ body[data-mode="opaque"] #glass-options, body:not([data-mode="transparent"]) .on
 .seg button:disabled { opacity: .4; cursor: default; }
 .note { margin: 0; padding: 9px 12px; border-radius: 10px; font-size: 11.5px; line-height: 1.4;
   color: var(--lumi-yellow); background: color-mix(in srgb, var(--lumi-yellow) 12%, transparent); }
+#win-hint { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+#win-hint span { flex: 1 1 100%; }
+#win-hint[hidden] { display: none; }
 .row[hidden] { display: none; }
 #compact-transparency.off { opacity: .45; }
 

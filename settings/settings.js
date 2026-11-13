@@ -246,6 +246,18 @@ for (const seg of document.querySelectorAll("div[data-pref]")) {
 // прозрачность окна даёт Windows (Zen: widget.windows.mica); если её нет — предупреждаем
 $("#glass-off").hidden = win.matchMedia("(-moz-windows-mica)").matches;
 
+// настройки цвета Windows, мешающие прозрачности (js/lumi-win-colors.sys.mjs): подсказка с кнопками, пока что-то не исправлено, — только в прозрачных режимах и независимо от «Не напоминать»
+{
+  const W = ChromeUtils.importESModule(JS("lumi-win-colors.sys.mjs")), hint = $("#win-hint");
+  const show = () => { const c = W.lumiWinColors.check(); hint.hidden = !(c.active && c.issues.length); };
+  $("#win-fix").addEventListener("click", () => { W.lumiWinColors.fix(); show(); });
+  $("#win-open").addEventListener("click", () => W.lumiWinColors.openSettings());
+  watchPref(W.MODE, show);
+  Services.obs.addObserver(show, W.TOPIC);
+  win.addEventListener("focus", show); // вернулся из настроек Windows
+  window.addEventListener("unload", () => { Services.obs.removeObserver(show, W.TOPIC); win.removeEventListener("focus", show); });
+}
+
 // ---------- выгрузка по таймеру: минуты, 0 — никогда (таймер — js/lumi-rail.uc.js) ----------
 const unload = $("#unload"), UNLOAD = "luminoctis.tabs.unload-minutes";
 unload.addEventListener("change", () => Services.prefs.setIntPref(UNLOAD, Number(unload.value)));

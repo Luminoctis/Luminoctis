@@ -176,6 +176,15 @@
     "js/lumi-time.sys.mjs": {
       "name": "lumi-time"
     },
+    "js/lumi-win-colors.sys.mjs": {
+      "name": "lumi-win-colors"
+    },
+    "js/lumi-win-colors.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-win-colors"
+    },
     "js/lumi-time-daily.sys.mjs": {
       "name": "lumi-time-daily"
     },

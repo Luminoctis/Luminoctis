@@ -59,4 +59,4 @@ To install by hand from source: close Zen and run `install.cmd` from this reposi
 
 The code is under the [Mozilla Public License 2.0](LICENSE). `vendor/fx-autoconfig` is third-party code under its own license (MPL-2.0). Sounds and their licenses are listed in [sounds/LICENSE.txt](sounds/LICENSE.txt).
 
-The names **Luminoctis**, **LumiNet** and the logo are not licensed under the MPL (section 2.3). Forks and derived projects must use a different name and must not present themselves as Luminoctis.
+**Luminoctis™** and its logo are trademarks of Laith and are not licensed under the MPL (section 2.3). Forks and derived projects must use a different name and logo and must not present themselves as Luminoctis — see [TRADEMARKS.md](TRADEMARKS.md).

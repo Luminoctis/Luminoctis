@@ -9,6 +9,8 @@ Remove-Item $stage -Recurse -Force -ErrorAction SilentlyContinue
 New-Item -ItemType Directory $stage, $OutDir -Force | Out-Null
 & (Join-Path $PSScriptRoot 'build-release.ps1') -Root $Root -OutDir $stage | Out-Null
 Copy-Item (Join-Path $stage "Luminoctis-$ver.zip") (Join-Path $stage 'payload.zip')
+# Тот же архив + .sha256 кладём рядом с exe: их ждёт обновление из настроек мода (js\lumi-update.sys.mjs) — грузить в релиз вместе с exe
+Copy-Item (Join-Path $stage "Luminoctis-$ver.zip"), (Join-Path $stage "Luminoctis-$ver.zip.sha256") $OutDir
 
 # Значок: «L» цветом акцента Tokyo Night на тёмной плашке; размеры 16-64 как BMP, 256 как PNG
 Add-Type -AssemblyName System.Drawing

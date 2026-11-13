@@ -1163,16 +1163,18 @@
     };
 
     const tile = h("div", "lumi-player" + (playing ? " playing" : ""));
-    // клик по самой плитке (обложка, название) открывает вкладку с этим медиа; пространство переключается, как у карточки Zen (switchTabIfNeeded)
+    // клик по названию открывает вкладку с этим медиа (обложка — пауза/играть, остальное — ничего); пространство переключается, как у карточки Zen (switchTabIfNeeded)
     // закреп (Essentials) — сразу на всё окно, как «Открыть во вкладке» (openPinAsTab: showPin+expandNow без кадра окошка)
     const open = () => isPin(tile.tab) ? openPinAsTab(tile.tab) : tile.tab ? gZenWorkspaces.switchTabIfNeeded(tile.tab) : press(".zen-media-focus-button")();
-    const cover = labeled(h("button", "lumi-player-cover"), title || t("Плеер"));
-    cover.addEventListener("click", open);
+    const cover = labeled(h("button", "lumi-player-cover"), playing ? t("Пауза") : t("Играть")); // плитка пересоздаётся при смене playing
+    cover.addEventListener("click", press(".zen-media-playpause-button"));
     if (icon && icon != "none") cover.style.backgroundImage = icon;
     else cover.setAttribute("lumi-dot", ""); // нет обложки — точка
     const text = h("div", "lumi-player-text");
+    const titleEl = h("span", "lumi-player-title", { textContent: title });
+    titleEl.addEventListener("click", open);
     text.append(
-      h("span", "lumi-player-title", { textContent: title }),
+      titleEl,
       h("span", "lumi-player-artist", { textContent: artist })
     );
     // ползунок громкости сайта: ряд под кнопками, виден в раскрытой карточке
@@ -1180,7 +1182,6 @@
     const vol = h("input", "lumi-player-vol", { type: "range", min: 0, max: 1, step: 0.01, value: 1, disabled: true });
     labeled(vol, t("Громкость сайта"));
     vol.addEventListener("input", () => tile.tab && askMedia(tile.tab, "set", +vol.value));
-    tile.addEventListener("click", event => event.target.closest("button, input") || open());
     tile.append(
       cover,
       text,

@@ -426,7 +426,14 @@
     width: 34px; height: 34px; border-radius: 10px;
     background-color: var(--lumi-surface); background-size: 18px;
     transition: filter 180ms;
+    position: relative; cursor: pointer;
+    /* при наведении — затемнение и значок паузы/воспроизведения (маски те же, что у .lumi-player-play) */
+    &::before, &::after { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 150ms; pointer-events: none; }
+    &::before { background: rgba(0, 0, 0, 0.5); border-radius: inherit; }
+    &::after { background: #fff; mask: center / 16px no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M8 5v14l11-7z'/%3E%3C/svg%3E"); }
+    &:hover::before, &:hover::after { opacity: 1; }
   }
+  &.playing .lumi-player-cover::after { mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M7 5h4v14H7zM13 5h4v14h-4z'/%3E%3C/svg%3E"); }
   &:not(.playing) .lumi-player-cover { filter: grayscale(1) brightness(0.8); }
   & :is(.lumi-player-text, .lumi-player-prev, .lumi-player-play, .lumi-player-next, .lumi-player-vol) {
     opacity: 0; transition: opacity 80ms ease-in;
@@ -439,7 +446,7 @@
   }
 }
 #lumi-players[open] .lumi-player {
-  width: 280px; height: 56px; cursor: pointer; /* клик по плитке — вкладка с этим медиа */
+  width: 280px; height: 56px;
   margin: -4px; padding: 3px 8px 15px 3px;
   border-width: 1px; border-color: var(--lumi-accent); border-radius: 12px;
   background-color: var(--lumi-surface);
@@ -457,7 +464,7 @@
 @media (prefers-reduced-motion: reduce) {
   .lumi-player, .lumi-player * { transition: none !important; }
 }
-.lumi-player-title { font-size: 12.5px; font-weight: 500; color: var(--lumi-fg); }
+.lumi-player-title { font-size: 12.5px; font-weight: 500; color: var(--lumi-fg); cursor: pointer; &:hover { text-decoration: underline; } } /* клик — вкладка с этим медиа */
 .lumi-player-artist { font-size: 11px; color: var(--lumi-dim); &:empty { display: none; } }
 .lumi-player :is(.lumi-player-prev, .lumi-player-next) {
   width: 26px; height: 26px; background-color: var(--lumi-muted) !important;

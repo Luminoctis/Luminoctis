@@ -47,6 +47,12 @@
       ],
       "name": "lumi-debug"
     },
+    "js/lumi-download-tab.uc.js": {
+      "include": [
+        "chrome://browser/content/browser.xhtml"
+      ],
+      "name": "lumi-download-tab"
+    },
     "js/lumi-downloads-fx.uc.js": {
       "include": [
         "chrome://browser/content/browser.xhtml"

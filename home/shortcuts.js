@@ -21,8 +21,84 @@ const rightSet = () => { try { return new Set(JSON.parse(Services.prefs.getStrin
 const saveRight = R => { const v = JSON.stringify([...R]); if (v != Services.prefs.getStringPref(RIGHT, "[]")) Services.prefs.setStringPref(RIGHT, v); };
 let model = new Map(), top = [], rootNode = null, seq = 0, lastSig = "", openGuid = null, drag = null, skipClick = false, menu = null;
 
-// иконка сайта; нет иконки (или не загрузилась) — кружок в стиле мода
-const icons = new Map();
+// иконка сайта; нет иконки (или не загрузилась) — кружок в стиле мода.
+// Firefox хранит иконку на посещённую страницу, а закладку могли не открывать по этому адресу (редирект, ?uid=, импорт), поэтому ищем дальше:
+// 1) иконка любой посещённой страницы того же хоста; 2) один раз скачать с самого сайта (не в приватном окне) и сохранить в базу.
+const { PrivateBrowsingUtils } = ChromeUtils.importESModule("resource://gre/modules/PrivateBrowsingUtils.sys.mjs");
+const icons = new Map(); // адрес → Promise<src | null>; null — иконки нет (повторно за сессию не ищем)
+let netBusy = 0;
+const netQueue = [];
+const net = fn => new Promise(res => { // не больше 3 сетевых загрузок одновременно
+  const run = async () => { netBusy++; try { res(await fn()); } catch { res(null); } finally { netBusy--; netQueue.shift()?.(); } };
+  netBusy < 3 ? run() : netQueue.push(run);
+});
+const fetchLimited = async (url, ms, max, type) => { // тело не больше max байт, только нужный content-type; null — не подошло
+  const ac = new AbortController(), timer = setTimeout(() => ac.abort(), ms);
+  try {
+    const r = await fetch(url, { credentials: "omit", signal: ac.signal });
+    const ct = (r.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+    if (!r.ok || !type(ct, r.url)) return null;
+    const parts = [];
+    let n = 0;
+    const rd = r.body.getReader();
+    for (;;) {
+      const { done, value } = await rd.read();
+      if (done) break;
+      parts.push(value);
+      if ((n += value.length) >= max) { rd.cancel().catch(() => {}); break; }
+    }
+    if (type.whole && n >= max) return null; // картинку обрезать нельзя
+    const all = new Uint8Array(Math.min(n, max));
+    let o = 0;
+    for (const p of parts) { all.set(p.subarray(0, all.length - o), o); o += p.length; if (o >= all.length) break; }
+    return { bytes: all, ct, url: r.url };
+  } finally { clearTimeout(timer); }
+};
+const isImg = (ct, u) => ct.startsWith("image/") || (/\.ico(\?|$)/i.test(u) && ct == "application/octet-stream");
+isImg.whole = true;
+const isHtml = ct => ct == "text/html";
+function pickIcon(html, base) { // apple-touch-icon / самый крупный, иначе первый <link rel=icon>
+  let best = null, score = -1;
+  for (const m of html.matchAll(/<link\b[^>]*>/gi)) {
+    const a = k => m[0].match(new RegExp(String.raw`\b${k}\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s>]+))`, "i")), v = k => { const x = a(k); return x && (x[1] ?? x[2] ?? x[3]); };
+    const rel = (v("rel") || "").toLowerCase().split(/\s+/), href = v("href");
+    if (!href || !rel.some(r => r == "icon" || r == "apple-touch-icon" || r == "apple-touch-icon-precomposed")) continue;
+    const size = Math.max(0, ...((v("sizes") || "").match(/\d+/g) || []).map(Number));
+    const s = (rel[0].startsWith("apple") ? 1000 : 0) + Math.min(size, 512);
+    try { if (s > score) { score = s; best = new URL(href, base).href; } } catch {}
+  }
+  return best;
+}
+async function download(uri) { // → data: URL найденной иконки сайта или null
+  const page = await fetchLimited(uri, 8000, 400000, isHtml);
+  const origin = new URL(page?.url || uri).origin;
+  let iconUrl = page && pickIcon(new TextDecoder().decode(page.bytes), page.url);
+  for (const u of [iconUrl, origin + "/favicon.ico"]) {
+    if (!u || !/^https?:/.test(u)) continue;
+    const img = await fetchLimited(u, 8000, 262144, isImg).catch(() => null);
+    if (img?.bytes.length) return { iconUrl: u, data: `data:${img.ct.startsWith("image/") ? img.ct : "image/x-icon"};base64,${btoa(Array.from(img.bytes, b => String.fromCharCode(b)).join(""))}` };
+  }
+  return null;
+}
+async function findIcon(uri) {
+  const has = async u => { try { return !!(await PlacesUtils.favicons.getFaviconForPage(Services.io.newURI(u))); } catch { return false; } };
+  if (await has(uri)) return "page-icon:" + uri;
+  if (!/^https?:/.test(uri)) return null;
+  try { // другие страницы того же хоста из истории
+    const u = Services.io.newURI(uri), rows = await (await PlacesUtils.promiseDBConnection()).executeCached(
+      "SELECT url FROM moz_places WHERE rev_host = :rh AND visit_count > 0 ORDER BY frecency DESC LIMIT 5", { rh: PlacesUtils.getReversedHost(u) });
+    for (const u2 of [u.prePath + "/", ...rows.map(r => r.getResultByName("url"))]) if (u2 != uri && await has(u2)) return "page-icon:" + u2;
+  } catch {}
+  if (PrivateBrowsingUtils.isWindowPrivate(win)) return null; // в приватном окне в сеть за иконками не ходим
+  const got = await net(() => download(uri));
+  if (!got) return null;
+  try { // в базу (закладка без посещений тоже принимается); не вышло — показываем data: прямо
+    const d = Services.io.newURI(got.data);
+    await PlacesUtils.favicons.setFaviconForPage(Services.io.newURI(uri), Services.io.newURI(got.iconUrl), d);
+    if (await has(uri)) return "page-icon:" + uri;
+  } catch {}
+  return got.data;
+}
 function icon(uri) {
   const dot = () => el("span", "sc-dot");
   const img = el("img", "sc-icon");
@@ -30,9 +106,8 @@ function icon(uri) {
   img.alt = "";
   img.draggable = false;
   img.onerror = () => img.replaceWith(dot());
-  const known = icons.get(uri);
-  if (known === false) return dot();
-  if (known === undefined) PlacesUtils.favicons.getFaviconForPage(Services.io.newURI(uri)).then(f => { icons.set(uri, !!f); if (!f) img.replaceWith(dot()); }, () => icons.set(uri, true));
+  if (!icons.has(uri)) icons.set(uri, findIcon(uri).catch(() => null));
+  icons.get(uri).then(src => { if (!src) img.replaceWith(dot()); else if (src != img.getAttribute("src")) img.src = src; });
   return img;
 }
 

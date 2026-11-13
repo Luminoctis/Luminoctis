@@ -2,3 +2,14 @@ dev/profile/
 dev/shots/
 backups/
 dev/dist/
+
+# Личные и рабочие заметки, инструменты разработки и проверок — только локально, не публикуются
+docs/
+DEVELOPMENT.md
+Доклад от агента друга.txt
+dev/*
+!dev/build-setup.ps1
+!dev/build-release.ps1
+!dev/build-l10n.mjs
+!dev/l10n/
+!dev/make-gx-sounds.sh

@@ -587,12 +587,12 @@ window.addEventListener("unload", () => {
   ro.disconnect();
 });
 document.addEventListener("visibilitychange", () => { if (!document.hidden) later(); });
-// «+» виден, пока курсор в 100px от него или над рядом ([near] на #lumi-shortcuts); раз в кадр
+// «+» виден, пока курсор в 60px от него и не над плиткой ([near] на #lumi-shortcuts); раз в кадр
 let nearE = null, nearRaf = 0;
 document.addEventListener("pointermove", e => { if (document.documentElement.scrollTop > innerHeight / 2) return; nearE = e; nearRaf ||= requestAnimationFrame(() => {
   nearRaf = 0;
   const p = nearE, rs = [...root.querySelectorAll(".lumi-add")].map(b => b.getBoundingClientRect()).filter(r => r.width);
-  root.toggleAttribute("near", !!(p && rs.length && (p.target.closest?.("#lumi-shortcuts") || rs.some(r => Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 100))));
+  root.toggleAttribute("near", !!(p && rs.length && (!p.target.closest?.(".lumi-tile") && rs.some(r => Math.hypot(Math.max(r.left - p.clientX, 0, p.clientX - r.right), Math.max(r.top - p.clientY, 0, p.clientY - r.bottom)) <= 60))));
 }); });
 document.addEventListener("mouseout", e => { if (!e.relatedTarget) { nearE = null; root.removeAttribute("near"); } }); // курсор ушёл из окна
 window.lumiShortcuts = { render, folder, get tiles() { return [...root.querySelectorAll(".lumi-tile")]; }, get boxTiles() { return [...document.querySelectorAll(".sc-grid .lumi-tile")]; }, openBox, closeBox, get dragging() { return !!drag?.on; } };

@@ -28,7 +28,7 @@ body, #lumi-wallpaper { background-color: color-mix(in srgb, var(--lumi-bg0, #16
 
 /* блоки, выключенные в настройках (home.js ставит body[lumi-hide-<блок>]) */
 body[lumi-hide-clock] #lumi-clock, body[lumi-hide-search] #lumi-search, body[lumi-hide-shortcuts] #lumi-shortcuts,
-body[lumi-hide-notes] #lumi-notes, body[lumi-hide-notes] .lumi-scroll { display: none; }
+body[lumi-hide-notes] #lumi-notes, body[lumi-hide-notes] .lumi-scroll { display: none !important; } /* !important: раскладки ярлыков колонкой (shortcuts.css, display: grid) сильнее по селектору */
 
 /* стрелки: вниз к заметкам (низ первого экрана) и наверх (видна, когда прокрутили) */
 .lumi-scroll {

@@ -8,16 +8,21 @@
   &::placeholder { color: var(--lumi-muted, #a9b1d6); opacity: .75; }
   &:focus { border-color: var(--lumi-accent, #7aa2f7); box-shadow: 0 0 0 3px color-mix(in srgb, var(--lumi-accent, #7aa2f7) 28%, transparent); }
 }
+/* список — стекло, как выпадающий список адресной строки (chrome.css, #urlbar[breakout-extend] .urlbar-background): заливка --lumi-surface, рамка акцентом, тень.
+ * Страница Home сама не стеклянная (--lumi-surface у неё сплошной), поэтому прозрачность задана здесь: поверх обоев — 62%, в прозрачном окне и «Обоях» — 40%
+ * (как у кнопок Home, home.css); размытие оставлено — без него текст теряется на пёстрых обоях */
 .lumi-search-list {
-  position: absolute; z-index: 5; left: 8px; right: 8px; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; border-radius: 16px;
-  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 92%, transparent); backdrop-filter: blur(32px);
-  border: 1px solid color-mix(in srgb, var(--lumi-dim, #565f89) 40%, transparent); box-shadow: 0 10px 30px rgb(0 0 0 / .4);
+  --ls-fill: 62%;
+  position: absolute; z-index: 5; left: 8px; right: 8px; top: calc(100% + 6px); margin: 0; padding: 6px; list-style: none; border-radius: 12px;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) var(--ls-fill), transparent); backdrop-filter: blur(32px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--lumi-accent, #7aa2f7) 55%, transparent); box-shadow: 0 14px 32px rgb(0 0 0 / .45);
   &[hidden] { display: none; }
 }
+html[lumi-through] .lumi-search-list, body:has(.lumi-wp-edge:not([hidden])) .lumi-search-list { --ls-fill: 40%; }
 .lumi-search-item {
-  display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 10px; cursor: pointer; font-size: 14px;
-  &:hover, &.sel { background: color-mix(in srgb, var(--lumi-raised, #292e42) 90%, transparent); }
+  display: flex; align-items: center; gap: 10px; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-size: 14px;
+  &:hover, &.sel { background: color-mix(in srgb, var(--lumi-raised, #292e42) 70%, transparent); }
 }
 .lumi-search-icon { flex: none; width: 16px; height: 16px; text-align: center; line-height: 16px; background: center / 16px no-repeat; color: var(--lumi-muted, #a9b1d6); }
 .lumi-search-text { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.lumi-search-sub { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lumi-dim, #565f89); font-size: 12px; }
+.lumi-search-sub { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--lumi-muted, #a9b1d6); font-size: 12px; }

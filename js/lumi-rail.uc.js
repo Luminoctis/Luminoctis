@@ -592,7 +592,9 @@
     const line = h("div", "", { id: "lumi-pin-dropline", hidden: true });
     rail.append(line);
     let dragged = null;
-    const zone = event => event.target.closest?.("#lumi-pins, .lumi-spacer");
+    // зона — закрепы, спейсер и пустое место самой рейки от закрепов вниз: блок закрепов узкий (34px), а без закрепов 0×0 — иначе бросить некуда
+    const zone = event => event.target.closest?.("#lumi-pins, .lumi-spacer")
+      || (event.target === rail && event.clientY >= box.getBoundingClientRect().top - 7);
     const droppable = dt => {
       const tab = dragged ?? dt.mozGetDataAt(TAB_DROP_TYPE, 0);
       return gBrowser.tabs.includes(tab) && (tab === dragged || !isPin(tab)) ? tab : null; // только вкладки этого окна

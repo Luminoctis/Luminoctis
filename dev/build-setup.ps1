@@ -12,7 +12,7 @@ Copy-Item (Join-Path $stage "Luminoctis-$ver.zip") (Join-Path $stage 'payload.zi
 # Тот же архив + .sha256 кладём рядом с exe: их ждёт обновление из настроек мода (js\lumi-update.sys.mjs) — грузить в релиз вместе с exe
 Copy-Item (Join-Path $stage "Luminoctis-$ver.zip"), (Join-Path $stage "Luminoctis-$ver.zip.sha256") $OutDir
 
-# Значок: «L» цветом акцента Tokyo Night на тёмной плашке; размеры 16-64 как BMP, 256 как PNG
+# Значок: неоновая контурная «L» цвета акцента Tokyo Night на тёмной плашке (на 16 и 24 px — залитая); размеры 16-64 как BMP, 256 как PNG
 Add-Type -AssemblyName System.Drawing
 function New-Frame($n) {
   $b = New-Object Drawing.Bitmap $n, $n, ([Drawing.Imaging.PixelFormat]::Format32bppArgb)
@@ -21,9 +21,22 @@ function New-Frame($n) {
   $path = New-Object Drawing.Drawing2D.GraphicsPath
   $path.AddArc(0, 0, $d, $d, 180, 90); $path.AddArc($n - $d, 0, $d, $d, 270, 90); $path.AddArc($n - $d, $n - $d, $d, $d, 0, 90); $path.AddArc(0, $n - $d, $d, $d, 90, 90); $path.CloseFigure()
   $g.FillPath((New-Object Drawing.SolidBrush ([Drawing.ColorTranslator]::FromHtml('#24283b'))), $path)
-  $f = New-Object Drawing.Font 'Consolas', ([single]($n * 0.62)), ([Drawing.FontStyle]::Bold), ([Drawing.GraphicsUnit]::Pixel)
-  $sf = New-Object Drawing.StringFormat; $sf.Alignment = 'Center'; $sf.LineAlignment = 'Center'
-  $g.DrawString('L', $f, (New-Object Drawing.SolidBrush ([Drawing.ColorTranslator]::FromHtml('#7aa2f7'))), (New-Object Drawing.RectangleF 0, ([single]($n * 0.03)), $n, $n), $sf)
+  $blue = [Drawing.ColorTranslator]::FromHtml('#7aa2f7')
+  if ($n -le 24) { # мелкие размеры: контур не читается, остаётся залитая буква
+    $f = New-Object Drawing.Font 'Consolas', ([single]($n * 0.62)), ([Drawing.FontStyle]::Bold), ([Drawing.GraphicsUnit]::Pixel)
+    $sf = New-Object Drawing.StringFormat; $sf.Alignment = 'Center'; $sf.LineAlignment = 'Center'
+    $g.DrawString('L', $f, (New-Object Drawing.SolidBrush $blue), (New-Object Drawing.RectangleF 0, ([single]($n * 0.03)), $n, $n), $sf)
+  } else { # неоновый контур «L» со свечением из нескольких более толстых полупрозрачных обводок
+    $lp = New-Object Drawing.Drawing2D.GraphicsPath
+    $lp.AddString('L', (New-Object Drawing.FontFamily 'Consolas'), [int][Drawing.FontStyle]::Bold, [single]($n * 0.78), (New-Object Drawing.PointF 0, 0), [Drawing.StringFormat]::GenericDefault)
+    $bd = $lp.GetBounds()
+    $m = New-Object Drawing.Drawing2D.Matrix; $m.Translate([single]($n / 2 - ($bd.X + $bd.Width / 2)), [single]($n / 2 - ($bd.Y + $bd.Height / 2))); $lp.Transform($m)
+    $core = [single]([math]::Max(1.5, $n * 0.03))
+    foreach ($s in @(@(9.0, 9), @(7.0, 14), @(5.0, 22), @(3.4, 38), @(2.0, 75))) {
+      $p = New-Object Drawing.Pen ([Drawing.Color]::FromArgb($s[1], $blue)), ([single]($core * $s[0])); $p.LineJoin = 'Round'; $g.DrawPath($p, $lp)
+    }
+    $p = New-Object Drawing.Pen $blue, $core; $p.LineJoin = 'Round'; $g.DrawPath($p, $lp)
+  }
   $g.Dispose(); $b
 }
 $sizes = 16, 24, 32, 48, 64, 256

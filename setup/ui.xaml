@@ -154,8 +154,10 @@
             <Grid.RowDefinitions><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
             <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center">
               <Border x:Name="WLogo" Width="68" Height="68" CornerRadius="18" Background="#24283b" HorizontalAlignment="Center">
-                <Border.Effect><DropShadowEffect Color="#7aa2f7" BlurRadius="26" ShadowDepth="0" Opacity="0.45"/></Border.Effect>
-                <TextBlock Text="L" FontFamily="Consolas" FontWeight="SemiBold" FontSize="40" Foreground="#7aa2f7" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                <!-- неоновая «L»: контур строит Setup.cs (SetLogo), цвет всегда Tokyo Night -->
+                <Path x:Name="WLogoPath" Width="68" Height="68" Stroke="#7aa2f7" StrokeThickness="2.2" StrokeLineJoin="Round">
+                  <Path.Effect><DropShadowEffect Color="#7aa2f7" BlurRadius="14" ShadowDepth="0" Opacity="0.9"/></Path.Effect>
+                </Path>
               </Border>
               <TextBlock x:Name="WTitle" FlowDirection="LeftToRight" FontSize="26" FontWeight="SemiBold" HorizontalAlignment="Center" Margin="0,16,0,0"/>
               <TextBlock x:Name="WDesc" FontSize="14" Foreground="#a9b1d6" TextWrapping="Wrap" TextAlignment="Center" MaxWidth="400" HorizontalAlignment="Center" Margin="0,6,0,0"/>

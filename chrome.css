@@ -232,8 +232,11 @@
 #lumi-logo {
   width: 40px; height: 40px; flex-shrink: 0; position: relative;
   border: none; border-radius: 11px; padding: 0;
-  background: var(--lumi-raised); color: var(--lumi-accent);
-  font-family: var(--lumi-mono) !important; font-size: 19px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
+  background: var(--lumi-raised);
+  /* неоновая «L»: только контур цвета акцента + свечение (образец — аватарка «Neon»); drop-shadow на кнопке светил бы вместе с подложкой и точкой задач, поэтому text-shadow */
+  color: transparent; -webkit-text-stroke: 1.5px var(--lumi-accent);
+  text-shadow: 0 0 4px var(--lumi-accent), 0 0 12px color-mix(in srgb, var(--lumi-accent) 70%, transparent);
+  font-family: var(--lumi-mono) !important; font-size: 21px !important; font-weight: 600 !important; /* у Zen для кнопок font: inherit */
   transition: box-shadow 0.2s;
   &:hover, &[lumi-home-open] { box-shadow: var(--lumi-rail-glow); } /* lumi-home-open — открыта Home (js/lumi-home.uc.js) */
   /* невидимая зона клика до самого угла окна (закон Фитса): мышь в левом верхнем углу — «L» под ней; запас больше дробного сдвига рейки (DPI).

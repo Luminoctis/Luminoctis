@@ -163,7 +163,21 @@ class Ui {
     Vis("WAdvLink", !Forced && p.Profiles.Count > 0);
     Bt("WPrimary").IsEnabled = true; Bt("WSecondary").IsEnabled = true;
     SetClose(true);
+    SetLogo();
     Show(F<FrameworkElement>("ScWelcome"));
+  }
+
+  // ---------- Неоновая «L» ----------
+  // Контур буквы (WPF не умеет обводку у TextBlock); цвет — всегда Tokyo Night из ui.xaml (решение пользователя: установщик одной темы)
+  void SetLogo() {
+    var path = F<System.Windows.Shapes.Path>("WLogoPath");
+    if (path.Data != null) return;
+    var ft = new FormattedText("L", System.Globalization.CultureInfo.InvariantCulture, FlowDirection.LeftToRight,
+      new Typeface(new FontFamily("Consolas"), FontStyles.Normal, FontWeights.SemiBold, FontStretches.Normal), 46, Brushes.White);
+    var g = ft.BuildGeometry(new Point(0, 0));
+    var b = g.Bounds;
+    g.Transform = new TranslateTransform(34 - (b.X + b.Width / 2), 34 - (b.Y + b.Height / 2)); // по центру плашки 68x68
+    path.Data = g;
   }
 
   static System.Version Ver(string s) { System.Version v; return s != null && System.Version.TryParse(s, out v) ? v : null; }

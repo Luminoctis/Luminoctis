@@ -10,7 +10,7 @@ by Laith · [MPL-2.0](LICENSE)
 
 1. Close Zen Browser.
 2. Run the installer and pick your Zen profile. It does everything in one click: installs the script loader ([fx-autoconfig](https://github.com/MrOtherGuy/fx-autoconfig), asks for administrator rights once), copies the mod into the profile and sets the Zen options the mod needs.
-3. Start Zen.
+3. Start Zen. To open the mod's settings, right-click an empty spot on the side rail → **Luminoctis mod settings**.
 
 Windows may show *“Windows protected your PC”* — click **More info → Run anyway** (the installer is not code-signed).
 
@@ -48,7 +48,7 @@ The interface is available in English, 中文, Español, العربية, Portugu
 - Hide items in the ⋯ and tab menus.
 - A tab opened only to download a file closes itself, like in Chrome.
 
-All settings are in one panel: right-click the rail → **Luminoctis settings**. Changes apply instantly.
+All settings are in one panel: right-click an empty spot on the side rail → **Luminoctis mod settings**. Changes apply instantly.
 
 ## Without the installer
 

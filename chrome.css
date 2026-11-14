@@ -602,9 +602,17 @@ zen-library {
   border-radius: var(--lumi-tab-radius); border: 1px solid var(--pill-line); box-sizing: border-box;
   background: var(--pill-bg);
 }
-@container (max-width: 80px) { .lumi-tab-unload { display: none !important; } } /* на узкой плитке «−» прячется раньше «×» */
-@container (max-width: 44px) {
-  .lumi-tab-label, .lumi-tab-close, .lumi-tab-audio { display: none !important; }
+/* Узкие вкладки. Ширина контейнера = вкладка минус 4px отступа; полная вкладка = 206. Порядок уступок: название (само сжимается) →
+ * «−» и «×» сливаются в одну кнопку (<206) → значок Glance/звук → общая кнопка → только значок сайта. Размеры: значок 9+16=25, кнопки/звук 20,
+ * Glance 18+2, промежутки 8. Минимум: значок+название(0)+кнопка = 61; +звук = 89; +Glance = 117 (с кнопкой и звуком). */
+@container (width < 206px) { /* сжата: «−» и «×» на одном месте — «−», пока вкладку можно выгрузить, иначе «×» */
+  .lumi-tab-unload { margin-right: 0 !important; }
+  .lumi-tab[unloadable] .lumi-tab-close { display: none; }
+}
+@container (max-width: 116px) { .lumi-tab:is([soundplaying], [muted]) .lumi-tab-glance { display: none !important; } }
+@container (max-width: 88px) { .lumi-tab-glance, .lumi-tab-audio { display: none !important; } }
+@container (max-width: 60px) {
+  .lumi-tab-label, .lumi-tab-close, .lumi-tab-unload, .lumi-tab-audio, .lumi-tab-glance { display: none !important; }
   .lumi-tab-icon { margin: 0 auto !important; }
 }
 .lumi-tab[square] {
@@ -666,7 +674,6 @@ img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb,
 :is(.lumi-tab-glance, .lumi-fr-glance, .lumi-pin-glance) { display: none; box-sizing: border-box; width: 18px; height: 18px; padding: 2px; border-radius: 6px; background-color: color-mix(in srgb, var(--lumi-accent) 35%, transparent); }
 .lumi-tab[glance] .lumi-tab-glance { display: block; pointer-events: auto; margin-right: 2px; &:hover { background-color: color-mix(in srgb, var(--lumi-accent) 60%, transparent); } }
 .lumi-fr[glance] .lumi-fr-glance { display: block; }
-@container (max-width: 80px) { .lumi-tab:not([square]) .lumi-tab-glance { display: none !important; } }
 .lumi-tab[square][glance] .lumi-tab-glance { display: block !important; position: absolute; top: 2px; right: 0; width: 12px; height: 12px; padding: 1px; margin: 0; z-index: 2; }
 .lumi-pin[glance] .lumi-pin-glance { display: block; position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; padding: 2px; border-radius: 50%; pointer-events: auto; background-color: var(--lumi-accent); box-shadow: 0 0 0 2px var(--lumi-bg1); }
 .lumi-pin { position: relative; }

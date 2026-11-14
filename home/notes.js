@@ -281,7 +281,9 @@ function grip(cls, title) { const g = el("div", cls); g.title = title; return g;
 const grips = s => s.append(grip("lumi-sheet-grip", t("Ширина листа")), grip("lumi-sheet-grip-b", t("Высота листа")), grip("lumi-sheet-grip-c", t("Размер листа")));
 const isDoc = b => b.meta.mode == "doc";
 function docEl(b) { // живой редактор: правка сразу в b.text, запись — save(b); при уходе фокуса — сразу
-  return createLive({ text: b.text ?? "", onChange: t => { b.text = t; save(b); }, onLink: href => win.openTrustedLinkIn(href, "tab"), onBlur: () => flush(b) }).el;
+  const live = createLive({ text: b.text ?? "", onChange: t => { b.text = t; save(b); }, onLink: href => win.openTrustedLinkIn(href, "tab"), onBlur: () => flush(b) }).el;
+  live.style.setProperty("--lumi-ph", JSON.stringify(t("Нажми, чтобы писать…"))); // подсказка пустого листа (home/notes.css) — CSS сам перевести не может
+  return live;
 }
 function sheetEl(b, row) {
   const s = el("section", "lumi-sheet");

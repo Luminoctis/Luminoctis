@@ -136,7 +136,7 @@ span.lumi-fold { display: none; } /* у пункта без подпунктов
  * строка с кареткой — .on (маркеры блока), фрагмент, которого коснулась каретка/выделение, — .act (его ** ~~ ` [](…)), галочка с кареткой внутри — .raw */
 .lumi-live { display: block !important; flex: 1; min-height: 0; padding: 2px 4px 8px; cursor: text; outline: none; line-height: 1.55; font-size: 16px; overflow-wrap: anywhere;
   white-space: pre-wrap; tab-size: 28px; user-select: text; -moz-user-select: text; caret-color: var(--cc); position: relative;
-  &[data-empty] .lumi-ln:first-child::before { content: "Нажми, чтобы писать…"; position: absolute; color: var(--lumi-dim, #565f89); pointer-events: none; } }
+  &[data-empty] .lumi-ln:first-child::before { content: var(--lumi-ph, ""); position: absolute; color: var(--lumi-dim, #565f89); pointer-events: none; } }
 .lumi-ln { position: relative; min-height: 1.55em; }
 .md-mark { display: none; color: var(--lumi-dim, #565f89); font-weight: 400; font-style: normal; font-size: 1rem; }
 .lf.act > .md-mark, .lumi-ln.on > .md-mark.blk { display: inline; }

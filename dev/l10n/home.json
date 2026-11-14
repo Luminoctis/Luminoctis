@@ -901,6 +901,17 @@
     "ja": "サブ項目…",
     "de": "Untereintrag…"
   },
+  "Нажми, чтобы писать…": {
+    "en": "Click to start writing…",
+    "zh": "点击开始书写…",
+    "es": "Haz clic para escribir…",
+    "ar": "انقر لبدء الكتابة…",
+    "pt": "Clique para escrever…",
+    "id": "Klik untuk mulai menulis…",
+    "fr": "Cliquez pour écrire…",
+    "ja": "クリックして書き始める…",
+    "de": "Klicken, um zu schreiben…"
+  },
   "такой лист уже есть": {
     "en": "a sheet with this name already exists",
     "zh": "已有同名工作表",

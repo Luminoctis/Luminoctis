@@ -41,9 +41,19 @@ export function checkUrl(u) {
   return u;
 }
 
+// сеть через net.fetch — проверки подменяют её (dev\check-update.js)
+export const net = { fetch: (...a) => fetch(...a) };
+
 async function latest() {
-  const r = await fetch(checkUrl(Services.prefs.getStringPref(P + "url")), { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
-  if (!r.ok) throw new Error(t("GitHub ответил {0}", r.status));
+  const r = await net.fetch(checkUrl(Services.prefs.getStringPref(P + "url")), { headers: { Accept: "application/vnd.github+json" }, cache: "no-store" });
+  if (!r.ok) {
+    const reset = +r.headers.get("x-ratelimit-reset");
+    if ((r.status == 403 || r.status == 429) && r.headers.get("x-ratelimit-remaining") == "0" && reset) {
+      const d = new Date(reset * 1000), p = n => String(n).padStart(2, "0");
+      throw new Error(t("GitHub временно ограничил проверки — попробуйте после {0}", p(d.getHours()) + ":" + p(d.getMinutes())));
+    }
+    throw new Error(t("GitHub ответил {0}", r.status));
+  }
   const rel = await r.json();
   const version = String(rel.tag_name || "").replace(/^v/, "");
   if (!/^\d+(\.\d+)*$/.test(version)) throw new Error(t("странный тег релиза: {0}", rel.tag_name)); // версия идёт в имена файлов и папок
@@ -74,7 +84,7 @@ const file = path => {
 };
 
 async function download(url) {
-  const r = await fetch(checkUrl(url), { cache: "no-store" });
+  const r = await net.fetch(checkUrl(url), { cache: "no-store" });
   checkUrl(r.url); // после перенаправлений тоже
   if (!r.ok) throw new Error(t("не скачалось: {0} ({1})", url, r.status));
   return r;
@@ -85,17 +95,32 @@ async function download(url) {
 export async function apply() {
   const have = await installedVersion();
   if (!have) throw new Error(t("мод не установлен установщиком"));
-  const rel = await latest();
-  if (!newer(rel.version, have)) throw new Error(t("новой версии нет"));
-  const name = `Luminoctis-${rel.version}.zip`;
-  const asset = n => rel.assets?.find(a => a.name == n)?.browser_download_url;
-  if (!asset(name) || !asset(name + ".sha256")) throw new Error(t("в релизе нет {0} или .sha256", name));
-
-  const zip = await (await download(asset(name))).arrayBuffer();
-  const want = (await (await download(asset(name + ".sha256"))).text()).trim().split(/\s+/)[0].toLowerCase();
+  const pair = async (zipUrl, shaUrl) => ({
+    zip: await (await download(zipUrl)).arrayBuffer(),
+    want: (await (await download(shaUrl)).text()).trim().split(/\s+/)[0].toLowerCase(),
+  });
+  // версия уже найдена проверкой — качаем прямо с github.com (без лимита API); не вышло — старый путь через API
+  const known = Services.prefs.getStringPref(P + "available", "");
+  const repo = Services.prefs.getStringPref(P + "url").match(/^https:\/\/api\.github\.com\/repos\/([^/]+\/[^/]+)\//)?.[1];
+  let version = known, got;
+  if (repo && /^\d+(\.\d+)*$/.test(known) && newer(known, have)) {
+    const direct = `https://github.com/${repo}/releases/download/v${known}/Luminoctis-${known}.zip`;
+    try { got = await pair(direct, direct + ".sha256"); } catch {}
+  }
+  if (!got) {
+    const rel = await latest();
+    if (!newer(rel.version, have)) throw new Error(t("новой версии нет"));
+    version = rel.version;
+    const n = `Luminoctis-${version}.zip`;
+    const asset = a => rel.assets?.find(x => x.name == a)?.browser_download_url;
+    if (!asset(n) || !asset(n + ".sha256")) throw new Error(t("в релизе нет {0} или .sha256", n));
+    got = await pair(asset(n), asset(n + ".sha256"));
+  }
+  const { zip, want } = got;
+  const name = `Luminoctis-${version}.zip`;
   if (hex(await crypto.subtle.digest("SHA-256", zip)) != want) throw new Error(t("SHA-256 не совпал — обновление отменено"));
 
-  const dir = PathUtils.join(PathUtils.tempDir, "luminoctis-update-" + rel.version);
+  const dir = PathUtils.join(PathUtils.tempDir, "luminoctis-update-" + version);
   await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
   await IOUtils.makeDirectory(dir);
   const zipPath = PathUtils.join(dir, name);

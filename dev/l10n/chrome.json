@@ -791,6 +791,17 @@
     "ja": "GitHub の応答: {0}",
     "de": "GitHub antwortete mit {0}"
   },
+  "GitHub временно ограничил проверки — попробуйте после {0}": {
+    "en": "GitHub has temporarily limited update checks — try again after {0}",
+    "zh": "GitHub 暂时限制了检查次数，请在 {0} 之后再试",
+    "es": "GitHub ha limitado temporalmente las comprobaciones; inténtalo de nuevo después de las {0}",
+    "ar": "قيّد GitHub عمليات التحقق مؤقتًا — حاول مرة أخرى بعد {0}",
+    "pt": "O GitHub limitou temporariamente as verificações — tente novamente depois das {0}",
+    "id": "GitHub membatasi pemeriksaan untuk sementara — coba lagi setelah {0}",
+    "fr": "GitHub a temporairement limité les vérifications — réessayez après {0}",
+    "ja": "GitHub が一時的に確認を制限しています。{0} 以降にもう一度お試しください",
+    "de": "GitHub hat die Prüfungen vorübergehend begrenzt — versuchen Sie es nach {0} erneut"
+  },
   "странный тег релиза: {0}": {
     "en": "Unexpected release tag: {0}",
     "zh": "异常的发布标签:{0}",

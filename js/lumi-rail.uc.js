@@ -434,6 +434,8 @@
     if (w > 0) tabbox().style.setProperty("--lumi-pin-w", Math.min(Math.max(w, MIN_W), maxWidth()) + "px");
     else tabbox().style.removeProperty("--lumi-pin-w");
   }
+  // окно сузили/расширили, пока закреп открыт: ограничение пересчитывается, сохранённая ширина не трогается
+  window.addEventListener("resize", () => { if (shown?.mini && !grip.hasAttribute("dragging")) { applyWidth(shown.pin); updateHole(); } });
   // тяжение за правый край: на время тяжения поверх всего окна прозрачный щит, иначе сайт (другой процесс) съест мышь
   function startResize(event) {
     const cur = shown?.pin;
@@ -481,7 +483,7 @@
 
     // выбрали другую вкладку (полоса, Ctrl+Tab, смена пространства…) — окошка больше нет
     window.addEventListener("TabSelect", () => {
-      if (!gBrowser.selectedTab.hasAttribute("lumi-time-full")) closeMini(false); // скрытая вкладка LumiTime целиком — мини-окно остаётся поверх неё
+      if (!keepMini && !gBrowser.selectedTab.hasAttribute("lumi-time-full")) closeMini(false); // скрытая вкладка LumiTime целиком — мини-окно остаётся поверх неё
       // Glance (Alt+клик) поверх закрепа выбирает свою вкладку, но окошко остаётся: закреп — её родитель
       if (shown && gBrowser.selectedTab !== shown.pin && gZenGlanceManager.getTabOrGlanceParent(gBrowser.selectedTab) !== shown.pin) release();
     });
@@ -599,6 +601,20 @@
       const tab = dragged ?? dt.mozGetDataAt(TAB_DROP_TYPE, 0);
       return gBrowser.tabs.includes(tab) && (tab === dragged || !isPin(tab)) ? tab : null; // только вкладки этого окна
     };
+    // + вкладка другого окна Zen (как foreignTabs в lumi-tabstrip.uc.js): бросок делает её закрепом здесь; на кнопку пространства её не пускаем
+    const NOT_ADOPTED = ["zen-essential", "lumi-home", "lumi-time-full", "zen-empty-tab", "zen-glance-tab"];
+    const winOf = tab => tab?.ownerDocument?.defaultView; // ownerGlobal у чужой вкладки бывает null
+    const isForeign = tab => {
+      const w = winOf(tab);
+      return !!w && w !== window && w.gBrowser && tab.localName == "tab" && w.gBrowser.tabs.includes(tab)
+        && PrivateBrowsingUtils.isWindowPrivate(w) == PrivateBrowsingUtils.isWindowPrivate(window) && !NOT_ADOPTED.some(a => tab.hasAttribute(a));
+    };
+    const droppableAny = dt => {
+      const own = droppable(dt);
+      if (own || dragged || dt.mozItemCount < 1 || dt.mozTypesAt(0)[0] != TAB_DROP_TYPE) return own;
+      const tab = dt.mozGetDataAt(TAB_DROP_TYPE, 0);
+      return isForeign(tab) ? tab : null;
+    };
     // место по серединам плиток там, где они стоят без сдвига (иначе расступившиеся плитки меняли бы результат)
     const slot = y => {
       const list = [...box.children];
@@ -620,7 +636,7 @@
       setTimeout(() => dragged && pinButtons.get(dragged)?.setAttribute("dragging", ""));
     });
     rail.addEventListener("dragover", event => {
-      if (!zone(event) || !droppable(event.dataTransfer)) {
+      if (!zone(event) || !droppableAny(event.dataTransfer)) {
         line.hidden = true;
         if (box.hasAttribute("lumi-gap") && !gapPending) releaseGap(false);
         return;
@@ -644,13 +660,23 @@
       if (!gapPending) releaseGap(false); // ушли с закрепов — щель плавно закрывается
     });
     rail.addEventListener("drop", event => {
-      const tab = !line.hidden && droppable(event.dataTransfer);
+      let tab = !line.hidden && droppableAny(event.dataTransfer);
       line.hidden = true;
       if (!tab) return releaseGap(false);
       event.preventDefault();
-      const to = slot(event.clientY), from = pinTabs().indexOf(tab);
+      const to = slot(event.clientY);
+      const source = isForeign(tab) ? winOf(tab) : null;
+      if (source) { // вкладка чужого окна: сначала родным adoptTab в это окно
+        tab = gBrowser.adoptTab(tab, { tabIndex: gBrowser.tabs.length });
+        if (!tab) return releaseGap(false);
+      }
+      const from = pinTabs().indexOf(tab);
       gapPending = box.hasAttribute("lumi-gap"); // щель держится, пока рейка не пересоберётся (render)
       if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500); // порядок не изменился — пересборки не будет
+      // Home и пустая вкладка Zen в каждом окне свои, окно не закрывается само: опустело — закрываем (как в полосе вкладок)
+      if (source) setTimeout(() => {
+        if (!source.closed && source.gBrowser.tabs.every(t => NOT_ADOPTED.some(a => t.hasAttribute(a)))) source.close();
+      }, 500);
       if (from < 0 && !pinTab(tab)) return releaseGap(false);
       movePin(tab, from >= 0 && from < to ? to - 1 : to);
     });
@@ -821,7 +847,7 @@
     sync();
   }
   function unloadIdleTabs() {
-    const minutes = Services.prefs.getIntPref("luminoctis.tabs.unload-minutes", 0);
+    const minutes = Services.prefs.getIntPref("luminoctis.tabs.unload-minutes", 10);
     if (!minutes) return;
     // gBrowser.tabs у Zen — только вкладки текущего пространства; нужны все (в DOM остальные есть)
     for (const tab of document.querySelectorAll("tab.tabbrowser-tab")) { // только вкладки браузера, не <tab> других tabbox
@@ -902,20 +928,22 @@
     full.setAttribute(TIME_FULL, "");
     full.lumiPrev = gBrowser.selectedTab; // вкладка, с которой пришли (на TabOpen она ещё выбрана): по ней Home понимает, «откуда» (lumi-home.uc.js, base)
   }, true);
-  function closeFull() {
+  let keepMini = false; // closeFull из кнопки мини-окна: переключение вкладки не закрывает мини-окно
+  function closeFull(keep) {
     const tab = full;
     full = null;
     if (tab && !tab.closing && isFull(tab)) {
-      if (gBrowser.selectedTab === tab) { // иначе Zen сам выберет соседнюю: возвращаем, откуда пришли, а если её нет — на Home этого пространства
+      if (gBrowser.selectedTab === tab) { keepMini = !!keep; // иначе Zen сам выберет соседнюю: возвращаем, откуда пришли, а если её нет — на Home этого пространства
         const prev = tab.lumiPrev;
         if (prev && !prev.closing && gBrowser.tabs.includes(prev)) gBrowser.selectedTab = prev; else window.lumiHome?.open();
+        keepMini = false;
       }
       gBrowser.removeTab(tab, { animate: false, skipSessionStore: true }); // без следа (ушла на сайт — lumi-home.uc.js снял метку — не трогаем) в «недавно закрытых»
     }
   }
   // выбрали не LumiTime-целиком — вкладка и мини-окно уходят вместе; выбрали её — мини-окно перенастраивается
   window.addEventListener("TabSelect", event => {
-    if (isFull(event.target)) return syncMini();
+    if (isFull(event.target) || keepMini) return syncMini();
     closeMini(false);
     // не сразу: если уходим потому, что саму вкладку закрывают (Ctrl+W), TabSelect приходит раньше TabClose — повторное закрытие ломает removeTab
     setTimeout(() => { if (!isFull(gBrowser.selectedTab)) closeFull(); });
@@ -962,7 +990,7 @@
     frame.setAttribute("role", "dialog");
     frame.setAttribute("aria-label", t("Таймер LumiTime"));
     const fullBtn = h("button", "lumi-time-full", { textContent: t("Открыть целиком") });
-    fullBtn.addEventListener("click", () => (isFull(gBrowser.selectedTab) ? closeFull() : openTime())); // пока большой LumiTime открыт, кнопка его закрывает (подпись — syncMini)
+    fullBtn.addEventListener("click", () => (isFull(gBrowser.selectedTab) ? closeFull(true) : openTime())); // пока большой LumiTime открыт, кнопка его закрывает (подпись — syncMini)
     const head = h("div", "lumi-pin-head");
     head.append(h("span", "lumi-pin-title", { textContent: "LumiTime" }), fullBtn);
     // страница создаётся на каждое открытие и убирается при закрытии: пока окна нет, она не тикает

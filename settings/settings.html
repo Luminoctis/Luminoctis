@@ -99,7 +99,7 @@
     <h2 id="g-sounds" data-lumi-l10n>Звуки</h2>
       <p class="hint" data-lumi-l10n>Короткие звуки интерфейса — мягкие электронные щелчки, синтезированные для Luminoctis.</p>
     <label class="row"><div class="text"><b data-lumi-l10n>Звуки</b><span data-lumi-l10n>Общий выключатель</span></div><input type="checkbox" data-pref="luminoctis.sounds.enabled"></label>
-    <div class="row stack"><label class="slider"><span data-lumi-l10n>Громкость</span><input type="range" min="0" max="100" data-int-pref="luminoctis.sounds.volume" data-default="50"><output></output></label></div>
+    <div class="row stack"><label class="slider"><span data-lumi-l10n>Громкость</span><input type="range" min="0" max="100" data-int-pref="luminoctis.sounds.volume" data-default="10"><output></output></label></div>
     <div class="row snd" data-sound="tab-open"><div class="text"><b data-lumi-l10n>Открытие вкладки</b><span></span></div>
       <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
       <input type="checkbox" data-pref="luminoctis.sounds.tab-open.enabled" data-default="true"></div>
@@ -128,7 +128,7 @@
   <!-- ===== Вкладки: вид, новая вкладка, выгрузка из памяти ===== -->
   <section id="tabs" role="tabpanel">
     <h2 data-lumi-l10n>Вид вкладок</h2>
-    <div class="shapes" data-pref="luminoctis.tabs.shape" data-default="rounded">
+    <div class="shapes" data-pref="luminoctis.tabs.shape" data-default="parallelogram">
       <button data-value="rounded"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="4"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="4"/></svg><span data-lumi-l10n>Скруглённые</span></button>
       <button data-value="square"><svg viewBox="0 0 72 22" aria-hidden="true"><rect class="t" x="2" y="5" width="32" height="13" rx="0"/><rect class="t sel" x="38.5" y="5.5" width="31" height="12" rx="0"/></svg><span data-lumi-l10n>Квадратные</span></button>
       <button data-value="parallelogram"><svg viewBox="0 0 72 22" aria-hidden="true"><path class="t" d="M9 5h25l-6 13H3z" stroke-linejoin="round"/><path class="t sel" d="M45.5 5.5h24l-6 12h-27z" stroke-linejoin="round"/></svg><span data-lumi-l10n>Скошенные</span></button>
@@ -152,7 +152,7 @@
     </label>
     <label class="row" title="Если сайт из адресной строки уже открыт — открыть его в новой вкладке, а не перейти на открытую" data-lumi-l10n-title>
       <div class="text"><b data-lumi-l10n>Не переключаться на уже открытую вкладку</b><span data-lumi-l10n>Сайт из адресной строки откроется заново</span></div>
-      <input type="checkbox" data-pref="luminoctis.urlbar.always-new-tab">
+      <input type="checkbox" data-pref="luminoctis.urlbar.always-new-tab" data-default="true">
     </label>
 
     <h2><span data-lumi-l10n>Экономия памяти</span> <span class="hint" data-lumi-l10n>· неактивные вкладки выгружаются</span></h2>
@@ -169,7 +169,7 @@
     </label>
     <label class="row" title="Вкладка «Главная» не выгружается ни таймером, ни кнопкой «Выгрузить». Без флажка она выгружается как обычная вкладка и открывается заново по «L»" data-lumi-l10n-title>
       <div class="text"><b data-lumi-l10n>Никогда не выгружать Главную</b><span data-lumi-l10n>Ни по таймеру, ни кнопкой «Выгрузить»</span></div>
-      <input type="checkbox" data-pref="luminoctis.home.never-unload">
+      <input type="checkbox" data-pref="luminoctis.home.never-unload" data-default="true">
     </label>
 
     <!-- блокировка сайтов по расписанию (js/lumi-strict.sys.mjs; список рисует settings.js). Старый адрес #strict ведёт сюда -->
@@ -225,7 +225,7 @@
     </div>
 
     <h2><span data-lumi-l10n>Часы</span> <span class="hint" data-lumi-l10n>· клик — выбрать стиль</span></h2>
-    <div class="clock-styles" data-pref="luminoctis.home.clock.style" data-default="digital">
+    <div class="clock-styles" data-pref="luminoctis.home.clock.style" data-default="neon">
       <button data-value="digital"><span class="clock-prev"></span><span data-lumi-l10n>Цифровые</span></button>
       <button data-value="thin"><span class="clock-prev"></span><span data-lumi-l10n>Тонкие</span></button>
       <button data-value="segment"><span class="clock-prev"></span><span data-lumi-l10n>Сегменты</span></button>
@@ -246,12 +246,12 @@
     </div>
     <div class="row stack">
       <div class="text"><b data-lumi-l10n>Цвет текста</b><span data-lumi-l10n>«Палитра» — цвет темы; «Свой» — выберите справа</span></div>
-      <div class="seg" data-pref="luminoctis.home.clock.color" data-default="palette"><button data-value="palette" data-lumi-l10n>Палитра</button><button data-value="accent" data-lumi-l10n>Акцент</button><button data-value="white" data-lumi-l10n>Белый</button><button data-value="custom" data-lumi-l10n>Свой</button></div>
+      <div class="seg" data-pref="luminoctis.home.clock.color" data-default="accent"><button data-value="palette" data-lumi-l10n>Палитра</button><button data-value="accent" data-lumi-l10n>Акцент</button><button data-value="white" data-lumi-l10n>Белый</button><button data-value="custom" data-lumi-l10n>Свой</button></div>
       <input id="clock-color" type="color" title="Свой цвет часов" data-lumi-l10n-title>
     </div>
     <div class="row stack" title="Тень — обводка часов; авто-контраст — на светлых обоях текст становится тёмным" data-lumi-l10n-title>
       <div class="text"><b data-lumi-l10n>Читаемость на светлых обоях</b><span data-lumi-l10n>Тень или авто-контраст</span></div>
-      <div class="seg" data-pref="luminoctis.home.clock.legibility" data-default="off"><button data-value="off" data-lumi-l10n>Выкл</button><button data-value="shadow" data-lumi-l10n>Тень</button><button data-value="auto" data-lumi-l10n>Авто-контраст</button></div>
+      <div class="seg" data-pref="luminoctis.home.clock.legibility" data-default="shadow"><button data-value="off" data-lumi-l10n>Выкл</button><button data-value="shadow" data-lumi-l10n>Тень</button><button data-value="auto" data-lumi-l10n>Авто-контраст</button></div>
     </div>
 
     <h2 data-lumi-l10n>Ярлыки</h2>
@@ -260,14 +260,14 @@
       <select id="shortcuts-folder" data-reset="luminoctis.home.shortcuts.folder"></select>
     </div>
     <h2><span data-lumi-l10n>Стиль ярлыков</span> <span class="hint" data-lumi-l10n>· клик — выбрать</span></h2>
-    <div class="sc-styles" data-pref="luminoctis.home.shortcuts.preset" data-default="glass">
+    <div class="sc-styles" data-pref="luminoctis.home.shortcuts.preset" data-default="minimal">
       <button data-value="glass"><span class="sc-prev" data-p="glass"></span><span data-lumi-l10n>Стекло</span></button>
       <button data-value="minimal"><span class="sc-prev" data-p="minimal"></span><span data-lumi-l10n>Минимал</span></button>
       <button data-value="dock"><span class="sc-prev" data-p="dock"></span><span data-lumi-l10n>Док</span></button>
       <button data-value="cards"><span class="sc-prev" data-p="cards"></span><span data-lumi-l10n>Карточки</span></button>
     </div>
     <h2><span data-lumi-l10n>Расположение ярлыков</span> <span class="hint" data-lumi-l10n>· клик — выбрать</span></h2>
-    <div class="sc-layouts" data-pref="luminoctis.home.shortcuts.layout" data-default="below">
+    <div class="sc-layouts" data-pref="luminoctis.home.shortcuts.layout" data-default="split">
       <button data-value="below"><span class="lay-prev" data-l="below"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Под поиском</span></button>
       <button data-value="bottom"><span class="lay-prev" data-l="bottom"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Внизу экрана</span></button>
       <button data-value="left"><span class="lay-prev" data-l="left"><i class="lp-c"></i><i class="lp-s"></i><u><s></s><s></s><s></s><s></s></u></span><span data-lumi-l10n>Слева</span></button>
@@ -294,13 +294,13 @@
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wallhaven" data-default="true">Wallhaven</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.unsplash" data-need-key="unsplash">Unsplash <span class="need-key" data-lumi-l10n>нужен ключ</span></label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.pexels" data-need-key="pexels">Pexels <span class="need-key" data-lumi-l10n>нужен ключ</span></label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.reddit">Reddit</label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.reddit" data-default="true">Reddit</label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.konachan"><span data-lumi-l10n>Konachan (аниме)</span></label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.yandere"><span data-lumi-l10n>Yande.re (аниме)</span></label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.safebooru"><span data-lumi-l10n>Safebooru (аниме)</span></label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.apod"><span data-lumi-l10n>NASA — картинка дня</span></label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wikimedia"><span data-lumi-l10n>Wikimedia — картинка дня</span></label>
-        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing"><span data-lumi-l10n>Bing — картинка дня</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.wikimedia" data-default="true"><span data-lumi-l10n>Wikimedia — картинка дня</span></label>
+        <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.bing" data-default="true"><span data-lumi-l10n>Bing — картинка дня</span></label>
         <label><input type="checkbox" data-pref="luminoctis.home.wallpaper.src.local"><span data-lumi-l10n>Своя папка</span></label>
       </div>
     </div>
@@ -358,7 +358,7 @@
     <div class="row stack">
       <div class="seg" data-pref="luminoctis.home.wallpaper.rotate" data-default="open"><button data-value="open" data-lumi-l10n>При открытии</button><button data-value="interval" data-lumi-l10n>По таймеру</button><button data-value="daily" data-lumi-l10n>Раз в день</button><button data-value="manual" data-lumi-l10n>Кнопкой ⟳</button></div>
       <label class="slider"><span data-lumi-l10n>По таймеру — каждые</span>
-        <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="30"><option value="5" data-lumi-l10n>5 минут</option><option value="10" data-lumi-l10n>10 минут</option><option value="15" data-lumi-l10n>15 минут</option><option value="30" data-lumi-l10n>30 минут</option><option value="60" data-lumi-l10n>1 час</option><option value="180" data-lumi-l10n>3 часа</option></select></label>
+        <select data-int-pref="luminoctis.home.wallpaper.interval" data-default="15"><option value="5" data-lumi-l10n>5 минут</option><option value="10" data-lumi-l10n>10 минут</option><option value="15" data-lumi-l10n>15 минут</option><option value="30" data-lumi-l10n>30 минут</option><option value="60" data-lumi-l10n>1 час</option><option value="180" data-lumi-l10n>3 часа</option></select></label>
     </div>
 
     <h2 data-lumi-l10n>Вид обоев</h2>

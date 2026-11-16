@@ -591,6 +591,7 @@ zen-library {
   &[pending] > * { filter: var(--lumi-pending-filter); } /* выгруженные — серые, как в этапе 1 */
   transition: translate 180ms cubic-bezier(0.2, 0.8, 0.2, 1); /* расступаются при перетаскивании вкладки (js/lumi-tabstrip.uc.js) */
   &[dragging] { opacity: 0; }
+  &[dragging][follow] { opacity: 1; z-index: 4; transition: none; pointer-events: none; /* под курсором — то, над чем вкладка едет (фишка папки, соседи), а не она сама */ } /* тянут вкладку у полосы: она едет за курсором по горизонтали (translate ставит js), сверху остальных */
   &[busy] .lumi-tab-icon { opacity: 0.5; }
 
   /* квадратик: закреплённые вкладки пространства всегда, остальные — когда сжались до квадрата */
@@ -623,7 +624,7 @@ zen-library {
   & :is(.lumi-tab-label, .lumi-tab-close, .lumi-tab-unload, .lumi-tab-audio) { display: none !important; }
   & .lumi-tab-icon { margin: 0 auto; }
 }
-/* Форма вкладок: Скруглённые (по умолчанию) / Квадратные / Скошенные — применяется сразу во всех окнах */
+/* Форма вкладок: Скошенные (по умолчанию, default branch из js/lumi-toolbar.sys.mjs) / Скруглённые / Квадратные — применяется сразу во всех окнах */
 @media -moz-pref("luminoctis.tabs.shape", "square") { #lumi-tabstrip { --lumi-tab-radius: 0px; } }
 /* Скошенные: параллелограммы, все вкладки скошены в одну сторону и стыкуются по скосу; skew только у ::before, текст и значки прямые */
 @media -moz-pref("luminoctis.tabs.shape", "parallelogram") {
@@ -664,7 +665,12 @@ zen-library {
 }
 #lumi-drag-ghost::after { left: auto; right: 5px; transform: translateY(-50%); }
 #lumi-tab-dropline[data-count]:not([data-count=""])[quiet] { opacity: 1; background: transparent; } /* с расступанием — только число в середине дыры */
-#lumi-drag-ghost { /* картинка у курсора: вкладка-стопка с числом; снимается сразу после начала переноса (вне экрана) */
+/* Пока тянут вкладку (js/lumi-tabstrip.uc.js, атрибут lumi-dragging): зона под полосой ~50px — курсор здесь ещё «у полосы», вкладка едет сама;
+ * картинка drag у полосы — прозрачный квадрат. Дальше зоны / на рейке / за окном вкладка «отлипает», и у курсора показывается её картинка. */
+#lumi-drag-zone { display: none; position: absolute; left: 0; right: 0; top: 100%; height: 50px; z-index: 5; -moz-window-dragging: no-drag; }
+#lumi-tabstrip[lumi-dragging] #lumi-drag-zone { display: block; }
+#lumi-drag-blank { position: fixed; top: -200px; left: 0; width: 8px; height: 8px; pointer-events: none; }
+#lumi-drag-ghost { /* картинка у курсора для отлипшей вкладки / группы с числом (вне экрана, живёт до конца drag) */
   position: fixed; top: -200px; left: 0; width: 180px; height: 28px; box-sizing: border-box; padding: 6px 28px 0 12px;
   overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 12px; color: var(--lumi-fg);
   background: var(--lumi-raised); border: 1px solid var(--lumi-accent); border-radius: var(--lumi-tab-radius, 10px);
@@ -695,6 +701,29 @@ img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb,
 /* перетаскивание вкладки на фишку: подсветка (бросок положит её в папку) */
 .lumi-tab.lumi-folder[drop-into] { --pill-bg: color-mix(in srgb, var(--lumi-accent) 30%, var(--lumi-bg1)); --pill-line: var(--lumi-accent); color: var(--lumi-fg); }
 .lumi-tab.lumi-folder[drop-into]::before { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lumi-accent) 45%, transparent); }
+/* Split View Zen (js/lumi-tabstrip.uc.js: updateTile): вкладки split-группы — одна плитка. Таблетка (::before, у «трапеций» ещё ::after) рисуется один раз
+ * на всю плитку и сама повторяет форму вкладок (скругления, скос, срезы GX); внутри — обычные вкладки-половины без своей таблетки.
+ * Активная половина подчёркнута акцентом, между половинами — тонкая черта (::before половины). Ширина: 120px на вкладку, сжимается как обычная. */
+.lumi-tab.lumi-split {
+  --lumi-split-n: 2; /* число вкладок, ставит js */
+  flex-basis: calc(var(--lumi-split-n) * 120px); max-width: calc(var(--lumi-split-n) * 120px); min-width: calc(var(--lumi-split-n) * 28px);
+  padding: 0; gap: 0;
+}
+#lumi-tabs .lumi-tab.lumi-split > .lumi-tab {
+  flex: 1 1 0; min-width: 0; max-width: none; margin: 0 !important; pointer-events: auto;
+  &:hover { color: var(--lumi-fg); }
+  &[selected] { background: linear-gradient(var(--lumi-accent), var(--lumi-accent)) 10px calc(var(--lumi-pill-top) + var(--lumi-pill-h) - 4px) / calc(100% - 20px) 2px no-repeat; }
+  &::before {
+    content: ""; inset: calc(var(--lumi-pill-top) + 7px) auto auto 0; width: 1px; height: calc(var(--lumi-pill-h) - 14px);
+    border: 0; border-radius: 0; transform: none; clip-path: none; box-shadow: none;
+    background: color-mix(in srgb, currentColor 30%, transparent);
+  }
+  &:first-child::before, &::after { display: none; }
+  /* на узкой половине «−» и «×» делили бы одно место; здесь остаётся «×» — закрыть вкладку и выйти из Split View (выгрузка — Shift+ПКМ) */
+  & .lumi-tab-unload { display: none !important; }
+  &[unloadable] .lumi-tab-close { display: block; }
+}
+@media -moz-pref("luminoctis.tabs.shape", "parallelogram") { #lumi-tabs .lumi-tab.lumi-split > .lumi-tab::before { transform: skewX(-16deg); } }
 /* переименование прямо в фишке (js/lumi-tabstrip.uc.js: renameChip) */
 .lumi-tab .lumi-folder-edit {
   pointer-events: auto; flex: 1; min-width: 0; height: 20px; box-sizing: border-box; margin: 0; padding: 0 5px;
@@ -1031,19 +1060,22 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
  * (замер 0.7.3: Home + настройки 50% GPU, на паузе 0%). Пока на области висит фильтр ([lumi-site-blurred] ставит js/lumi-site-blur.uc.js), полоска стоит */
 :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-site-blurred] #zen-loading-progress-bar, :is(#tabbrowser-tabpanels, #tabbrowser-tabpanels > .browserSidebarContainer)[lumi-site-blurred] #zen-loading-progress-bar::before { animation-play-state: paused !important; } 
 /* меню и панели — отдельные окна: стекло им даёт подложка Windows для всплывающих окон (Zen: widget.windows.mica.popups),
- * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол */
+ * она же рисует тень, рамку и скругление. Где её нет — меню непрозрачные: без размытия сквозь них читался бы рабочий стол.
+ * Силу размытия подложки не регулирует ни Zen, ни мод; вариант «без подложки, полупрозрачная заливка» (1.0.2) пользователь отверг — без размытия хуже */
 :root[lumi-glass] :is(menupopup, panel):not(#ContentSelectDropdown > menupopup) {
   @media (-moz-windows-mica-popups) {
     &:is(menupopup, panel[type="arrow"], #lumi-folder-panel, .searchmode-switcher-panel) {
       appearance: auto !important; -moz-default-appearance: menupopup;
       --panel-border-color: transparent !important; --panel-box-shadow-margin: 0px !important;
+      /* подложка Windows сама светло-серая — поверх неё тёмная заливка фона палитры, иначе меню «серое» (просьба пользователя); размытие видно сквозь ~40% */
+      --panel-background-color: color-mix(in srgb, var(--lumi-solid) 60%, transparent) !important;
     }
   }
   @media not (-moz-windows-mica-popups) { --panel-background-color: var(--lumi-solid) !important; }
 }
 
-/* Список папки (#lumi-folder-panel, js/lumi-tabstrip.uc.js) — обычная panel (не type="arrow"), поэтому стекло Windows (размытие под ней) она получает
- * через список выше. Заливка не ниже ~85% плотности при любой прозрачности: пока размытия нет (Windows 10, нет аппаратного ускорения) или ползунок
+/* Список папки (#lumi-folder-panel, js/lumi-tabstrip.uc.js) — обычная panel (не type="arrow"), размытие под ней даёт подложка Windows (правило выше).
+ * Заливка не ниже ~85% плотности при любой прозрачности: пока размытия нет (Windows 10, нет аппаратного ускорения) или ползунок
  * на максимуме, названия вкладок под списком не должны читаться насквозь. color-mix смешивает непрозрачный bg0 (80%) и surface палитры:
  * итоговая плотность = 0.8 + 0.2 × плотность surface. (::part(content) из userChrome в виджет панели не достаёт — только переменная.) */
 :root[lumi-glass] :is(#lumi-folder-panel, .searchmode-switcher-panel) { --panel-background-color: color-mix(in srgb, var(--lumi-solid) 80%, var(--lumi-surface)) !important; }
@@ -1142,7 +1174,7 @@ zen-library {
 
 /* ---------- 17. Инкогнито (приватное окно: lumi-palette ставит [lumi-private] на корень; цвета — серые / затемнённое стекло там же) ---------- */
 #lumi-logo .lumi-incognito {
-  display: block; width: 26px; height: 26px; margin: 0 auto; background: currentColor;
+  display: block; width: 26px; height: 26px; margin: 0 auto; background: var(--lumi-accent); /* у «L» color: transparent (неоновый контур) — currentColor был бы невидим; свечение filter не даст — mask срезает его вместе с фоном */
   mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6.5 12 8.5 4h7l2 8M3 12.5h18'/%3E%3Ccircle cx='7.8' cy='18' r='2.6'/%3E%3Ccircle cx='16.2' cy='18' r='2.6'/%3E%3Cpath d='M10.4 17.4h3.2'/%3E%3C/svg%3E");
 }
 
@@ -1209,7 +1241,7 @@ zen-library {
     display: none; position: absolute; top: -5px; right: -5px; z-index: 1; pointer-events: none;
     box-sizing: border-box; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px;
     align-items: center; justify-content: center;
-    background: var(--lumi-red); color: var(--lumi-bg1); font: 700 10px/1 system-ui, sans-serif;
+    background: var(--lumi-red); color: #fff; font: 700 11px/1 system-ui, sans-serif;
     box-shadow: 0 0 0 2px var(--lumi-bg1);
   }
   &[lumi-unread] .lumi-pin-badge { display: flex; }

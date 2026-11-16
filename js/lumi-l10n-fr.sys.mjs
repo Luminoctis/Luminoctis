@@ -348,6 +348,7 @@ export const strings = {
   "Начать перерыв": "Lancer la pause",
   "Начать фокус": "Se concentrer",
   "Не меньше": "Au moins",
+  "Не менять": "Ne pas changer",
   "Не напоминать": "Ne plus me le rappeler",
   "Не переключаться на уже открытую вкладку": "Ne pas basculer vers un onglet déjà ouvert",
   "Не показывается в приватном окне и в режиме окна «Обои»": "Non affiché dans une fenêtre privée ni en mode de fenêtre « Fond d’écran »",

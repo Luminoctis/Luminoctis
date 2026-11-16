@@ -569,12 +569,12 @@ function place() {
   plusAt();
   if (lay != "below" && (!n || crowded())) { root.setAttribute("flat", ""); plusAt(); }
 }
-const applyLayout = () => { const v = Services.prefs.getStringPref(LAYOUT, "below"); document.body.setAttribute("lumi-sc-layout", LAYOUTS.includes(v) ? v : "below"); place(); render(); }; // render: split строит две колонки с двумя «+»
+const applyLayout = () => { const v = Services.prefs.getStringPref(LAYOUT, "split"); document.body.setAttribute("lumi-sc-layout", LAYOUTS.includes(v) ? v : "split"); place(); render(); }; // render: split строит две колонки с двумя «+»
 Services.prefs.addObserver(LAYOUT, applyLayout);
 applyLayout();
 const ro = new ResizeObserver(() => place()); // окно, часы или поиск изменили размер
 for (const id of ["lumi-first", "lumi-clock", "lumi-search"]) ro.observe(document.getElementById(id));
-const applyPreset = () => document.body.setAttribute("lumi-sc-preset", Services.prefs.getStringPref(PRESET, "glass"));
+const applyPreset = () => document.body.setAttribute("lumi-sc-preset", Services.prefs.getStringPref(PRESET, "minimal"));
 const onPreset = () => { applyPreset(); place(); };
 Services.prefs.addObserver(PRESET, onPreset);
 applyPreset();

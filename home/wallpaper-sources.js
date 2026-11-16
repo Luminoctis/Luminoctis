@@ -121,5 +121,6 @@ export const sources = {
 };
 export const SOURCES = Object.keys(sources);
 const NEEDS_KEY = { unsplash: "unsplash", pexels: "pexels" };
-// включён ли источник: ему нужна своя отметка (и ключ, если он ключевой). По умолчанию включён только Wallhaven
-export const sourceOn = s => bool("src." + s, s == "wallhaven") && !(NEEDS_KEY[s] && !key(NEEDS_KEY[s]));
+const DEFAULT_ON = ["wallhaven", "reddit", "wikimedia", "bing"]; // умолчание: те же отметки в settings.html (data-default)
+// включён ли источник: ему нужна своя отметка (и ключ, если он ключевой). По умолчанию включены Wallhaven, Reddit, Wikimedia, Bing
+export const sourceOn = s => bool("src." + s, DEFAULT_ON.includes(s)) && !(NEEDS_KEY[s] && !key(NEEDS_KEY[s]));

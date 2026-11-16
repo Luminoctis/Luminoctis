@@ -10,7 +10,8 @@
   const WRAP = "luminoctis.keys.wrap";
 
   function step(dir) {
-    const tabs = [...document.querySelectorAll("#lumi-tabs > .lumi-tab:not([closing])")].map(el => el.tab).filter(Boolean);
+    const tabs = [...document.querySelectorAll("#lumi-tabs > .lumi-tab:not([closing])")]
+      .flatMap(el => (el.classList.contains("lumi-split") ? [...el.children].map(c => c.tab) : el.tab)).filter(Boolean); // плитка Split View — по половинам
     if (!tabs.length) return;
     const i = tabs.indexOf(gBrowser.selectedTab);
     let to;

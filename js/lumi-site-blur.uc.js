@@ -37,14 +37,14 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     root.getAttribute("inDOMFullscreen") != "true" && !reduced.matches;
   // Настоящий сайт на сплошной подложке --lumi-solid (без прозрачных сайтов): страница непрозрачна, и фильтру хватает одного размытия на панель.
   // Иначе (Home и большой LumiTime — тоже удалённые <browser>, но страница прозрачная насквозь; сайты при allow_transparent_browser) — «честный» вариант, он на несколько примитивов длиннее
-  const solidPage = () => { const tab = under?.isConnected ? under : gBrowser.selectedTab; // под закрепом — вкладка под ним, а не сам закреп
-    return !!tab.linkedBrowser?.isRemoteBrowser && !Services.prefs.getBoolPref(TRANSPARENT, false) && !root.hasAttribute("lumi-home-live") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("lumi-time-full"); };
+  const solidOf = tab => { return !!tab.linkedBrowser?.isRemoteBrowser && !Services.prefs.getBoolPref(TRANSPARENT, false) && !root.hasAttribute("lumi-home-live") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("lumi-time-full"); };
+  const solidPage = () => solidOf(under?.isConnected ? under : gBrowser.selectedTab); // под закрепом — вкладка под ним, а не сам закреп
 
   // Слой — свой фильтр на своей области (host): сайты, а с 0.7.7 ещё полоса вкладок и адресная строка. backdrop-filter панели их НЕ размывает: фон у них прозрачный
   // (стекло окна), и Firefox кладёт размытый «задник» поверх резкого — резкий остаётся виден сквозь слабую дымку (замер 0.7.7: пятно зелёного 40×28 под blur(32px) осталось
   // квадратом). Поэтому полосу и адресную строку размывает такой же фильтр, как сайт, по честной цепочке с вырезом резкого. skip — ключи панелей, которые сами лежат в области
   // (выехавшая в Compacting полоса, раскрытая адресная строка): фильтр на хозяине размыл бы саму панель
-  const layer = (id, getHost, { solid = () => false, skip = [], mark = false } = {}) => {
+  const layer = (id, getHost, { solid = () => false, skip = [], only = null, mark = false } = {}) => {
     const filter = make("filter", { id, x: 0, y: 0, width: "100%", height: "100%", primitiveUnits: "userSpaceOnUse", "color-interpolation-filters": "sRGB" });
     svg.append(filter);
     let boxes = [], sig = "", applied = null; // applied — элемент, на котором сейчас висит фильтр
@@ -52,7 +52,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       const host = getHost(), p = on && host && rects.size ? host.getBoundingClientRect() : null; // без панелей лишнего пересчёта раскладки нет
       boxes = [];
       if (p) for (const [key, r] of rects) { // подобласть — часть панели над областью, в координатах хозяина
-        if (skip.includes(key)) continue;
+        if (skip.includes(key) || (only && !only.includes(key))) continue;
         const x = Math.max(r.left - p.left, 0), y = Math.max(r.top - p.top, 0), w = Math.min(r.right - p.left, p.width) - x, h = Math.min(r.bottom - p.top, p.height) - y;
         if (w >= 1 && h >= 1) boxes.push([x, y, w, h].map(n => Math.round(n * 100) / 100));
       }
@@ -91,9 +91,13 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     return { update, get boxes() { return boxes; }, get host() { return applied; } };
   };
   const site = layer("lumi-site-blur", hostOf, { solid: solidPage, mark: true });
+  // Над закреп-окошком (chrome.css §14б): панель закрепа резкая, поэтому размытие карточки при наведении, лежащей над ней, — отдельный слой на панели закрепа
+  // (выбранная вкладка, пока окошко открыто): подобласть только под карточкой, остальной закреп остаётся резким
+  const pinHost = () => { const el = under ? gBrowser.selectedTab.linkedBrowser?.closest(".browserSidebarContainer") : null; return el?.isConnected ? el : null; };
   const layers = [site,
     layer("lumi-ui-blur-tabs", () => document.getElementById("lumi-tabstrip"), { skip: ["compact-top"] }),
-    layer("lumi-ui-blur-nav", () => document.getElementById("zen-appcontent-navbar-wrapper"), { skip: ["compact-top", "urlbar"] })];
+    layer("lumi-ui-blur-nav", () => document.getElementById("zen-appcontent-navbar-wrapper"), { skip: ["compact-top", "urlbar"] }),
+    layer("lumi-pin-blur", pinHost, { solid: () => solidOf(gBrowser.selectedTab), only: ["hovercard"] })];
 
   function apply() {
     const on = possible();

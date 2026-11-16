@@ -53,6 +53,35 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
     zones.push(zone);
   }
 
+  // Адресную строку прячет родной compact mode Zen (атрибут корня zen-compact-mode, chrome.css разделы 2 и 12), а сам включатель «Адресная строка»
+  // (zen.view.compact.hide-toolbar) его не включает: стоит выключить режим родной кнопкой / сочетанием / командой «Compact mode» — Zen запомнит это
+  // и на следующие запуски (enable-at-startup), и строка навсегда на месте при включённом флажке. Поэтому флажок включён → держим режим включённым
+  // (при запуске и при смене флажка); режим выключили руками — флажок гаснет вместе с ним (не спорим с пользователем и не включаем его заново при перезапуске).
+  const HIDE = "zen.view.compact.hide-toolbar";
+  let keepTimer;
+  const keepCompact = (left = 40) => {
+    clearTimeout(keepTimer);
+    const zen = window.gZenCompactModeManager;
+    if (!left || !zen || root.hasAttribute("popup-window") || root.getAttribute("zen-compact-mode") === "true" || !Services.prefs.getBoolPref(HIDE, false)) return;
+    // пока Zen сам применяет запомненный режим при запуске (_wasInCompactMode) или идёт анимация, setter молча ничего не делает — ждём и проверяем снова
+    if (zen._wasInCompactMode === undefined && !root.hasAttribute("zen-compact-animating")) zen.preference = true;
+    keepTimer = setTimeout(() => keepCompact(left - 1), 500);
+  };
+  const onHidePref = () => keepCompact();
+  Services.prefs.addObserver(HIDE, onHidePref);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(HIDE, onHidePref), { once: true });
+  // Включили режим, пока в строке что-то было открыто / в фокусе (при запуске), — Zen ставит ей zen-compact-mode-active и снимает только при следующей
+  // мутации (фокус атрибутов не меняет): строка оставалась раскрытой навсегда. Снимаем отметку сами, если держать её нечему (тот же селектор, что у Zen).
+  const unstick = () => {
+    const bar = document.getElementById("zen-appcontent-navbar-wrapper");
+    if (bar.hasAttribute("zen-compact-mode-active") && !bar.querySelector(":where([panelopen], [open], #urlbar:focus-within, [breakout-extend]):not(.zen-compact-mode-ignore)"))
+      window.gZenCompactModeManager._setElementExpandAttribute(bar, false, "zen-compact-mode-active");
+  };
+  window.addEventListener("ZenCompactMode:Toggled", event => {
+    if (event.detail) setTimeout(unstick, 1000); else Services.prefs.setBoolPref(HIDE, false);
+  });
+  SessionStore.promiseAllWindowsRestored.then(() => keepCompact());
+
   // Прозрачный режим окна ([lumi-glass]): сквозь выехавшую панель видно то, что за окном, а не сайт. Для этого область сайтов
   // (#tabbrowser-tabpanels — она же Split view и закреп-окошко) режется clip-path ровно под панелями: рейка слева, полоса вкладок / адресная строка сверху.
   // Сайт не двигается и не перерисовывается. Размер реза считаем по живым прямоугольникам панелей на каждом кадре, пока идёт их

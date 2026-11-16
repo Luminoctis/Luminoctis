@@ -30,7 +30,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   newTab.setAttribute("tooltiptext", t("Новая вкладка"));
   const separator = document.createElement("div");
   separator.id = "lumi-strip-separator";
-  strip.append(row, dropLine, newTab, separator);
+  // пока тянут вкладку: невидимая зона под полосой (сюда курсор ещё «у полосы») и прозрачная картинка drag (chrome.css, раздел 9)
+  const dragZone = Object.assign(document.createElement("div"), { id: "lumi-drag-zone" });
+  const dragBlank = Object.assign(document.createElement("div"), { id: "lumi-drag-blank" });
+  strip.append(row, dropLine, newTab, separator, dragZone, dragBlank);
   document.getElementById("zen-appcontent-wrapper").prepend(strip);
 
   // ---------- зеркало вкладок ----------
@@ -92,13 +95,49 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // Корневая папка вкладки — самая верхняя zen-folder среди её групп (split-view-группа и подпапки тоже группы).
   const folderOf = tab => {
     let root = null;
-    for (let g = tab.group; g; g = g.group) if (g.tagName == "zen-folder") root = g;
+    for (let g = tab?.group; g; g = g.group) if (g.tagName == "zen-folder") root = g;
     return root;
   };
   const stripTabs = () => gBrowser.visibleTabs.filter(tab => !tab.hasAttribute("zen-essential") && !tab.hasAttribute("lumi-home") && !tab.hasAttribute("lumi-time-full") && !tab.hasAttribute("zen-empty-tab") && !tab.hasAttribute("zen-glance-tab") && !dying.has(tab) && !folderOf(tab));
+  // Split View Zen: вкладки tab-group[split-view-group] (2 и больше) — в полосе одна плитка .lumi-split, внутри неё — обычные вкладки-половины
+  // (itemFor), без своей таблетки; таблетка одна на плитку. Плитку представляет первая вкладка группы (запись полосы), перетаскивается группа целиком.
+  const splitOf = tab => {
+    const group = tab?.group;
+    return group?.hasAttribute?.("split-view-group") && !folderOf(tab) && group.tabs.filter(t => !dying.has(t)).length > 1 ? group : null;
+  };
+  const splitTabs = group => group.tabs.filter(t => !dying.has(t));
+  const tiles = new WeakMap(); // tab-group -> плитка полосы
+  const tileFor = group => {
+    let tile = tiles.get(group);
+    if (!tile) {
+      tile = document.createElement("div");
+      tile.className = "lumi-tab lumi-split";
+      tile.group = group;
+      tiles.set(group, tile);
+    }
+    return tile;
+  };
+  const updateTile = (tile, group, hoverCard) => {
+    const members = splitTabs(group);
+    const halves = members.map(tab => {
+      const half = itemFor(tab);
+      update(half, tab, hoverCard);
+      half.removeAttribute("square"); // закреплённые тоже занимают половину плитки
+      return half;
+    });
+    if (halves.length != tile.children.length || halves.some((half, i) => half !== tile.children[i])) tile.replaceChildren(...halves);
+    tile.tab = members[0]; // у плитки .tab — первая вкладка (закреплена ли группа, меню); у половин — своя
+    tile.style.setProperty("--lumi-split-n", members.length);
+    for (const attr of ["selected", "multiselected"]) tile.toggleAttribute(attr, halves.some(half => half.hasAttribute(attr)));
+  };
+  const SPLIT_HALF = 120; // база одной половины, px (chrome.css: .lumi-split)
   // Вкладки полосы и папки пространства в порядке документа: фишка стоит там, где в списке Zen стоит папка
   const stripEntries = () => {
-    const entries = stripTabs();
+    const seen = new Set(); // вкладки одной split-группы — одна запись
+    const entries = stripTabs().filter(tab => {
+      const group = splitOf(tab);
+      return !group || (!seen.has(group) && seen.add(group));
+    });
     const space = gZenWorkspaces.activeWorkspace;
     for (const folder of document.querySelectorAll("zen-folder")) {
       if (folder.getAttribute("zen-workspace-id") != space || folder.group) continue;
@@ -138,7 +177,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (chip.icon.getAttribute("src") != icon) chip.icon.setAttribute("src", icon);
     chip.toggleAttribute("selected", folder.contains(gBrowser.selectedTab)); // выбранная вкладка папки в полосе не рисуется — «активна» фишка
   };
-  const entryItem = entry => entry.isZenFolder ? chipFor(entry) : itemFor(entry);
+  const entryItem = entry => entry.isZenFolder ? chipFor(entry) : splitOf(entry) ? tileFor(splitOf(entry)) : itemFor(entry);
   // Закрытие: вкладка улетает вверх и гаснет, потом освободившееся место схлопывается, соседи плавно занимают его.
   // Пока идёт анимация, элемент остаётся в ряду «призраком» (ghosts) на своём месте — render его не убирает.
   const ghosts = new Set();
@@ -146,7 +185,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const fly = (tab) => {
     dying.add(tab);
     const item = items.get(tab);
-    if (!item?.isConnected || calm()) return;
+    if (item?.parentElement !== row || calm()) return; // половина split-плитки не летит — плитка просто перестраивается
     const { width } = item.getBoundingClientRect();
     item.lumiSlot = [...row.children].indexOf(item);
     item.toggleAttribute("closing", true); // не кликается, не перетаскивается
@@ -176,7 +215,9 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   // сразу много (восстановление сессии, «открыть все») — не анимируем.
   const fresh = new Set();
   let burst = 0, burstTimer;
+  let adopting = false; // вкладку принимают из другого окна (drop, ниже): встаёт в готовое место без «выростания»
   window.addEventListener("TabOpen", event => {
+    if (adopting) return;
     clearTimeout(burstTimer);
     burstTimer = setTimeout(() => (burst = 0), 300);
     if (++burst <= 3) fresh.add(event.target);
@@ -198,11 +239,14 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   };
   // перетаскивание вкладок (ниже): расступившиеся остаются сдвинутыми после броска, пока render не пересоберёт ряд
   let dragged = null, dragSet = [], dragGhost = null, gapPending = false; // dragSet: тянущиеся вкладки в порядке полосы или [папка]
+  let track = null; // тянут вкладку из полосы (не строку списка папки): { x0, offX, offY, gx, gy, follow, attached }
+  let away = null; // единственную вкладку окна тянут: окно свёрнуто на время drag, тут его место и вид (collapseWindow / dragEnd)
+  let landing = null; // брошенная вкладка: откуда садиться на место, когда ряд пересоберётся (render)
   const liveItems = () => [...row.children].filter(el => !el.hasAttribute("closing"));
   function releaseGap(instant) {
     gapPending = false;
     luminoctis.clearGap([...row.children], instant);
-    row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
+    row.querySelectorAll("[dragging], [follow]").forEach(el => (el.removeAttribute("dragging"), el.removeAttribute("follow")));
   }
   let dragOpened = false, panelGapPending = false; // список папки раскрыт наведением с вкладкой; строки списка ещё раздвинуты после броска
   let releasePanelGap = () => {};
@@ -212,7 +256,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     queued = false;
     const entries = stripEntries(), tabs = entries.filter(el => !el.isZenFolder);
     const hoverCard = window.lumiHover?.enabled() ?? true;
-    tabs.forEach(tab => update(itemFor(tab), tab, hoverCard));
+    tabs.forEach(tab => splitOf(tab) ? updateTile(tileFor(splitOf(tab)), splitOf(tab), hoverCard) : update(itemFor(tab), tab, hoverCard));
     entries.filter(el => el.isZenFolder).forEach(folder => updateChip(chipFor(folder)));
     const wanted = entries.map(entryItem);
     for (const ghost of [...ghosts].sort((a, b) => a.lumiSlot - b.lumiSlot)) wanted.splice(Math.min(ghost.lumiSlot, wanted.length), 0, ghost);
@@ -224,16 +268,25 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     // «+» — как ещё одна вкладка: сжимается вместе с ними; --lumi-tabs-shrink уравнивает долю сжатия ряда и «+»
     // (зазоры не сжимаются, без поправки «+» вышла бы на пару пикселей шире вкладки)
     // фишка папки — 150px (chrome.css), сжимается как обычная вкладка
-    const baseOf = el => el.isZenFolder ? 150 : el.pinned ? 28 : 210;
+    const baseOf = el => el.isZenFolder ? 150 : splitOf(el) ? SPLIT_HALF * splitTabs(splitOf(el)).length : el.pinned ? 28 : 210;
     const full = Math.max(0, entries.reduce((w, el) => w + baseOf(el) + 6, -6));
     strip.style.setProperty("--lumi-tabs-w", `${full}px`);
-    strip.style.setProperty("--lumi-tabs-shrink", full ? entries.filter(el => el.isZenFolder || !el.pinned).reduce((w, el) => w + baseOf(el), 0) / full : 1);
+    strip.style.setProperty("--lumi-tabs-shrink", full ? entries.filter(el => el.isZenFolder || splitOf(el) || !el.pinned).reduce((w, el) => w + baseOf(el), 0) / full : 1);
     if (gapPending) releaseGap(true);
-    if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !now.includes(items.get(tab))) grow(items.get(tab), rowFrom);
+    if (landing) { // брошенная вкладка садится на место из того, где её отпустили (FLIP: сдвиг назад → плавно в ноль)
+      const { el, x, t } = landing, d = x - el.getBoundingClientRect().left;
+      landing = null;
+      if (Math.abs(d) > 1 && Date.now() - t < 700) {
+        el.style.transition = "none";
+        el.style.translate = `${d}px 0`;
+        requestAnimationFrame(() => requestAnimationFrame(() => (el.style.transition = "", el.style.translate = "")));
+      }
+    }
+    if (!calm()) for (const tab of tabs) if (fresh.has(tab) && !splitOf(tab) && !now.includes(items.get(tab))) grow(items.get(tab), rowFrom);
     fresh.clear();
     // к выбранной — только когда выбор сменился: иначе любая фоновая вкладка (загрузка, заголовок) сбивала прокрутку пользователя
     const sel = gZenGlanceManager.getTabOrGlanceParent(gBrowser.selectedTab); // открыт Glance — выбрана его вкладка, показываем родителя
-    const selected = items.get(sel) ?? chips.get(folderOf(sel));
+    const selected = tiles.get(splitOf(sel)) ?? items.get(sel) ?? chips.get(folderOf(sel));
     if (selected?.isConnected && selected !== shownSelected) row.ensureElementIsVisible(selected);
     shownSelected = selected;
     refreshPanel();
@@ -514,7 +567,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   };
   // фишка под курсором, если бросок на неё положит вкладку в папку (та же папка — нет)
   const folderTarget = event => {
-    const chip = (dragged || luminoctis.dragPin) && !dragged?.isZenFolder && chipOf(event);
+    const chip = (dragged || luminoctis.dragPin) && !dragged?.isZenFolder && !splitOf(dragged) && chipOf(event); // плитку Split View в папку не кладём
     if (!chip || (dragged && folderOf(dragged) === chip.folder)) return null;
     const r = chip.getBoundingClientRect(), edge = Math.min(12, r.width / 4);
     return event.clientX > r.left + edge && event.clientX < r.right - edge ? chip : null;
@@ -524,23 +577,92 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const dragGroup = tab => {
     const sel = gBrowser.selectedTabs;
     if (gBrowser.multiSelectedTabsCount && !sel.includes(tab)) gBrowser.clearMultiSelectedTabs();
+    if (splitOf(tab)) return splitTabs(splitOf(tab)); // плитка Split View тянется целиком
     const group = gBrowser.multiSelectedTabsCount ? stripTabs().filter(t => sel.includes(t) && t.pinned == tab.pinned) : [];
     return group.length > 1 && group.includes(tab) ? group : [tab];
+  };
+  // Пока курсор у полосы (сама полоса и зона dragZone под ней, ~50px), вкладка едет по горизонтали сама (translate, атрибут [follow]),
+  // а картинка drag прозрачная. Увели дальше / на рейку / за окно — «отлипла»: картинка у курсора (updateDragImage), вкладка встаёт на место.
+  // Приём родной полосы Firefox/Zen: те же dt.setDragImage / updateDragImage. track — только для вкладок полосы (не строк списка папки).
+  // «Уменьшить анимацию»: вкладка не едет, картинка — родной снимок (follow выключен), а «отлипание» всё равно считается.
+  const TAB_DROP_TYPE = "application/x-moz-tabbrowser-tab"; // родной тип вкладки: по нему рейка делает её закрепом, а другое окно принимает
+  // Split View Zen работает по тому же родному типу вкладки: над сайтом (#tabbrowser-tabbox) ZenViewSplitter показывает предпросмотр, а закрывает его
+  // родной dragend вкладок (tabDragAndDrop.handle_dragend → moveTabToSplitView), которого у нашей полосы нет, — зовём то же в dragEnd (ниже).
+  // originalDragImageArgs Zen берёт при возврате картинки из предпросмотра (updateDragImage(...[]) — ошибка и предпросмотр застревал): держим актуальной.
+  const setImageArgs = args => { try { gBrowser.tabContainer.tabDragAndDrop.originalDragImageArgs = args; } catch {} };
+  // делить не с чем: та же вкладка, что открыта; открыта Home, большой LumiTime или Glance; тянут несколько вкладок / плитку Split View — предпросмотра нет
+  const splitBlocked = () => {
+    const sel = gBrowser.selectedTab;
+    return dragSet.length > 1 || sel === dragged || sel.hasAttribute("zen-glance-tab") || sel.hasAttribute("lumi-home") || sel.hasAttribute("lumi-time-full");
+  };
+  document.getElementById("tabbrowser-tabbox").addEventListener("dragover", event => {
+    if (dragged && splitBlocked()) event.stopImmediatePropagation(); // до слушателя Zen (он на этом же элементе, всплытие)
+  }, true);
+  const collapseWindow = () => {
+    if (away || window.windowState == window.STATE_MINIMIZED || !window.toolbar.visible) return;
+    away = { state: window.windowState, x: window.screenX, y: window.screenY, w: window.outerWidth, h: window.outerHeight };
+    window.minimize();
+  };
+  const restoreWindow = (x, y) => { // свёрнутое окно возвращается (развёрнутое — развёрнутым); с x, y — «отрыв»: встаёт там, где отпустили
+    window.restore();
+    if (x != null && window.windowState == window.STATE_NORMAL) window.moveTo(x, y);
   };
   const beginDrag = (event, primary, set, inPanel) => {
     dragged = primary;
     dragSet = set;
-    setTimeout(() => dragged && dragSet.forEach(e => (inPanel ? rowEls.get(e) : entryItem(e))?.setAttribute("dragging", ""))); // гаснет, когда снимок для курсора уже сделан
+    // гаснет, когда снимок для курсора уже сделан; ставим до всего остального — сбой ниже не должен оставить тянущуюся строку/вкладку негаснущей
+    setTimeout(() => {
+      if (!dragged) return;
+      dragSet.forEach(e => (inPanel ? rowEls.get(e) : entryItem(e))?.setAttribute("dragging", ""));
+      if (track?.follow) entryItem(dragged)?.setAttribute("follow", "");
+    });
+    // единственная вкладка окна: окно исчезает с экрана (сворачивается), иначе курсор всегда над своим окном и бросить вкладку на полосу другого нельзя;
+    // позже dragend вернёт окно (отмена, мимо) или закроет (вкладку приняло другое окно)
+    if (!inPanel && !primary.isZenFolder && !splitOf(primary) && !stripEntries().some(e => !set.includes(e))) setTimeout(() => dragged === primary && collapseWindow(), 60);
     const dt = event.dataTransfer;
     dt.effectAllowed = "move";
-    dt.setData("text/plain", primary.isZenFolder ? primary.label : primary.linkedBrowser.currentURI.spec);
-    if (!primary.isZenFolder) dt.mozSetDataAt("application/x-moz-tabbrowser-tab", primary, 0); // родной тип вкладки: по нему рейка делает её закрепом
-    if (set.length > 1) { // у курсора — вкладка с числом тянущихся
+    if (primary.isZenFolder) dt.setData("text/plain", primary.label);
+    else { // как у родной полосы: тип вкладки первым; адрес — не text/plain, иначе сайт под курсором принял бы его за ссылку
+      [primary, ...set.filter(e => e !== primary)].forEach((tab, i) => {
+        try { // вторую и далее вкладки принимает только настоящий drag (у синтетического DataTransfer индекс > 0 — ошибка): другое окно возьмёт тогда одну вкладку
+          dt.mozSetDataAt(TAB_DROP_TYPE, tab, i);
+          dt.mozSetDataAt("text/x-moz-text-internal", tab.linkedBrowser.currentURI.spec, i);
+        } catch (e) { if (!i) throw e; }
+      });
+    }
+    dt.mozCursor = "default";
+    if (!inPanel) dt.addElement(row); // источник drag — ряд, он всегда в документе: dragend дойдёт, даже когда вкладка уехала в другое окно и её элемент убрали
+    const item = inPanel ? null : entryItem(primary), r = item?.getBoundingClientRect();
+    track = inPanel ? null : { x0: event.clientX, offX: event.screenX - window.screenX, offY: event.screenY - window.screenY, gx: 16, gy: 14, follow: false, attached: true };
+    if (track && !calm() && typeof dt.updateDragImage == "function") {
+      track.follow = true;
+      if (set.length > 1 && !splitOf(primary)) { // картинка при отрыве: вкладка с числом тянущихся
+        dragGhost = Object.assign(document.createElement("div"), { id: "lumi-drag-ghost", textContent: primary.label });
+        dragGhost.dataset.count = set.length;
+      } else { // копия вкладки, как её рисует полоса
+        dragGhost = item.cloneNode(true);
+        dragGhost.removeAttribute("dragging");
+        dragGhost.style.cssText = `position:fixed; top:-200px; left:0; width:${r.width}px; flex:none; translate:none; pointer-events:none`;
+        track.gx = Math.max(0, Math.min(event.clientX - r.left, r.width));
+        track.gy = Math.max(0, Math.min(event.clientY - r.top, r.height));
+      }
+      strip.append(dragGhost);
+      dt.setDragImage(dragBlank, 0, 0);
+      strip.toggleAttribute("lumi-dragging", true);
+      setImageArgs([dragBlank, 0, 0]);
+    } else if (set.length > 1) { // у курсора — вкладка с числом тянущихся
       dragGhost = Object.assign(document.createElement("div"), { id: "lumi-drag-ghost", textContent: primary.label });
       dragGhost.dataset.count = set.length;
       strip.append(dragGhost);
       dt.setDragImage(dragGhost, 16, 14);
-    }
+      setImageArgs([dragGhost, 16, 14]);
+    } else if (item) {
+      dt.setDragImage(item, event.clientX - r.left, event.clientY - r.top); // addElement(row) сменил бы картинку по умолчанию на весь ряд
+      setImageArgs([item, event.clientX - r.left, event.clientY - r.top]);
+    } else setImageArgs([event.target.closest?.(".lumi-fr") ?? dragBlank, 16, 14]); // строка списка папки: картинка по умолчанию — она сама
+    // Zen делит страницу с «последней открытой» вкладкой (ZenViewSplitter._lastOpenedTab) — у родной полосы ею становится прежняя выбранная,
+    // потому что mousedown выбирает тянущуюся вкладку; у нашей полосы клик выбирает позже, поэтому ставим выбранную сами
+    if (!primary.isZenFolder && window.gZenViewSplitter) gZenViewSplitter._lastOpenedTab = gZenGlanceManager.getTabOrGlanceParent(gBrowser.selectedTab);
   };
   row.addEventListener("dragstart", event => {
     const chip = chipOf(event), tab = tabOf(event);
@@ -570,42 +692,126 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   };
   // Закреп с рейки (luminoctis.dragPin, js/lumi-rail.uc.js): бросок на полосу открывает НОВУЮ вкладку с начальным адресом закрепа
   // (закреп остаётся на месте); тянется он с тем же расступанием и чертой, что вкладка из списка папки. На сайт и Home закреп не бросается.
-  row.addEventListener("dragover", event => {
-    if (!dragged && !luminoctis.dragPin) return;
+  // Вкладки другого окна Zen (родной тип + вкладка чужого окна; у каждого окна своя копия скрипта, dragged здесь null): принимаем как обычные.
+  // Не принимаем Essentials (закрепы рейки), Home, вкладку LumiTime, пустые и Glance; обычное окно не берёт приватную вкладку и наоборот.
+  const NOT_ADOPTED = ["zen-essential", "lumi-home", "lumi-time-full", "zen-empty-tab", "zen-glance-tab"];
+  const foreignTabs = event => {
+    const dt = event.dataTransfer;
+    if (dragged || luminoctis.dragPin || dt.mozItemCount < 1 || dt.mozTypesAt(0)[0] != TAB_DROP_TYPE) return [];
+    const tabs = Array.from({ length: dt.mozItemCount }, (_, i) => dt.mozGetDataAt(TAB_DROP_TYPE, i));
+    const winOf = tab => tab?.ownerDocument?.defaultView, w = winOf(tabs[0]); // ownerGlobal у чужой вкладки бывает null
+    const ok = w && w !== window && w.gBrowser && PrivateBrowsingUtils.isWindowPrivate(w) == PrivateBrowsingUtils.isWindowPrivate(window) &&
+      tabs.every(tab => tab?.localName == "tab" && winOf(tab) === w && w.gBrowser.tabs.includes(tab) && !tab.splitView && !NOT_ADOPTED.some(a => tab.hasAttribute(a))); // вкладка Split View — только вместе с группой, не принимаем
+    return ok ? tabs : [];
+  };
+  // место полосы i -> индекс в gBrowser.tabs; у папки края — её первая и последняя вкладки (с пустой вкладкой Zen)
+  const tabIndexAt = (visible, i) => {
+    const target = visible[i] ?? visible.at(-1);
+    if (!target) return gBrowser.tabs.length;
+    const edge = target.isZenFolder ? [...target.querySelectorAll("tab")].at(visible[i] ? 0 : -1)
+      : splitOf(target) && !visible[i] ? splitTabs(splitOf(target)).at(-1) : target; // у плитки Split View «после» — после её последней вкладки
+    return gBrowser.tabs.indexOf(edge) + (visible[i] ? 0 : 1);
+  };
+  const inZone = el => !!el && (row.contains(el) || dragZone.contains(el)); // полоса вкладок и зона под ней — места, где вкладка ещё «у полосы»
+  const onZone = (type, fn) => [row, dragZone].forEach(el => el.addEventListener(type, fn));
+  // вкладка отлипла (на рейку, на сайт, за окно, дальше зоны) / прилипла обратно к полосе; картинка у курсора меняется на лету
+  const setAttached = (on, dt) => {
+    if (!track || track.attached == on) return;
+    track.attached = on;
+    if (!track.follow) return;
+    const args = on ? [dragBlank, 0, 0] : [dragGhost, track.gx, track.gy];
+    setImageArgs(args);
+    try { dt.updateDragImage(...args); } catch {}
+    entryItem(dragged).toggleAttribute("follow", on);
+    if (!on) {
+      dropLine.hidden = true;
+      luminoctis.clearGap(liveItems(), false); // щель закрывается, вкладка плавно встаёт на своё место
+    }
+  };
+  // вкладка за курсором только по горизонтали, в пределах ряда
+  const followTo = event => {
+    if (!track?.follow || track.into) return;
+    setAttached(true, event.dataTransfer);
+    dragSet.forEach(e => entryItem(e)?.toggleAttribute("dragging", true)); // row.dragleave (releaseGap) мог их снять
+    const el = entryItem(dragged), r = el.getBoundingClientRect(), rr = row.getBoundingClientRect();
+    const base = r.left - luminoctis.shiftOf(el, "x");
+    const dx = Math.max(rr.left - base, Math.min(event.clientX - track.x0, rr.right - r.width - base));
+    el.toggleAttribute("follow", true);
+    el.style.translate = `${dx}px 0`;
+  };
+  strip.addEventListener("dragover", event => {
+    if (!dragged) return;
+    followTo(event);
+    // вернулись к полосе с предпросмотром Split View над сайтом — он сворачивается (как у родной полосы, tabDragAndDrop.handle_dragover)
+    if (window.gZenViewSplitter?._canDrop) try { gZenViewSplitter.onBrowserDragEndToSplit(event); } catch (e) { console.error(e); }
+  });
+  strip.addEventListener("dragleave", event => {
+    if (!event.relatedTarget || !strip.contains(event.relatedTarget)) setAttached(false, event.dataTransfer);
+  });
+  onZone("dragover", event => {
+    const foreign = dragged || luminoctis.dragPin ? [] : foreignTabs(event);
+    if (!dragged && !luminoctis.dragPin && !foreign.length) return;
     event.preventDefault();
+    if (foreign.length) event.dataTransfer.dropEffect = "move";
     clearTarget();
     const list = liveItems();
     const into = folderTarget(event);
     hoverFolder(chipOf(event));
-    if (into) { // на фишку: подсветка, щель и черта не нужны
+    if (track) track.into = !!into;
+    if (into) { // на фишку: подсветка, щель и черта не нужны; вкладка у курсора — картинкой (едущая закрыла бы подсветку), на месте — гаснет
       into.toggleAttribute("drop-into", true);
+      setAttached(false, event.dataTransfer);
       dropLine.hidden = true;
       luminoctis.clearGap(list, false);
       return;
     }
     const i = dropIndex(event.clientX);
     const ref = list[i] ?? list.at(-1);
-    const r = ref.getBoundingClientRect();
-    let x = list[i] ? r.left - 3 : r.right + 3;
+    const r = ref?.getBoundingClientRect();
+    let x = !r ? strip.getBoundingClientRect().left : list[i] ? r.left - 3 : r.right + 3;
     const movers = new Set(dragSet.map(entryItem).filter(el => list.includes(el)));
-    if (!calm()) {
-      const hole = spread(list, movers, i, movers.size ? 0 : 216); // 216 — место под вкладку из списка папки
-      if (dragSet.length > 1) x = hole; // число у метки — по центру дыры
+    const count = foreign.length || (splitOf(dragged) ? 1 : dragSet.length);
+    if (!calm() && ref) {
+      const hole = spread(list, movers, i, movers.size ? 0 : 216 * Math.max(1, foreign.length)); // 216 — место под вкладку из списка папки / другого окна
+      if (count > 1) x = hole; // число у метки — по центру дыры
     }
     dropLine.style.left = `${x - strip.getBoundingClientRect().left}px`;
     dropLine.hidden = false;
     dropLine.toggleAttribute("quiet", !calm()); // с расступанием черта не нужна — остаётся при «уменьшить анимацию»
-    dropLine.dataset.count = dragSet.length > 1 ? dragSet.length : ""; // у нескольких вкладок на метке число
+    dropLine.dataset.count = count > 1 ? count : ""; // у нескольких вкладок на метке число
   });
-  row.addEventListener("dragleave", event => {
-    if (row.contains(event.relatedTarget)) return;
+  onZone("dragleave", event => {
+    if (inZone(event.relatedTarget)) return;
     hoverFolder(null);
     clearTarget();
     dropLine.hidden = true;
     if (!gapPending) releaseGap(false); // ушли с полосы — щель плавно закрывается
   });
+  // вкладки другого окна: встают на место броска родным adoptTab, выбирается первая; окно, где вкладка была последней, закроет Firefox
+  onZone("drop", event => {
+    const tabs = foreignTabs(event);
+    if (!tabs.length) return;
+    event.preventDefault();
+    clearTarget();
+    dropLine.hidden = true;
+    endHover();
+    const at = tabIndexAt(stripEntries(), dropIndex(event.clientX));
+    gapPending = row.querySelector("[style*=translate]") != null; // расступившиеся стоят, пока ряд не пересоберётся (render)
+    if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500);
+    const source = tabs[0].ownerDocument.defaultView;
+    adopting = true;
+    try {
+      tabs.forEach((tab, i) => gBrowser.adoptTab(tab, { tabIndex: at + i, selectTab: i == 0 })); // закреплённая у границы закрепов остаётся закреплённой (как в родной полосе)
+    } finally {
+      adopting = false;
+    }
+    // Home и пустая вкладка Zen в каждом окне свои, поэтому Firefox окно не закрывает: опустело — закрываем сами (как при закрытии последней вкладки)
+    setTimeout(() => {
+      if (!source.closed && source.gBrowser.tabs.every(tab => NOT_ADOPTED.some(a => tab.hasAttribute(a)))) source.close();
+    }, 500);
+  });
   let pinDropped = false;
-  row.addEventListener("drop", event => {
+  onZone("drop", event => {
     if (dragged || !luminoctis.dragPin) return;
     const url = luminoctis.pinStartURL(luminoctis.dragPin);
     dragged = gBrowser.addTrustedTab(url); // дальше — обычный бросок вкладки на это место
@@ -613,16 +819,19 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     dragSet = [dragged];
     pinDropped = true;
   });
-  row.addEventListener("drop", event => {
+  onZone("drop", event => {
     if (!dragged) return;
     event.preventDefault();
     const into = folderTarget(event);
     clearTarget();
     endHover();
+    if (track?.follow && !into && track.attached) { const el = entryItem(dragged); landing = { el, x: el.getBoundingClientRect().left, t: Date.now() }; }
     if (into) {
       const tabs = dragSet;
       dragged = null; // у вкладки, ушедшей в папку, из полосы пропадёт элемент — dragend до row не дойдёт
       dragSet = [];
+      track = null;
+      strip.removeAttribute("lumi-dragging");
       dragGhost?.remove();
       dropLine.hidden = true;
       releaseGap(true);
@@ -639,53 +848,103 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
       if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500);
       // папка живёт только среди закрепов: перед первой обычной вкладкой её ставят после последнего закрепа, а не перед обычной
       const pinnedEnd = dragged.isZenFolder && target && !target.isZenFolder && !target.pinned;
-      if (target && !pinnedEnd) dragSet.forEach(e => gBrowser.moveTabBefore(e, target));
+      // плитка Split View двигается как группа Zen (moveTabBefore/After самой группы), а не вкладками по одной — они вышли бы из неё
+      const unit = e => splitOf(e) ?? e;
+      const moving = [...new Set(dragSet.map(unit))];
+      if (target && !pinnedEnd) moving.forEach(e => gBrowser.moveTabBefore(e, unit(target)));
       else {
         let at = pinnedEnd ? rest[rest.indexOf(target) - 1] : rest.at(-1);
-        for (const e of dragSet) if (at) (gBrowser.moveTabAfter(e, at), (at = e));
+        for (const e of moving) if (at) (gBrowser.moveTabAfter(e, unit(at)), (at = e));
       }
       return;
     }
-    const target = visible[i] ?? visible.at(-1);
     if (folderOf(dragged)) { // из папки — в обычные вкладки того же пространства (Zen оставил бы их закреплёнными)
       gBrowser.ungroupTab(dragged);
       if (dragged.pinned) gBrowser.unpinTab(dragged);
       folderPanel.hidePopup();
     }
-    // индекс в полосе -> индекс в gBrowser.tabs; moveTabTo сам не даёт смешать закреплённые и обычные.
-    // У папки края — её первая и последняя вкладки (с пустой вкладкой Zen)
-    const edge = el => el.isZenFolder ? [...el.querySelectorAll("tab")].at(visible[i] ? 0 : -1) : el;
-    let tabIndex = gBrowser.tabs.indexOf(edge(target)) + (visible[i] ? 0 : 1);
+    // индекс в полосе -> индекс в gBrowser.tabs; moveTabTo сам не даёт смешать закреплённые и обычные
+    let tabIndex = tabIndexAt(visible, i);
     if (gBrowser.tabs.indexOf(dragged) < tabIndex) tabIndex--; // moveTabTo ждёт итоговый индекс
     gapPending = row.querySelector("[style*=translate]") != null; // расступившиеся стоят, пока ряд не пересоберётся (render)
     if (gapPending) setTimeout(() => gapPending && releaseGap(false), 500); // порядок не изменился — пересборки не будет
     gBrowser.moveTabTo(dragged, { tabIndex });
   });
-  row.addEventListener("drop", () => { // бросок закрепа: у новой вкладки нет dragend, сбрасываем сами
+  onZone("drop", () => { // бросок закрепа: у новой вкладки нет dragend, сбрасываем сами
     if (!pinDropped) return;
     pinDropped = false;
     dragged = null;
     dragSet = [];
   });
+  // Конец drag единственной вкладки при свёрнутом окне. Не потерять вкладку ни при каком исходе:
+  // - приняло другое окно (полоса: adoptTab, рейка: закреп): вкладка уехала, окно закрываем (оно осталось с Home / пустой вкладкой Zen);
+  //   не уехала — окно возвращается;
+  // - Esc, бросок над любым окном Zen мимо цели (в т.ч. над своим прежним местом): окно возвращается как было;
+  // - бросок вне всех окон: окно встаёт там, где отпустили («отрыв», курсор на том же месте окна), развёрнутое — просто возвращается.
+  const endHidden = (event, tab, was, hidden) => {
+    const dt = event.dataTransfer;
+    if (dt.dropEffect != "none") {
+      setTimeout(() => {
+        if (window.closed) return;
+        if (tab.isConnected && !tab.closing && gBrowser.tabs.includes(tab)) return restoreWindow();
+        if (stripTabs().length) restoreWindow(); // вкладка уехала, но в окне что-то осталось — не закрываем
+        else window.close();
+      }, 700);
+      return;
+    }
+    const { screenX: sx, screenY: sy } = event;
+    const over = [...Services.wm.getEnumerator("navigator:browser")].some(w => {
+      const r = w === window ? { x: hidden.x, y: hidden.y, w: hidden.w, h: hidden.h } : { x: w.screenX, y: w.screenY, w: w.outerWidth, h: w.outerHeight };
+      return w.windowState != w.STATE_MINIMIZED || w === window ? sx >= r.x && sx <= r.x + r.w && sy >= r.y && sy <= r.y + r.h : false;
+    });
+    if (dt.mozUserCancelled || over || hidden.state != window.STATE_NORMAL) restoreWindow();
+    else restoreWindow(sx - (was?.offX ?? 0), sy - (was?.offY ?? 0));
+  };
   const dragEnd = event => {
     clearTarget();
     dropLine.hidden = true;
-    const tab = dragged, set = dragSet;
+    const tab = dragged, set = dragSet, was = track, dt = event.dataTransfer, hidden = away;
+    away = null;
     dragged = null;
     dragSet = [];
+    track = null;
+    strip.removeAttribute("lumi-dragging");
     dragGhost?.remove();
+    dragGhost = null;
     if (!gapPending) releaseGap(false); // отмена или ушли за пределы окна
-    else row.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
+    else row.querySelectorAll("[dragging], [follow]").forEach(el => (el.removeAttribute("dragging"), el.removeAttribute("follow")));
     fList.querySelectorAll("[dragging]").forEach(el => el.removeAttribute("dragging"));
     endHover();
     if (!panelGapPending) releasePanelGap(false);
     if (dragOpened) hideFolder(); // отмена (Esc, мимо) — список, раскрытый наведением, закрывается
-    if (!tab || tab.isZenFolder || event.dataTransfer.dropEffect != "none") return;
-    // отпустили за пределами окна — вкладка уезжает в новое окно, как в Firefox
+    // Предпросмотр Split View Zen над сайтом: бросок в зоне — Split View (родная логика), отмена/другой бросок — предпросмотр убирается
+    const zen = window.gZenViewSplitter;
+    let split = false;
+    if (zen && (zen._canDrop || zen.fakeBrowser)) {
+      try {
+        if (tab && !tab.isZenFolder && dt.dropEffect == "none" && !dt.mozUserCancelled) split = zen.moveTabToSplitView(event, tab);
+        else zen.onBrowserDragEndToSplit(event, true);
+      } catch (e) {
+        console.error(e);
+        zen._maybeRemoveFakeBrowser(false);
+      }
+    }
+    setImageArgs([]);
+    if (zen) setTimeout(() => { if (!dragged && zen.fakeBrowser) zen._maybeRemoveFakeBrowser(false); }, 1500); // страховка: предпросмотр не должен остаться
+    if (hidden) return void endHidden(event, tab, was, hidden);
+    if (split || !tab || tab.isZenFolder || dt.dropEffect != "none" || dt.mozUserCancelled) return;
+    // Никто не принял бросок: отпущенная за пределами окна — в новое окно, как в Firefox; внутри окна (над сайтом без Split View, над рейкой, адресной
+    // строкой) — ничего. Вкладки Split View в новое окно не уходят (группа Zen не переживёт перенос)
     const outside =
       event.screenX < window.screenX || event.screenX > window.screenX + window.outerWidth ||
       event.screenY < window.screenY || event.screenY > window.screenY + window.outerHeight;
-    if (outside) set.length > 1 ? gBrowser.replaceTabsWithWindow(set) : gBrowser.replaceTabWithWindow(tab);
+    if (!outside || tab.splitView) return;
+    if (!stripEntries().some(e => !set.includes(e))) { // единственная вкладка окна: окно само переезжает (как у Firefox), а не остаётся пустым
+      const x = event.screenX - (was?.offX ?? 0), y = event.screenY - (was?.offY ?? 0);
+      return void window.moveTo(x, y);
+    }
+    const props = was ? { screenX: event.screenX - was.offX, screenY: event.screenY - was.offY } : {};
+    set.length > 1 ? gBrowser.replaceTabsWithWindow(tab, props) : gBrowser.replaceTabWithWindow(tab, props);
   };
   row.addEventListener("dragend", dragEnd);
   fList.addEventListener("dragend", dragEnd);
@@ -711,7 +970,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const shown = chip && folderPanel.chip === chip && folderPanel.state != "closed";
     if (shown) disarmClose();
     else armClose();
-    if (!chip || shown || dragged?.isZenFolder || folderOf(dragged) === chip.folder) {
+    if (!chip || shown || dragged?.isZenFolder || splitOf(dragged) || folderOf(dragged) === chip.folder) {
       clearTimeout(hoverTimer);
       hoverTimer = 0;
       hoverChip = null;
@@ -745,11 +1004,12 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   };
   const inPanelList = () => panelKids()[0] !== emptyRow;
   folderPanel.addEventListener("dragover", event => {
-    if (!dragged) return;
+    if (!dragged || splitOf(dragged)) return;
     event.preventDefault();
     disarmClose();
     if (!inPanelList()) return;
     const kids = panelKids(), to = panelDropIndex(event.clientY), own = rowEls.get(dragged);
+    own?.toggleAttribute("dragging", true); // тянущаяся строка гаснет, даже если метка не встала
     clearMarks();
     if (calm()) (kids[to] ?? kids.at(-1)).toggleAttribute(kids[to] ? "drop-before" : "drop-after", true);
     else luminoctis.gap(kids, "y", ((own?.offsetHeight || 32) + 2) * dragSet.length, kids.indexOf(own), to);
@@ -769,13 +1029,15 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (at) for (const tab of tabs) (gBrowser.moveTabAfter(tab, at), (at = tab));
   };
   folderPanel.addEventListener("drop", event => {
-    if (!dragged || !folderPanel.chip) return;
+    if (!dragged || splitOf(dragged) || !folderPanel.chip) return;
     event.preventDefault();
     const tabs = dragSet, { folder } = folderPanel.chip;
     const listed = inPanelList();
     const to = listed ? panelDropIndex(event.clientY) : 0, data = listed ? folderRows(folder) : [];
     dragged = null; // строка/плитка вкладки пересоберётся — dragend может не прийти
     dragSet = [];
+    track = null;
+    strip.removeAttribute("lumi-dragging");
     dragGhost?.remove();
     clearTarget();
     dropLine.hidden = true;

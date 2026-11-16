@@ -261,7 +261,7 @@ $("#glass-off").hidden = win.matchMedia("(-moz-windows-mica)").matches;
 // ---------- выгрузка по таймеру: минуты, 0 — никогда (таймер — js/lumi-rail.uc.js) ----------
 const unload = $("#unload"), UNLOAD = "luminoctis.tabs.unload-minutes";
 unload.addEventListener("change", () => Services.prefs.setIntPref(UNLOAD, Number(unload.value)));
-watchPref(UNLOAD, () => (unload.value = String(Services.prefs.getIntPref(UNLOAD, 0))));
+watchPref(UNLOAD, () => (unload.value = String(Services.prefs.getIntPref(UNLOAD, 10))));
 
 // ---------- перетаскивание строк списка (пространства, закрепы) ----------
 // Тянуть за ручку ⠿; черта показывает место. onMove(откуда, куда) — индексы итогового места в списке.

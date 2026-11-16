@@ -419,7 +419,7 @@ let timer = 0;
 const due = () => {
   const mode = str("rotate", "open"), at = new Date(state.shownAt);
   if (!state.current) return true;
-  if (mode == "interval") return Date.now() - state.shownAt >= Math.max(int("interval", 30), 1) * 60000;
+  if (mode == "interval") return Date.now() - state.shownAt >= Math.max(int("interval", 15), 1) * 60000;
   if (mode == "daily") return at.toDateString() != new Date().toDateString();
   return false; // open — решает старт, manual — только кнопкой
 };

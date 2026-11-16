@@ -10,16 +10,16 @@ export const STYLES = {
   neon: t("Неон"), outline: t("Контур"), stacked: t("Столбиком"), serif: t("С засечками"), terminal: t("Терминал"),
 };
 export function options() {
-  const style = Services.prefs.getStringPref(PREF + "style", "digital");
+  const style = Services.prefs.getStringPref(PREF + "style", "neon");
   return {
-    style: STYLES[style] ? style : "digital",
+    style: STYLES[style] ? style : "neon",
     h12: Services.prefs.getBoolPref(PREF + "h12", false),
     seconds: Services.prefs.getBoolPref(PREF + "seconds", false),
     date: Services.prefs.getBoolPref(PREF + "date", true),
     size: Math.min(150, Math.max(50, Services.prefs.getIntPref(PREF + "size", 100))),
-    color: Services.prefs.getStringPref(PREF + "color", "palette"),
+    color: Services.prefs.getStringPref(PREF + "color", "accent"),
     custom: Services.prefs.getStringPref(PREF + "custom", "#ffffff"),
-    legibility: Services.prefs.getStringPref(PREF + "legibility", "off"),
+    legibility: Services.prefs.getStringPref(PREF + "legibility", "shadow"),
     datefmt: Services.prefs.getBoolPref(PREF + "date", true) ? Services.prefs.getStringPref(PREF + "datefmt", "long") : "off",
   };
 }
@@ -33,7 +33,7 @@ const dateText = (now, f) => f == "iso" ? `${now.getFullYear()}-${pad(now.getMon
 // Авто-контраст: яркость обоев за часами (центр кадра с учётом затемнения) → тёмный текст на светлых обоях. Считает только страница Home.
 let wallTone = "light";
 export function retone() {
-  if (Services.prefs.getStringPref(PREF + "legibility", "off") != "auto") return (wallTone = "light"); // считаем только когда нужно
+  if (Services.prefs.getStringPref(PREF + "legibility", "shadow") != "auto") return (wallTone = "light"); // считаем только когда нужно
   const w = window.lumiWallpaper, el = w?.current?.el;
   const nw = el?.naturalWidth || el?.videoWidth, nh = el?.naturalHeight || el?.videoHeight;
   if (!nw || !nh) return (wallTone = "light"); // цветной фон/рабочий стол/ещё не загружено

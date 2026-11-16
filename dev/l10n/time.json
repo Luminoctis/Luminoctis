@@ -2418,5 +2418,16 @@
     "fr": "Aucune tâche — ajoutez-en dans les réglages",
     "ja": "タスクがありません — 設定で追加してください",
     "de": "Keine Aufgaben — in den Einstellungen hinzufügen"
+  },
+  "Не менять": {
+    "en": "Keep current",
+    "zh": "保持不变",
+    "es": "No cambiar",
+    "ar": "بدون تغيير",
+    "pt": "Não alterar",
+    "id": "Jangan ubah",
+    "fr": "Ne pas changer",
+    "ja": "変更しない",
+    "de": "Nicht ändern"
   }
 }

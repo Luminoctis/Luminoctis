@@ -20,14 +20,14 @@ export const GROUPS = [
 const p = (name, s) => ({ name, colors: s.split(" ") }); // цвета — в порядке TOKENS
 export const PRESETS = {
   "tokyo-night": p("Tokyo Night", "#16161e #1a1b26 #1f2335 #24283b #c0caf5 #a9b1d6 #565f89 #7aa2f7 #7aa2f7 #7dcfff #73daca #9ece6a #e0af68 #ff9e64 #f7768e #ff007c #bb9af7"),
+  // GX: неоновый красно-розовый акцент; ещё и форма (срезанные углы, свечение) — chrome.css раздел 20 по [lumi-gx]
+  "gx": p("GX", "#0b0a0f #121017 #1a1720 #261f2e #f3eef6 #b8aec2 #6b6275 #fa1e4e #6c8cff #45d4ff #2ee6c5 #3ef08a #ffd23f #ff7a3d #ff2e55 #ff3d9a #b45cff"),
   "tokyo-night-storm": p("Tokyo Night Storm", "#1f2335 #24283b #292e42 #3b4261 #c0caf5 #a9b1d6 #565f89 #7aa2f7 #7aa2f7 #7dcfff #73daca #9ece6a #e0af68 #ff9e64 #f7768e #ff007c #bb9af7"),
   "catppuccin-mocha": p("Catppuccin Mocha", "#11111b #181825 #1e1e2e #313244 #cdd6f4 #a6adc8 #6c7086 #cba6f7 #89b4fa #89dceb #94e2d5 #a6e3a1 #f9e2af #fab387 #f38ba8 #f5c2e7 #cba6f7"),
   "dracula": p("Dracula", "#191a21 #21222c #282a36 #44475a #f8f8f2 #cbd0db #6272a4 #bd93f9 #6272a4 #8be9fd #8be9fd #50fa7b #f1fa8c #ffb86c #ff5555 #ff79c6 #bd93f9"),
   "nord": p("Nord", "#2e3440 #3b4252 #434c5e #4c566a #eceff4 #d8dee9 #616e88 #88c0d0 #81a1c1 #88c0d0 #8fbcbb #a3be8c #ebcb8b #d08770 #bf616a #b48ead #b48ead"),
   "gruvbox-dark": p("Gruvbox Dark", "#1d2021 #282828 #32302f #3c3836 #ebdbb2 #bdae93 #928374 #fe8019 #83a598 #8ec07c #8ec07c #b8bb26 #fabd2f #fe8019 #fb4934 #d3869b #b16286"),
   "rose-pine": p("Rosé Pine", "#191724 #1f1d2e #26233a #403d52 #e0def4 #908caa #6e6a86 #ebbcba #9ccfd8 #c4a7e7 #31748f #95b1ac #f6c177 #f6c177 #eb6f92 #ebbcba #c4a7e7"),
-  // GX: неоновый красно-розовый акцент; ещё и форма (срезанные углы, свечение) — chrome.css раздел 20 по [lumi-gx]
-  "gx": p("GX", "#0b0a0f #121017 #1a1720 #261f2e #f3eef6 #b8aec2 #6b6275 #fa1e4e #6c8cff #45d4ff #2ee6c5 #3ef08a #ffd23f #ff7a3d #ff2e55 #ff3d9a #b45cff"),
   "one-dark": p("One Dark", "#21252b #282c34 #2c323c #3e4452 #abb2bf #828997 #5c6370 #61afef #61afef #56b6c2 #56b6c2 #98c379 #e5c07b #d19a66 #e06c75 #c678dd #c678dd"),
 };
 const PREF = "luminoctis.palette", HEX = /^#[0-9a-f]{6}$/;

@@ -77,13 +77,15 @@ Services.obs.addObserver(applyLayout, "browser-delayed-startup-finished");
 // Настройка мода (preferences.json, страница «Моды» в настройках Zen): «открывать новую вкладку, а не
 // переключаться на уже открытую». Переключение предлагают результаты «Перейти на вкладку» в адресной строке —
 // и Firefox, и Zen (его поиск по вкладкам боковой панели) включают их одной настройкой browser.urlbar.suggest.openpage.
+// Умолчание: вкладка не переключается (true). Форма вкладок: умолчание «скошенные» пишем в default branch — его видит и CSS (-moz-pref), user value пользователя не трогается.
+Services.prefs.getDefaultBranch("").setStringPref("luminoctis.tabs.shape", "parallelogram");
 const NEW_TAB_PREF = "luminoctis.urlbar.always-new-tab";
 const syncSwitchToTab = () => {
-  if (Services.prefs.getBoolPref(NEW_TAB_PREF, false)) {
+  if (Services.prefs.getBoolPref(NEW_TAB_PREF, true)) {
     Services.prefs.setBoolPref("browser.urlbar.suggest.openpage", false);
   } else {
     Services.prefs.clearUserPref("browser.urlbar.suggest.openpage"); // родное поведение — переключаться
   }
 };
 Services.prefs.addObserver(NEW_TAB_PREF, syncSwitchToTab);
-if (Services.prefs.getBoolPref(NEW_TAB_PREF, false)) syncSwitchToTab(); // при старте трогаем только если включено
+if (Services.prefs.getBoolPref(NEW_TAB_PREF, true)) syncSwitchToTab(); // при старте — по умолчанию включено

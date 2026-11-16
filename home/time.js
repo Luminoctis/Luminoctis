@@ -84,6 +84,7 @@ function build() {
     h("div", { class: "lt-pick" },
       sel_(t("Пресет"), [opt("", t("Свой")), ...S.presets.map(p => opt(p.id, presetName(p.name)))], sel.presetId, v => {
         const p = S.presets.find(x => x.id == v);
+        if (p?.topic && S.topics.includes(p.topic)) E.changeTopic(p.topic); // тема пресета; нет в списке тем — не меняем и не создаём
         E.changeSelection(p ? { presetId: p.id, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every } : { presetId: "" });
       }),
       addingTopic ? els.topic = h("input", { type: "text", class: "lt-topic-pick", placeholder: t("Новая тема — Enter"), "aria-label": t("Новая тема"), maxLength: 200,
@@ -110,7 +111,7 @@ function build() {
       sel_(t("Длинный перерыв"), S.longBreaks.map(v => opt(v, t("{0} мин", v))), sel.longBreak, v => E.changeSelection({ longBreak: Number(v), presetId: "" })),
       sel_(t("Длинный перерыв после N фокусов"), S.counts.map(v => opt(v, `×${v}`)), sel.every, v => E.changeSelection({ every: Number(v), presetId: "" }))),
     els.count = h("div", { class: "lt-count" }),
-    h("div", { class: "lt-today" }, h("div", { class: "lt-today-head" }, h("h4", { text: t("Сегодня") }),
+    h("div", { class: "lt-today" }, h("div", { class: "lt-today-head" }, els.todayH = h("h4", { text: t("Сегодня") }),
       h("button", { class: "lt-add-btn", text: t("+ Добавить время"), title: t("Записать время в журнал вручную"), on: { click: e => toggleAdd(e.currentTarget) } })), els.today = h("div", { class: "lt-today-list" })),
     els.daily = h("div"),
     els.goals = h("div"),
@@ -215,6 +216,8 @@ function update() {
   const today = new Map(sum.today.topics);
   if (liveToday > 0) today.set(liveTopic, (today.get(liveTopic) ?? 0) + liveToday);
   const rows = [...today].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  const total = rows.reduce((a, r) => a + r[1], 0), head = t("Сегодня") + (total > 0 ? " · " + clockOf(total) : "");
+  if (els.todayH.textContent != head) els.todayH.textContent = head;
   const todayKey = JSON.stringify(rows.map(([k, ms]) => [k, Math.floor(ms / 1000), topicColor(k)]));
   if (els.today.dataset.key != todayKey) {
     els.today.dataset.key = todayKey;

@@ -236,14 +236,14 @@ export function loadSettings(data) {
     : { enabled: bool("blockEnabled"), sites: sites(raw.blockSites), breaks: bool("blockBreaks") });
   const presets = Array.isArray(raw.presets) ? raw.presets.filter(p => p && typeof p.id == "string" && typeof p.name == "string"
     && Number.isInteger(p.pairIndex) && p.pairIndex >= 0 && p.pairIndex < (pairs.length || D.pairs.length)
-    && validMinutes(p.longBreak) && validCount(p.every)).map(p => ({ id: p.id, name: p.name, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every, block: blockOf(p.block) })) : [];
+    && validMinutes(p.longBreak) && validCount(p.every)).map(p => ({ id: p.id, name: p.name, pairIndex: p.pairIndex, longBreak: p.longBreak, every: p.every, topic: typeof p.topic == "string" && p.topic.length <= 200 ? p.topic.trim() : "", block: blockOf(p.block) })) : [];
   const hours = k => (typeof raw[k] == "number" && validGoalHours(raw[k]) ? raw[k] : null);
   return {
     version: 1,
     pairs: pairs.length ? pairs : structuredClone(D.pairs),
     longBreaks: longBreaks.length ? [...new Set(longBreaks)] : [...D.longBreaks],
     counts: counts.length ? [...new Set(counts)] : [...D.counts],
-    presets: presets.length ? presets : structuredClone(D.presets).map(p => ({ ...p, block: blockOf(null) })),
+    presets: presets.length ? presets : structuredClone(D.presets).map(p => ({ ...p, topic: "", block: blockOf(null) })),
     topics: topics.length ? [...new Set(topics)] : [...D.topics],
     topicColors: Object.fromEntries(Object.entries(raw.topicColors && typeof raw.topicColors == "object" ? raw.topicColors : {}).filter(([k, v]) => k.trim() && TOPIC_COLORS.includes(v))),
     sound: bool("sound"),

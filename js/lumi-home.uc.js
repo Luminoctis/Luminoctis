@@ -87,7 +87,7 @@
   // from — вкладка, с которой только что ушли (TabSelect): панель Home в этот момент ещё без deck-selected (рейка вернёт его в микрозадаче) — без подсказки обои мигнули бы
   const underPin = from => !!(gBrowser.selectedTab?.hasAttribute("zen-essential") || panelOf(gBrowser.selectedTab)?.classList.contains("lumi-pin-window")) &&
     (isHome(from) || !!panelOf(gBrowser.tabs.find(isHome))?.classList.contains("deck-selected"));
-  const neverUnload = () => wallMode() || Services.prefs.getBoolPref("luminoctis.home.never-unload", false);
+  const neverUnload = () => wallMode() || Services.prefs.getBoolPref("luminoctis.home.never-unload", true);
   const toggle = () => (isHome(gBrowser.selectedTab) ? back() : open());
   window.lumiHome = { toggle, open, back, isHome, find, URL, settle: () => settle() }; // settle — старт (для проверок)
 
@@ -125,6 +125,48 @@
     const t = opts?.targetTab ?? this.selectedTab;
     return loadTabs.call(this, urls, opts?.replace && (isHome(t) || isFull(t)) ? { ...opts, replace: false, targetTab: undefined } : opts, ...rest);
   };
+
+  // ---------- Home и большой LumiTime не входят в Split View ----------
+  // Все пути создания Split View Zen (меню «Add Split View…», клавиши, Glance → split, бросок вкладки на сайт) сходятся в gZenViewSplitter.splitTabs и
+  // createEmptySplit (последний кладёт выбранную вкладку в split сам, мимо splitTabs). Перехватываем их и предпросмотр при drag; пункт меню скрыт.
+  // Уже сохранённый в сессии split с такой вкладкой (был у пользователя) разбираем (heal). В сессии splitTabs не режем: при отказе Zen закрыл бы группу целиком.
+  const noSplit = tab => {
+    tab = tab && window.gZenGlanceManager?.getTabOrGlanceParent(tab);
+    return !!tab && (isHome(tab) || isFull(tab) || [URL, pageUrl("home/time.html")].includes(urlOf(tab)?.split(/[?#]/)[0]));
+  };
+  const guardSplit = (left = 100) => {
+    const zen = window.gZenViewSplitter;
+    if (!zen?.splitTabs || !window.gZenGlanceManager) return void (left > 0 && setTimeout(() => guardSplit(left - 1), 200)); // Zen определяет их позже скриптов
+    const wrap = (name, check, fallback) => {
+      const orig = zen[name];
+      zen[name] = function (...args) { return check.call(this, args) ? fallback : orig.apply(this, args); };
+    };
+    wrap("splitTabs", function ([tabs]) { return !this._sessionRestoring && tabs?.some(noSplit); });
+    wrap("createEmptySplit", () => noSplit(gBrowser.selectedTab));
+    wrap("onBrowserDragOverToSplit", function () { // иначе предпросмотр выбрал бы «последнюю открытую» (Home) вместо выбранной
+      if (noSplit(this._lastOpenedTab)) this._lastOpenedTab = null;
+      return noSplit(gBrowser.selectedTab);
+    });
+    wrap("moveTabToSplitView", (([, tab]) => noSplit(tab)), false);
+    const canSplit = zen.contextCanSplitTabs, menuTab = () => window.TabContextMenu?.contextTab ?? gBrowser.selectedTab;
+    zen.contextCanSplitTabs = function () { return !noSplit(menuTab()) && !gBrowser.selectedTabs.some(noSplit) && canSplit.call(this); };
+    const onLocation = zen.onLocationChange; // Zen включает команду «пустой split» на каждой смене адреса
+    zen.onLocationChange = function (...a) {
+      const r = onLocation.apply(this, a);
+      if (noSplit(gBrowser.selectedTab)) document.getElementById("cmd_zenNewEmptySplit")?.setAttribute("disabled", "true");
+      return r;
+    };
+    const heal = () => {
+      for (let i = zen._data.length - 1; i >= 0; i--) {
+        const bad = zen._data[i]?.tabs.find(noSplit);
+        if (bad) try { zen.removeTabFromGroup(bad, i, { forUnsplit: true, changeTab: false }); } catch (e) { console.error(e); }
+      }
+    };
+    window.addEventListener("ZenSplitViewTabsSplit", () => setTimeout(heal, 150));
+    heal();
+    window.lumiSplitGuard = { noSplit, heal };
+  };
+  UC_API.Windows.waitWindowLoading(window).then(() => guardSplit());
 
   // ---------- Старт: всегда Home ----------
   // Стартовое окно: обычное (не приватное, не всплывающее), без вкладки/ссылки в аргументах (перетащенная вкладка, ссылка из другой программы — не трогаем).

@@ -3,6 +3,7 @@
 // страница только рисует: перерисовка по событиям движка, тик раз в секунду — пока вкладка видна.
 import { JS } from "./paths.js";
 import * as store from "./store.js";
+import { dropdown } from "./time-dd.js";
 import { E, h, s, clockOf, goalsBlock, dailyBlock, dailyKey, openPanel, closePanel, panelName, refreshPanel, topicName, topicTag, topicColor, presetName } from "./time-panels.js";
 const { t, localize } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 localize(document); // <html lang dir>
@@ -51,27 +52,21 @@ const phaseName = () => ({ focus: t("Фокус"), break: t("Перерыв"), "
 let addingTopic = false;
 // тема — выпадающий список из настроек; «Новая тема…» заменяет его полем ввода (Enter — добавить, Esc/уход — отмена)
 function topicSelect(S, value, on) { // on — свой обработчик (окошко «Добавить время»): { pick(v), isNew() }
-  const el = h("select", { class: "lt-topic-pick", "aria-label": t("Тема фокуса"), title: t("Тема фокуса"), on: { change: () => {
-    if (on) return el.value == NEW ? on.isNew() : on.pick(el.value);
-    if (el.value == NEW) { addingTopic = true; build(); els.topic.focus(); return; }
-    E.changeTopic(el.value); E.changeSelection({});
-  } } }, h("option", { value: "", text: t("Без темы") }),
-    [...new Set([...S.topics, ...(value && !S.topics.includes(value) ? [value] : [])])].map(tp => h("option", { value: tp, text: topicName(tp), style: topicColor(tp) ? `color:${topicColor(tp)}` : null })),
-    h("option", { value: NEW, text: t("Новая тема…") }));
-  el.value = value;
-  if (topicColor(value)) el.style.borderLeft = `3px solid ${topicColor(value)}`; // цвет выбранной темы
+  const el = dropdown([["", t("Без темы")],
+    ...[...new Set([...S.topics, ...(value && !S.topics.includes(value) ? [value] : [])])].map(tp => [tp, topicName(tp), topicColor(tp)]),
+    [NEW, t("Новая тема…")]], value, v => {
+    if (on) return v == NEW ? on.isNew() : on.pick(v);
+    if (v == NEW) { addingTopic = true; build(); els.topic.focus(); return; }
+    E.changeTopic(v); E.changeSelection({});
+  }, { class: "lt-topic-pick", "aria-label": t("Тема фокуса"), title: t("Тема фокуса") });
   return el;
 }
 const NEW = "__new__";
 
 function build() {
   const { settings: S, selection: sel, state: st, timerMode } = D(), idle = st.phase == "idle";
-  const opt = (v, t) => h("option", { value: String(v), text: t });
-  const sel_ = (label, options, value, onchange) => {
-    const el = h("select", { "aria-label": label, title: label, on: { change: () => onchange(el.value) } }, options);
-    el.value = String(value);
-    return el;
-  };
+  const opt = (v, t) => [v, t];
+  const sel_ = (label, options, value, onchange) => dropdown(options, value, onchange, { "aria-label": label, title: label });
   els = {};
   root.replaceChildren(
     h("header", { class: "lt-head" },
@@ -131,8 +126,8 @@ function closeAdd() {
   addPop.remove(); addPop = null;
   document.removeEventListener("pointerdown", outside, true); document.removeEventListener("keydown", escKey, true); window.removeEventListener("blur", closeAdd);
 }
-const outside = e => { if (addPop && !addPop.contains(e.target) && !e.target.closest(".lt-add-btn")) closeAdd(); };
-const escKey = e => { if (e.key == "Escape" && addPop) { e.preventDefault(); e.stopPropagation(); closeAdd(); } };
+const outside = e => { if (addPop && !addPop.contains(e.target) && !e.target.closest(".lt-add-btn, .lt-dd-pop")) closeAdd(); };
+const escKey = e => { if (e.key == "Escape" && addPop && !document.querySelector(".lt-dd-pop")) { /* открытый список темы сам закрывается по Esc */ e.preventDefault(); e.stopPropagation(); closeAdd(); } };
 function toggleAdd(anchor) {
   if (addPop) return closeAdd();
   const { settings: S, selection: sel } = D();
@@ -268,6 +263,8 @@ function place() {
   if (!full || !fr?.offsetParent || !br) return;
   const p = fr.offsetParent.getBoundingClientRect(), b = br.getBoundingClientRect(), st = document.documentElement.style;
   st.setProperty("--lt-mini-r", `${p.left + fr.offsetLeft + fr.offsetWidth - b.left}px`);
+  st.setProperty("--lt-mini-l", `${p.left + fr.offsetLeft - b.left}px`); // рейка справа: панель — слева от мини-окна
+  document.body.toggleAttribute("lumi-rail-right", window.browsingContext.topChromeWindow.document.documentElement.hasAttribute("lumi-rail-right"));
   st.setProperty("--lt-mini-y", `${p.top + fr.offsetTop - b.top}px`);
   st.setProperty("--lt-mini-h", `${fr.offsetHeight}px`);
 }

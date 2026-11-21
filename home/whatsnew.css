@@ -1,0 +1,23 @@
+/* Карточка «Что нового» под поиском Home (home/whatsnew.js): стекло, как список поиска; один раз после обновления мода */
+#lumi-whatsnew {
+  --lw-fill: 62%;
+  box-sizing: border-box; width: min(560px, 100%); padding: 14px 16px 12px; border-radius: 16px; text-align: start;
+  color: var(--lumi-fg, #c0caf5); font: 13px/1.45 Inter, system-ui, sans-serif;
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) var(--lw-fill), transparent); backdrop-filter: blur(32px) saturate(1.2);
+  border: 1px solid color-mix(in srgb, var(--lumi-accent, #7aa2f7) 40%, transparent); box-shadow: 0 10px 26px rgb(0 0 0 / .3);
+  &[hidden] { display: none; }
+}
+html[lumi-through] #lumi-whatsnew, body:has(.lumi-wp-edge:not([hidden])) #lumi-whatsnew { --lw-fill: 40%; }
+.lumi-wn-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-block-end: 8px; }
+.lumi-wn-title { margin: 0; font-size: 14px; font-weight: 600; color: var(--lumi-accent, #7aa2f7); }
+.lumi-wn-close {
+  flex: none; display: grid; place-items: center; width: 24px; height: 24px; padding: 0; cursor: pointer; border-radius: 50%; border: 0; outline: none;
+  color: var(--lumi-muted, #a9b1d6); background: transparent; font-size: 13px; line-height: 1;
+  &:hover, &:focus-visible { color: var(--lumi-fg, #c0caf5); background: color-mix(in srgb, var(--lumi-raised, #292e42) 80%, transparent); }
+  &:focus-visible { box-shadow: 0 0 0 2px color-mix(in srgb, var(--lumi-accent, #7aa2f7) 50%, transparent); }
+}
+.lumi-wn-list { margin: 0; padding: 0; list-style: none; display: grid; gap: 5px; max-height: 34vh; overflow-y: auto; overscroll-behavior: contain; }
+.lumi-wn-list li {
+  position: relative; padding-inline-start: 16px; color: var(--lumi-muted, #a9b1d6);
+  &::before { content: ""; position: absolute; inset-inline-start: 3px; top: .6em; width: 5px; height: 5px; border-radius: 50%; background: var(--lumi-accent, #7aa2f7); }
+}

@@ -197,7 +197,7 @@ $cacheDirs = @((Join-Path $profile 'startupCache'), (Join-Path $env:LOCALAPPDATA
 if ($Uninstall) {
   Step 3 $total 'uninstall'
   if (-not $state) { Fail 'Следов установки нет (luminoctis-install.json не найден).' 'nostate' }
-  foreach ($f in @($state.jsFiles)) { Remove-Item (Join-Path $chrome "JS\$f") -Force -ErrorAction SilentlyContinue }
+  foreach ($f in @($state.jsFiles | Where-Object { $_ })) { Remove-Item (Join-Path $chrome "JS\$f") -Force -ErrorAction SilentlyContinue }
   foreach ($d in 'luminoctis', 'resources\luminoctis', 'zen-themes\luminoctis') { Remove-Item (Join-Path $chrome $d) -Recurse -Force -ErrorAction SilentlyContinue }
   Remove-IfEmpty (Join-Path $chrome 'resources'); Remove-IfEmpty (Join-Path $chrome 'zen-themes'); Remove-IfEmpty (Join-Path $chrome 'JS')
   if (-not $state.utilsPreExisted -and -not (Test-Path (Join-Path $chrome 'JS'))) { Remove-Item (Join-Path $chrome 'utils') -Recurse -Force -ErrorAction SilentlyContinue }
@@ -295,7 +295,7 @@ Copy-Item (Join-Path $root 'vendor\fx-autoconfig\utils') $chrome -Recurse -Force
 
 $js = Join-Path $chrome 'JS'
 New-Item -ItemType Directory -Force $js | Out-Null
-if ($state) { foreach ($f in @($state.jsFiles)) { Remove-Item (Join-Path $js $f) -Force -ErrorAction SilentlyContinue } }
+if ($state) { foreach ($f in @($state.jsFiles | Where-Object { $_ })) { Remove-Item (Join-Path $js $f) -Force -ErrorAction SilentlyContinue } }
 $jsSrc = Join-Path $root 'js'
 $jsFiles = @(Get-ChildItem $jsSrc -File -Recurse | ForEach-Object { $_.FullName.Substring($jsSrc.Length + 1) })
 foreach ($f in $jsFiles) {

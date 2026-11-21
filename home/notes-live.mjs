@@ -98,8 +98,8 @@ function buildLine(s, today) { // одна строка текста → .lumi-l
 }
 
 // ---------- редактор ----------
-// opts: text, onChange(text), onLink(href), onBlur()
-export function createLive({ text = "", onChange, onLink, onBlur } = {}) {
+// opts: text, onChange(text), onLink(href), onBlur(), onCheck(поставлена)
+export function createLive({ text = "", onChange, onLink, onBlur, onCheck } = {}) {
   const root = el("div", "lumi-cards lumi-doc lumi-live");
   root.contentEditable = "plaintext-only";
   if (root.contentEditable != "plaintext-only") root.contentEditable = "true";
@@ -394,6 +394,7 @@ export function createLive({ text = "", onChange, onLink, onBlur } = {}) {
       const i = Array.prototype.indexOf.call(root.children, cb.parentNode), p = starts()[i] + +cb.dataset.s + 1, sel = selOffsets();
       const next = doc.slice(0, p) + (doc[p] == " " ? "x" : " ") + doc.slice(p + 1);
       commit(next, sel?.a ?? 0, sel?.b ?? 0, "other", "", sel ?? { a: 0, b: 0 });
+      onCheck?.(next[p] != " ");
     } else if (link && (e.ctrlKey || e.metaKey)) { e.preventDefault(); onLink?.(link.dataset.href); }
   });
   root.addEventListener("focus", () => { focused = true; onSel(); });

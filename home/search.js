@@ -1,7 +1,7 @@
 // Поиск на первом экране Home (#lumi-search): поисковик по умолчанию (Services.search), подсказки движка (SearchSuggestionController)
 // и совпадения из истории/закладок (moz_places по frecency). Адрес/домен открывается сразу. Результат — в новой выбранной вкладке, Home остаётся.
 // Клавиши: ↑/↓ по подсказкам, Enter, Esc (закрыть список, повторно — снять фокус).
-// Ctrl+V с картинкой в буфере — сразу поиск по ней в Google Lens (POST multipart на lens.google.com/v3/upload, поле encoded_image), в новой вкладке.
+// Ctrl+V с картинкой в буфере — сразу поиск по ней поисковиком по умолчанию (Google → Lens, Яндекс, Bing, Baidu; у прочих — ничего, вставка игнорируется; js/lumi-lens.sys.mjs), в новой вкладке.
 import { JS } from "./paths.js";
 const { t } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 const { PlacesUtils } = ChromeUtils.importESModule("resource://gre/modules/PlacesUtils.sys.mjs");
@@ -61,14 +61,15 @@ const goText = async text => { // Enter без выбранной подсказ
 };
 
 // поиск по картинке: запрос собирает общий модуль js/lumi-lens.sys.mjs (им же пользуется адресная строка)
-const { lensRequest: lens, MAX_IMG } = ChromeUtils.importESModule(JS("lumi-lens.sys.mjs"));
-const lensRequest = file => lens(file, window);
+const { searchImageRequest, supportsImage, MAX_IMG } = ChromeUtils.importESModule(JS("lumi-lens.sys.mjs"));
+const lensRequest = async file => { await ready; return searchImageRequest(file, window, engine); };
 async function searchImage(file) {
   if (file.size > MAX_IMG) return setHint(t("Картинка больше 20 МБ"), 3000);
   setHint(t("Ищу по картинке…"));
   try {
-    const { url, postData } = await lensRequest(file);
+    const { url, postData, after } = await lensRequest(file);
     win.openTrustedLinkIn(url, "tab", { postData });
+    await after?.(win); // Baidu: картинку кладёт в страницу сайта
     clearTimeout(timer);
     input.value = "";
     close();
@@ -132,7 +133,7 @@ async function suggest() {
 
 function onPaste(e) {
   const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
-  if (!file) return; // текст вставляется как обычно
+  if (!file || !supportsImage(engine)) return; // текст вставляется как обычно; поисковик без поиска по картинке — игнор
   e.preventDefault();
   searchImage(file);
 }

@@ -250,7 +250,9 @@ span.lumi-fold { display: none; } /* у пункта без подпунктов
 .lumi-slot { position: absolute; pointer-events: none; z-index: 1; box-sizing: border-box; border-radius: 12px;
   border: 2px dashed color-mix(in srgb, var(--lumi-accent, #7aa2f7) 75%, transparent); background: color-mix(in srgb, var(--lumi-accent, #7aa2f7) 10%, transparent);
   transition: top .15s ease, left .15s ease;
-  &.line { border-radius: 2px; border: none; background: var(--lumi-accent, #7aa2f7); } }
+  &.line { border-radius: 2px; border: none; background: var(--lumi-accent, #7aa2f7); }
+  /* линия-вставка сверху метки: её левый край показывает уровень (подпункт — правее на отступ) */
+  &:not(.line)::before { content: ""; position: absolute; left: -2px; right: -2px; top: -3px; height: 3px; border-radius: 2px; background: var(--lumi-accent, #7aa2f7); } }
 .lumi-sheet > .lumi-cards > .lumi-slot { margin: 0; }
 .lumi-ghost { position: fixed; left: -5000px; top: 0; z-index: -1; pointer-events: none; }
 .lumi-ghost.lumi-sheet { opacity: .92; box-shadow: 0 14px 36px rgb(0 0 0 / .55); background: color-mix(in srgb, var(--lumi-surface, #1f2335) 96%, transparent); border-color: var(--cc); }
@@ -279,10 +281,15 @@ section.lumi-ghost > .lumi-cards { overflow: visible; flex: none; padding: 0; }
   padding: 12px 16px; border-radius: 12px; cursor: pointer; font-size: 15px;
   background: color-mix(in srgb, var(--lumi-red, #f7768e) 85%, black); color: white; box-shadow: 0 6px 24px rgb(0 0 0 / .4);
 }
-.lumi-notes-error.calm { background: var(--lumi-bg-2, #24283b); color: var(--lumi-fg, #c0caf5); border: 1px solid var(--lumi-dim, #565f89); }
+.lumi-notes-error.calm { background: var(--lumi-surface, #24283b); color: var(--lumi-fg, #c0caf5); border: 1px solid var(--lumi-dim, #565f89); }
+.lumi-notes-hint { display: flex; align-items: center; gap: 14px; &[hidden] { display: none; } } /* без этого display:flex перебивал hidden — плашка висела всегда */
+.lumi-notes-hint-btn { flex: none; padding: 6px 14px; border-radius: 10px; cursor: pointer; font: inherit; font-size: 14px; color: var(--lumi-solid, #16161e); background: var(--lumi-accent, #7aa2f7); border: 0; }
 
 @media (prefers-reduced-motion: reduce) {
   .lumi-row, .lumi-sheet, .lumi-sheet::after, .lumi-card, .lumi-card::before, .lumi-row-more, .lumi-add-sheet, .lumi-sheet-tools, .lumi-card-tools, .lumi-sheet-grip::after, .lumi-sheet-grip-b::after, .lumi-sheet-grip-c::after,
   .lumi-slot, .lumi-fold .lumi-ico, .lumi-swatch, .lumi-sheet input[type="checkbox"], .lumi-cb::after { transition: none; }
   .lumi-sheet input[type="checkbox"].pop { animation: none; }
 }
+
+/* размер листа прилип к размеру другого листа: тонкая акцентная рамка у обоих (без анимаций) */
+.lumi-sheet.lumi-snap { outline: 1px solid color-mix(in srgb, var(--lumi-accent, #7aa2f7) 85%, transparent); outline-offset: 3px; }

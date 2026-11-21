@@ -7,14 +7,14 @@
   "readme": "README.md",
   "image": "",
   "author": "Laith",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "tags": [
     "tokyo-night",
     "compact",
     "dark"
   ],
   "createdAt": "2026-10-22",
-  "updatedAt": "2026-11-13",
+  "updatedAt": "2026-11-21",
   "preferences": "preferences.json",
   "fork": [
     "zen"

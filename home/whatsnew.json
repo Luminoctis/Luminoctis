@@ -1,0 +1,94 @@
+{
+  "1.0.3": {
+    "en": [
+      "LumiNotes: drag an item sideways to make it a sub-item, and change the date of an existing item.",
+      "LumiNotes: a soft sound when you check a task off.",
+      "LumiTime: edit or delete entries in the journal.",
+      "Search by image: paste a picture into the search bar. Works with Google, Yandex, Bing and Baidu.",
+      "Updates now install right at launch, in a small window.",
+      "The rail can sit on the right side (Settings → Rail).",
+      "Tabs: drop a tab into an empty folder or at the end of a folder list; the Zen Library closes from any section, with Esc or a click outside."
+    ],
+    "ru": [
+      "LumiNotes: потяните пункт вбок, чтобы сделать его подпунктом; дату у готового пункта теперь можно менять.",
+      "LumiNotes: тихий звук, когда отмечаете задачу.",
+      "LumiTime: записи журнала можно править и удалять.",
+      "Поиск по картинке: вставьте картинку в строку поиска. Работает с Google, Яндексом, Bing и Baidu.",
+      "Обновление ставится сразу при запуске, в маленьком окне.",
+      "Рейку можно перенести вправо (Настройки → Рейка).",
+      "Вкладки: можно бросить вкладку в пустую папку или в конец списка папки; Библиотека Zen закрывается из любого раздела, по Esc или кликом мимо."
+    ],
+    "zh": [
+      "LumiNotes：横向拖动条目即可变为子条目，已有条目的日期也可以修改。",
+      "LumiNotes：勾选任务时会有轻柔的提示音。",
+      "LumiTime：可以编辑或删除日志中的记录。",
+      "以图搜图：把图片粘贴到搜索栏即可，支持 Google、Yandex、Bing 和百度。",
+      "更新现在会在启动时直接安装，并显示一个小窗口。",
+      "侧栏可以放到右侧（设置 → 侧栏）。",
+      "标签页：可以把标签页拖入空文件夹或文件夹列表末尾；Zen 资源库可在任意分区关闭，按 Esc 或点击外部即可。"
+    ],
+    "es": [
+      "LumiNotes: arrastra un elemento hacia un lado para convertirlo en subelemento y cambia la fecha de uno existente.",
+      "LumiNotes: un sonido suave al marcar una tarea.",
+      "LumiTime: edita o elimina entradas del registro.",
+      "Búsqueda por imagen: pega una imagen en la barra de búsqueda. Funciona con Google, Yandex, Bing y Baidu.",
+      "Las actualizaciones se instalan al iniciar, en una ventana pequeña.",
+      "La barra lateral puede ir a la derecha (Ajustes → Barra lateral).",
+      "Pestañas: suelta una pestaña en una carpeta vacía o al final de su lista; la Biblioteca de Zen se cierra desde cualquier sección, con Esc o con un clic fuera."
+    ],
+    "ar": [
+      "LumiNotes: اسحب العنصر جانبًا ليصبح عنصرًا فرعيًا، ويمكنك الآن تغيير تاريخ عنصر موجود.",
+      "LumiNotes: صوت هادئ عند تحديد مهمة كمنجزة.",
+      "LumiTime: يمكنك تعديل سجلات اليومية أو حذفها.",
+      "البحث بالصورة: الصق صورة في شريط البحث. يعمل مع Google وYandex وBing وBaidu.",
+      "تُثبَّت التحديثات الآن عند التشغيل مباشرةً في نافذة صغيرة.",
+      "يمكن وضع الشريط الجانبي على اليمين (الإعدادات ← الشريط الجانبي).",
+      "الألسنة: أفلت لسانًا في مجلد فارغ أو في نهاية قائمة المجلد؛ وتُغلق مكتبة Zen من أي قسم، بمفتاح Esc أو بالنقر خارجها."
+    ],
+    "pt": [
+      "LumiNotes: arraste um item para o lado para torná-lo subitem e mude a data de um item existente.",
+      "LumiNotes: um som suave ao marcar uma tarefa.",
+      "LumiTime: edite ou exclua entradas do registro.",
+      "Busca por imagem: cole uma imagem na barra de pesquisa. Funciona com Google, Yandex, Bing e Baidu.",
+      "As atualizações agora são instaladas na abertura, em uma janela pequena.",
+      "A barra lateral pode ficar à direita (Configurações → Barra lateral).",
+      "Abas: solte uma aba em uma pasta vazia ou no fim da lista da pasta; a Biblioteca do Zen fecha em qualquer seção, com Esc ou com um clique fora."
+    ],
+    "id": [
+      "LumiNotes: seret item ke samping untuk menjadikannya sub-item, dan ubah tanggal item yang sudah ada.",
+      "LumiNotes: suara lembut saat Anda mencentang tugas.",
+      "LumiTime: ubah atau hapus entri di jurnal.",
+      "Cari dengan gambar: tempel gambar ke bilah pencarian. Berfungsi dengan Google, Yandex, Bing, dan Baidu.",
+      "Pembaruan kini dipasang langsung saat peluncuran, di jendela kecil.",
+      "Bilah samping bisa dipindah ke kanan (Pengaturan → Bilah samping).",
+      "Tab: lepaskan tab ke folder kosong atau di akhir daftar folder; Pustaka Zen bisa ditutup dari bagian mana pun, dengan Esc atau klik di luar."
+    ],
+    "fr": [
+      "LumiNotes : faites glisser un élément sur le côté pour en faire un sous-élément, et modifiez la date d'un élément existant.",
+      "LumiNotes : un son discret quand vous cochez une tâche.",
+      "LumiTime : modifiez ou supprimez les entrées du journal.",
+      "Recherche par image : collez une image dans la barre de recherche. Fonctionne avec Google, Yandex, Bing et Baidu.",
+      "Les mises à jour s'installent désormais dès le lancement, dans une petite fenêtre.",
+      "La barre latérale peut passer à droite (Paramètres → Barre latérale).",
+      "Onglets : déposez un onglet dans un dossier vide ou à la fin de sa liste ; la Bibliothèque Zen se ferme depuis n’importe quelle section, avec Échap ou un clic à l’extérieur."
+    ],
+    "ja": [
+      "LumiNotes：項目を横にドラッグするとサブ項目になり、既存の項目の日付も変更できます。",
+      "LumiNotes：タスクにチェックを入れると、やさしい音が鳴ります。",
+      "LumiTime：記録の編集と削除ができます。",
+      "画像検索：検索バーに画像を貼り付けるだけ。Google、Yandex、Bing、Baidu に対応しています。",
+      "アップデートは起動時にそのまま、小さなウィンドウでインストールされます。",
+      "サイドバーを右側に置けます（設定 → サイドバー）。",
+      "タブ：空のフォルダやフォルダ一覧の末尾にタブをドロップできます。Zen ライブラリはどのセクションからでも、Esc や外側のクリックで閉じられます。"
+    ],
+    "de": [
+      "LumiNotes: Einen Eintrag seitlich ziehen, um ihn zum Untereintrag zu machen; das Datum bestehender Einträge lässt sich ändern.",
+      "LumiNotes: ein leiser Ton beim Abhaken einer Aufgabe.",
+      "LumiTime: Einträge im Journal bearbeiten oder löschen.",
+      "Bildersuche: ein Bild in die Suchleiste einfügen. Funktioniert mit Google, Yandex, Bing und Baidu.",
+      "Updates werden jetzt direkt beim Start in einem kleinen Fenster installiert.",
+      "Die Leiste kann rechts stehen (Einstellungen → Leiste).",
+      "Tabs: einen Tab in einen leeren Ordner oder ans Ende der Ordnerliste ziehen; die Zen-Bibliothek schließt sich aus jedem Bereich, mit Esc oder einem Klick daneben."
+    ]
+  }
+}

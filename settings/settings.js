@@ -166,7 +166,13 @@ const showTab = () => {
   for (const s of sections) s.classList.toggle("shown", s.id == name);
   mainEl.scrollTop = 0;
   const group = document.getElementById(hashGroup ?? aliasGroup);
-  if (group?.parentNode.id == name) scrollToGroup(group); // «#strict» → раздел «Вкладки», сразу к блокировке сайтов
+  if (group?.closest("section")?.id == name) { // «#strict» → раздел «Вкладки», сразу к блокировке сайтов; «#home/home-dir» — к полю: прокрутка, фокус, подсветка
+    if (!group.matches("h2")) {
+      const go = () => { group.scrollIntoView({ block: "center" }); group.focus(); group.classList.add("flash"); setTimeout(() => group.classList.remove("flash"), 1800); };
+      go();
+      setTimeout(go, 150); // панель могла быть ещё скрыта, а рейка отдаёт фокус рамке сразу после openSettings
+    } else scrollToGroup(group);
+  }
   Services.prefs.setStringPref("luminoctis.settings.tab", name); // панель откроется на нём и после перезапуска
 };
 window.lumiShowTab = showTab; // для js/lumi-rail.uc.js: тот же адрес hashchange не шлёт
@@ -753,6 +759,16 @@ renderPalette();
     v ? Services.prefs.setStringPref(store.PREF, v) : Services.prefs.clearUserPref(store.PREF);
   });
   watchPref(store.PREF, read);
+  $("#home-dir-pick").addEventListener("click", () => { // «Обзор…»: проводник, дальше как при вводе вручную
+    const fp = Cc["@mozilla.org/filepicker;1"].createInstance(Ci.nsIFilePicker);
+    fp.init(window.browsingContext, t("Папка данных"), Ci.nsIFilePicker.modeGetFolder);
+    try { const d = Cc["@mozilla.org/file/local;1"].createInstance(Ci.nsIFile); d.initWithPath(store.dir()); if (d.exists()) fp.displayDirectory = d; } catch {}
+    fp.open(r => {
+      if (r != Ci.nsIFilePicker.returnOK) return;
+      box.value = fp.file.path;
+      box.dispatchEvent(new Event("change")); // тот же код сохранения, что у ручного ввода
+    });
+  });
 }
 
 // ---------- Luminoctis Home: часы и обои (home/clock.js, home/wallpaper.js; docs/areas/home.md) ----------
@@ -921,11 +937,20 @@ $("#update-check").addEventListener("click", async () => {
   const r = await upd.check();
   updStatus(r.error ? t("Не удалось проверить: {0}", r.error) : r.available ? "" : t("Установлена последняя версия"));
 });
+// ход скачивания виден и когда обновление началось само при запуске (модуль сообщает наблюдателю, а не кнопке)
+const showUpdStatus = () => {
+  const { phase, pct } = upd.status;
+  $("#update-apply").disabled = !!phase;
+  if (phase) updStatus(phase == "download" ? t("Скачивается… {0}%", pct) : phase == "verify" ? t("Проверяю…") : t("Перезапускаю Zen…"));
+};
+Services.obs.addObserver(showUpdStatus, "luminoctis-update-status");
+window.addEventListener("unload", () => Services.obs.removeObserver(showUpdStatus, "luminoctis-update-status"));
+showUpdStatus();
 $("#update-apply").addEventListener("click", async event => {
-  event.target.disabled = true;
-  updStatus(t("Скачиваю и проверяю…"));
-  try { await upd.apply(); updStatus(t("Перезапускаю Zen…")); }
-  catch (e) { updStatus(t("Ошибка: {0}", e.message)); event.target.disabled = false; }
+  updStatus(t("Скачивается… {0}%", 0));
+  try { await upd.apply(); }
+  catch (e) { updStatus(t("Ошибка: {0}", e.message)); }
+  showUpdStatus();
 });
 for (const a of document.querySelectorAll("#about a.row.link")) a.addEventListener("click", event => { // ссылка — вкладкой браузера, а не внутри панели
   event.preventDefault();

@@ -43,17 +43,6 @@
     "ja": "タブ",
     "de": "Tabs"
   },
-  "Рейка — узкая панель слева: пространства, закрепы, плееры, таймер": {
-    "en": "Rail: the narrow panel on the left with workspaces, pins, players and the timer",
-    "zh": "侧栏:左侧的窄面板,包含工作区、固定标签页、播放器和计时器",
-    "es": "Barra lateral: el panel estrecho de la izquierda con espacios de trabajo, pestañas fijadas, reproductores y temporizador",
-    "ar": "الشريط الجانبي: اللوحة الضيقة على اليسار، وفيها مساحات العمل والألسنة المثبّتة والمشغّلات والمؤقّت",
-    "pt": "Barra lateral: o painel estreito à esquerda com espaços de trabalho, abas fixadas, reprodutores e temporizador",
-    "id": "Bilah samping: panel sempit di kiri berisi ruang kerja, tab disematkan, pemutar, dan timer",
-    "fr": "Barre latérale : le panneau étroit à gauche avec les espaces de travail, les onglets épinglés, les lecteurs et le minuteur",
-    "ja": "サイドバー:左側の細いパネル。ワークスペース、ピン留め、プレーヤー、タイマーが並びます",
-    "de": "Leiste: das schmale Panel links mit Arbeitsbereichen, angehefteten Tabs, Playern und Timer"
-  },
   "Рейка": {
     "en": "Rail",
     "zh": "侧栏",
@@ -736,6 +725,17 @@
     "ja": "ダウンロード完了",
     "de": "Download beendet"
   },
+  "Выполнение пункта в LumiNotes": {
+    "en": "Item completed in LumiNotes",
+    "zh": "在 LumiNotes 中完成事项",
+    "es": "Elemento completado en LumiNotes",
+    "ar": "إكمال عنصر في LumiNotes",
+    "pt": "Item concluído no LumiNotes",
+    "id": "Item selesai di LumiNotes",
+    "fr": "Élément terminé dans LumiNotes",
+    "ja": "LumiNotes で項目を完了",
+    "de": "Eintrag in LumiNotes erledigt"
+  },
   "Играет и когда браузер не в фокусе": {
     "en": "Plays even when the browser is not in focus",
     "zh": "浏览器不在前台时也会播放",
@@ -1219,17 +1219,6 @@
     "fr": "+ Liste",
     "ja": "+ リスト",
     "de": "+ Liste"
-  },
-  "Рейка — узкая панель слева: рабочие пространства, закрепы, плееры и таймер.": {
-    "en": "The rail is the narrow panel on the left: workspaces, pins, players and the timer.",
-    "zh": "侧栏是左侧的窄面板:工作区、固定标签页、播放器和计时器。",
-    "es": "La barra lateral es el panel estrecho de la izquierda: espacios de trabajo, pestañas fijadas, reproductores y temporizador.",
-    "ar": "الشريط الجانبي هو اللوحة الضيقة على اليسار: مساحات العمل والألسنة المثبّتة والمشغّلات والمؤقّت.",
-    "pt": "A barra lateral é o painel estreito à esquerda: espaços de trabalho, abas fixadas, reprodutores e temporizador.",
-    "id": "Bilah samping adalah panel sempit di kiri: ruang kerja, tab disematkan, pemutar, dan timer.",
-    "fr": "La barre latérale est le panneau étroit à gauche : espaces de travail, onglets épinglés, lecteurs et minuteur.",
-    "ja": "サイドバーは左側の細いパネルで、ワークスペース、ピン留め、プレーヤー、タイマーが並びます。",
-    "de": "Die Leiste ist das schmale Panel links: Arbeitsbereiche, angeheftete Tabs, Player und Timer."
   },
   "Рабочие пространства": {
     "en": "Workspaces",
@@ -1879,6 +1868,17 @@
     "fr": "Dossier de données",
     "ja": "データフォルダー",
     "de": "Datenordner"
+  },
+  "Обзор…": {
+    "en": "Browse…",
+    "zh": "浏览…",
+    "es": "Examinar…",
+    "ar": "استعراض…",
+    "pt": "Procurar…",
+    "id": "Telusuri…",
+    "fr": "Parcourir…",
+    "ja": "参照…",
+    "de": "Durchsuchen…"
   },
   "Заметки LumiNotes, избранные обои. Пусто — папка по умолчанию": {
     "en": "LumiNotes notes and favorite wallpapers. Empty means the default folder",
@@ -2969,38 +2969,27 @@
     "ja": "更新",
     "de": "Aktualisieren"
   },
-  "Раз в сутки запрашивает GitHub; обновить без вашего нажатия мод не может": {
-    "en": "Asks GitHub once a day; the mod cannot update without you pressing the button",
-    "zh": "每天向 GitHub 查询一次;未经你点击,模组不会自行更新",
-    "es": "Consulta GitHub una vez al día; el mod no puede actualizarse sin que pulses el botón",
-    "ar": "يستعلم من GitHub مرة في اليوم؛ ولا يمكن للإضافة أن تُحدّث نفسها دون ضغطك",
-    "pt": "Consulta o GitHub uma vez por dia; o mod não consegue atualizar sem você clicar",
-    "id": "Menanyakan ke GitHub sekali sehari; mod tidak bisa memperbarui tanpa Anda menekan tombol",
-    "fr": "Interroge GitHub une fois par jour ; le mod ne peut pas se mettre à jour sans votre clic",
-    "ja": "1日1回 GitHub に問い合わせます。操作なしに Mod が自動更新されることはありません",
-    "de": "Fragt einmal täglich bei GitHub nach; ohne Ihren Klick aktualisiert sich der Mod nicht"
+  "Проверять и устанавливать обновления при запуске": {
+    "en": "Check for and install updates at startup",
+    "zh": "启动时检查并安装更新",
+    "es": "Buscar e instalar actualizaciones al iniciar",
+    "ar": "التحقق من التحديثات وتثبيتها عند التشغيل",
+    "pt": "Verificar e instalar atualizações ao iniciar",
+    "id": "Periksa dan pasang pembaruan saat dimulai",
+    "fr": "Rechercher et installer les mises à jour au démarrage",
+    "ja": "起動時に更新を確認してインストール",
+    "de": "Beim Start nach Updates suchen und sie installieren"
   },
-  "Проверять раз в сутки": {
-    "en": "Check once a day",
-    "zh": "每天检查一次",
-    "es": "Comprobar una vez al día",
-    "ar": "التحقق مرة في اليوم",
-    "pt": "Verificar uma vez por dia",
-    "id": "Periksa sekali sehari",
-    "fr": "Vérifier une fois par jour",
-    "ja": "1日1回確認",
-    "de": "Einmal täglich prüfen"
-  },
-  "Сам мод без вашего нажатия не обновится": {
-    "en": "The mod will not update without your click",
-    "zh": "未经你点击,模组不会自行更新",
-    "es": "El mod no se actualizará sin que pulses el botón",
-    "ar": "لن تُحدَّث الإضافة دون ضغطك",
-    "pt": "O mod não será atualizado sem o seu clique",
-    "id": "Mod tidak akan diperbarui tanpa tindakan Anda",
-    "fr": "Le mod ne se mettra pas à jour sans votre clic",
-    "ja": "操作なしに Mod が更新されることはありません",
-    "de": "Der Mod aktualisiert sich nicht ohne Ihren Klick"
+  "Новая версия ставится сама, вкладки вернутся": {
+    "en": "A new version installs by itself, your tabs come back",
+    "zh": "发现新版本会自动安装,标签页会恢复",
+    "es": "La nueva versión se instala sola y las pestañas vuelven",
+    "ar": "تُثبَّت النسخة الجديدة تلقائيًا وتعود ألسنتك",
+    "pt": "A nova versão é instalada sozinha e as abas voltam",
+    "id": "Versi baru dipasang otomatis dan tab Anda kembali",
+    "fr": "La nouvelle version s'installe toute seule, vos onglets reviennent",
+    "ja": "新しいバージョンは自動でインストールされ、タブも元に戻ります",
+    "de": "Eine neue Version wird von selbst installiert, Ihre Tabs kommen zurück"
   },
   "Обновления недоступны: мод поставлен не установщиком (под Sine его обновляет сам Sine).": {
     "en": "Updates are unavailable: the mod was not installed with the installer (under Sine, Sine updates it).",
@@ -3596,16 +3585,16 @@
     "ja": "最新バージョンです",
     "de": "Die neueste Version ist installiert"
   },
-  "Скачиваю и проверяю…": {
-    "en": "Downloading and verifying…",
-    "zh": "正在下载并校验…",
-    "es": "Descargando y verificando…",
-    "ar": "جارٍ التنزيل والتحقق…",
-    "pt": "Baixando e verificando…",
-    "id": "Mengunduh dan memverifikasi…",
-    "fr": "Téléchargement et vérification…",
-    "ja": "ダウンロードして検証中…",
-    "de": "Wird heruntergeladen und geprüft …"
+  "Скачивается… {0}%": {
+    "en": "Downloading… {0}%",
+    "zh": "正在下载… {0}%",
+    "es": "Descargando… {0}%",
+    "ar": "جارٍ التنزيل… {0}%",
+    "pt": "Baixando… {0}%",
+    "id": "Mengunduh… {0}%",
+    "fr": "Téléchargement… {0}%",
+    "ja": "ダウンロード中… {0}%",
+    "de": "Wird heruntergeladen… {0}%"
   },
   "Перезапускаю Zen…": {
     "en": "Restarting Zen…",
@@ -4002,5 +3991,93 @@
     "fr": "Dans Windows (Personnalisation → Couleurs), activez « Effets de transparence » et désactivez la couleur d'accentuation sur les barres de titre et les bordures de fenêtre, ainsi que sur Démarrer et la barre des tâches.",
     "ja": "Windows の「個人用設定 → 色」で「透明効果」をオンにし、タイトルバーとウィンドウの境界線、スタートメニューとタスクバーのアクセントカラーをオフにしてください。",
     "de": "Aktivieren Sie in Windows (Personalisierung → Farben) „Transparenzeffekte“ und deaktivieren Sie die Akzentfarbe auf Titelleisten und Fensterrändern sowie auf Start und Taskleiste."
+  },
+  "Рейка — узкая панель у края окна: пространства, закрепы, плееры, таймер": {
+    "en": "Rail: the narrow panel at the window edge with workspaces, pins, players and the timer",
+    "zh": "侧栏:位于窗口边缘的窄面板,包含工作区、固定标签页、播放器和计时器",
+    "es": "Barra lateral: el panel estrecho en el borde de la ventana con espacios de trabajo, pestañas fijadas, reproductores y temporizador",
+    "ar": "الشريط الجانبي: اللوحة الضيقة عند حافة النافذة، وفيها مساحات العمل والألسنة المثبّتة والمشغّلات والمؤقّت",
+    "pt": "Barra lateral: o painel estreito na borda da janela com espaços de trabalho, abas fixadas, reprodutores e temporizador",
+    "id": "Bilah samping: panel sempit di tepi jendela berisi ruang kerja, tab disematkan, pemutar, dan timer",
+    "fr": "Barre latérale : le panneau étroit au bord de la fenêtre avec les espaces de travail, les onglets épinglés, les lecteurs et le minuteur",
+    "ja": "サイドバー:ウィンドウの端にある細いパネル。ワークスペース、ピン留め、プレーヤー、タイマーが並びます",
+    "de": "Leiste: das schmale Panel am Fensterrand mit Arbeitsbereichen, angehefteten Tabs, Playern und Timer"
+  },
+  "Рейка — узкая панель у края окна: рабочие пространства, закрепы, плееры и таймер.": {
+    "en": "The rail is the narrow panel at the window edge: workspaces, pins, players and the timer.",
+    "zh": "侧栏是窗口边缘的窄面板:工作区、固定标签页、播放器和计时器。",
+    "es": "La barra lateral es el panel estrecho en el borde de la ventana: espacios de trabajo, pestañas fijadas, reproductores y temporizador.",
+    "ar": "الشريط الجانبي هو اللوحة الضيقة عند حافة النافذة: مساحات العمل والألسنة المثبّتة والمشغّلات والمؤقّت.",
+    "pt": "A barra lateral é o painel estreito na borda da janela: espaços de trabalho, abas fixadas, reprodutores e temporizador.",
+    "id": "Bilah samping adalah panel sempit di tepi jendela: ruang kerja, tab disematkan, pemutar, dan timer.",
+    "fr": "La barre latérale est le panneau étroit au bord de la fenêtre : espaces de travail, onglets épinglés, lecteurs et minuteur.",
+    "ja": "サイドバーはウィンドウの端にある細いパネルで、ワークスペース、ピン留め、プレーヤー、タイマーが並びます。",
+    "de": "Die Leiste ist das schmale Panel am Fensterrand: Arbeitsbereiche, angeheftete Tabs, Player und Timer."
+  },
+  "Кнопки рейки": {
+    "en": "Rail buttons",
+    "zh": "侧栏按钮",
+    "es": "Botones de la barra lateral",
+    "ar": "أزرار الشريط الجانبي",
+    "pt": "Botões da barra lateral",
+    "id": "Tombol bilah samping",
+    "fr": "Boutons de la barre latérale",
+    "ja": "サイドバーのボタン",
+    "de": "Schaltflächen der Leiste"
+  },
+  "Кнопка Библиотеки Zen": {
+    "en": "Zen Library button",
+    "zh": "Zen 资料库按钮",
+    "es": "Botón de la Biblioteca de Zen",
+    "ar": "زر مكتبة Zen",
+    "pt": "Botão da Biblioteca do Zen",
+    "id": "Tombol Perpustakaan Zen",
+    "fr": "Bouton de la Bibliothèque Zen",
+    "ja": "Zen ライブラリのボタン",
+    "de": "Schaltfläche Zen-Bibliothek"
+  },
+  "Значок слоёв под «L»: Библиотека Zen (пространства, история, загрузки)": {
+    "en": "Layers icon under “L”: Zen Library (spaces, history, downloads)",
+    "zh": "“L”下方的层叠图标：Zen 资料库（空间、历史记录、下载）",
+    "es": "Icono de capas bajo la «L»: Biblioteca de Zen (espacios, historial, descargas)",
+    "ar": "أيقونة الطبقات تحت «L»: مكتبة Zen (المساحات والسجل والتنزيلات)",
+    "pt": "Ícone de camadas sob o «L»: Biblioteca do Zen (espaços, histórico, downloads)",
+    "id": "Ikon lapisan di bawah “L”: Perpustakaan Zen (ruang, riwayat, unduhan)",
+    "fr": "Icône de couches sous le «L» : Bibliothèque Zen (espaces, historique, téléchargements)",
+    "ja": "「L」の下のレイヤーアイコン：Zen ライブラリ（スペース、履歴、ダウンロード）",
+    "de": "Ebenen-Symbol unter dem „L“: Zen-Bibliothek (Bereiche, Verlauf, Downloads)"
+  },
+  "Положение рейки": {
+    "en": "Rail position",
+    "zh": "侧栏位置",
+    "es": "Posición de la barra lateral",
+    "ar": "موضع الشريط الجانبي",
+    "pt": "Posição da barra lateral",
+    "id": "Posisi bilah samping",
+    "fr": "Position de la barre latérale",
+    "ja": "サイドバーの位置",
+    "de": "Position der Leiste"
+  },
+  "Сторона окна": {
+    "en": "Window side",
+    "zh": "窗口一侧",
+    "es": "Lado de la ventana",
+    "ar": "جهة النافذة",
+    "pt": "Lado da janela",
+    "id": "Sisi jendela",
+    "fr": "Côté de la fenêtre",
+    "ja": "ウィンドウの側",
+    "de": "Fensterseite"
+  },
+  "Справа рейка стоит под полосой вкладок, кнопки окна остаются в углу": {
+    "en": "On the right the rail sits under the tab strip; window buttons stay in the corner",
+    "zh": "放在右侧时,侧栏位于标签栏下方,窗口按钮仍在角落",
+    "es": "A la derecha, la barra lateral queda bajo la barra de pestañas y los botones de la ventana siguen en la esquina",
+    "ar": "عند اليمين يوضع الشريط الجانبي أسفل شريط الألسنة وتبقى أزرار النافذة في الزاوية",
+    "pt": "À direita, a barra lateral fica abaixo da barra de abas e os botões da janela continuam no canto",
+    "id": "Di kanan, bilah samping berada di bawah bilah tab dan tombol jendela tetap di sudut",
+    "fr": "À droite, la barre latérale se place sous la barre d’onglets et les boutons de la fenêtre restent dans le coin",
+    "ja": "右側では、サイドバーはタブバーの下に置かれ、ウィンドウボタンは隅に残ります",
+    "de": "Rechts steht die Leiste unter der Tab-Leiste, die Fensterknöpfe bleiben in der Ecke"
   }
 }

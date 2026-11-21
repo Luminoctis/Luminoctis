@@ -27,7 +27,7 @@
 <nav class="tabs" role="tablist" aria-orientation="vertical" aria-label="Разделы настроек" data-lumi-l10n-aria-label>
   <button role="tab" data-tab="look"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg><span data-lumi-l10n>Вид</span></button>
   <button role="tab" data-tab="tabs"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M3 9h18M9 4v5"/></svg><span data-lumi-l10n>Вкладки</span></button>
-  <button role="tab" data-tab="sidebar" title="Рейка — узкая панель слева: пространства, закрепы, плееры, таймер" data-lumi-l10n-title><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span data-lumi-l10n>Рейка</span></button>
+  <button role="tab" data-tab="sidebar" title="Рейка — узкая панель у края окна: пространства, закрепы, плееры, таймер" data-lumi-l10n-title><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><path d="M9 4v16"/></svg><span data-lumi-l10n>Рейка</span></button>
   <button role="tab" data-tab="home"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m3 11 9-8 9 8"/><path d="M5 9.5V20h5v-6h4v6h5V9.5"/></svg><span data-lumi-l10n>Главная</span></button>
   <button role="tab" data-tab="wallpaper"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="1.6"/><path d="m3 17 5-4 4 3 3-2 6 4"/></svg><span data-lumi-l10n="Обои​">Обои</span></button>
   <button role="tab" data-tab="control" title="Меню «⋯», правый клик по вкладке, кнопки, клавиши и мышь" data-lumi-l10n-title><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg><span data-lumi-l10n>Меню и клавиши</span></button>
@@ -118,6 +118,9 @@
     <div class="row snd" data-sound="download"><div class="text"><b data-lumi-l10n>Конец загрузки</b><span data-lumi-l10n>Играет и когда браузер не в фокусе</span></div>
       <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
       <input type="checkbox" data-pref="luminoctis.sounds.download.enabled" data-default="true"></div>
+    <div class="row snd" data-sound="task-done"><div class="text"><b data-lumi-l10n>Выполнение пункта в LumiNotes</b><span></span></div>
+      <button class="snd-btn snd-play" title="Прослушать" data-lumi-l10n-title>▶</button>
+      <input type="checkbox" data-pref="luminoctis.sounds.task-done.enabled" data-default="true"></div>
 
     <h2><span data-lumi-l10n>Цвета темы</span> <span class="hint" data-lumi-l10n>· клик — изменить; у своей темы правки сохраняются в неё</span></h2>
     <div id="colors" class="list"></div>
@@ -180,9 +183,21 @@
     <button id="strict-add" class="dashed" data-lumi-l10n>+ Список</button>
   </section>
 
-  <!-- ===== Рейка (узкая панель слева): пространства, закрепы, плееры ===== -->
+  <!-- ===== Рейка (узкая панель слева или справа): пространства, закрепы, плееры ===== -->
   <section id="sidebar" role="tabpanel">
-    <p class="hint" data-lumi-l10n>Рейка — узкая панель слева: рабочие пространства, закрепы, плееры и таймер.</p>
+    <p class="hint" data-lumi-l10n>Рейка — узкая панель у края окна: рабочие пространства, закрепы, плееры и таймер.</p>
+    <h2 data-lumi-l10n>Положение рейки</h2>
+    <div class="row stack">
+      <div class="text"><b data-lumi-l10n>Сторона окна</b><span data-lumi-l10n>Справа рейка стоит под полосой вкладок, кнопки окна остаются в углу</span></div>
+      <div class="seg" data-pref="luminoctis.rail.side" data-default="left"><button data-value="left" data-lumi-l10n>Слева</button><button data-value="right" data-lumi-l10n>Справа</button></div>
+    </div>
+
+    <h2 data-lumi-l10n>Кнопки рейки</h2>
+    <label class="row">
+      <div class="text"><b data-lumi-l10n>Кнопка Библиотеки Zen</b><span data-lumi-l10n>Значок слоёв под «L»: Библиотека Zen (пространства, история, загрузки)</span></div>
+      <input type="checkbox" data-pref="luminoctis.rail.library-button" data-default="true">
+    </label>
+
     <h2><span data-lumi-l10n>Рабочие пространства</span> <span class="hint" data-lumi-l10n>· кнопки на рейке; ⠿ — перетащить</span></h2>
     <div id="spaces" class="list"></div>
     <button id="space-add" class="dashed" data-lumi-l10n>+ Новое пространство</button>
@@ -204,7 +219,7 @@
     <h2 data-lumi-l10n>Таймер</h2>
     <label class="row">
       <div class="text"><b data-lumi-l10n>Таймер на рейке</b><span data-lumi-l10n>Плитка LumiTime внизу рейки: клик — мини-окно таймера</span></div>
-      <input type="checkbox" data-pref="luminoctis.time.rail" data-default="true">
+      <input type="checkbox" data-pref="luminoctis.time.rail" data-default="false">
     </label>
     <button id="time-open" class="dashed" data-lumi-l10n>Открыть LumiTime целиком</button>
   </section>
@@ -278,7 +293,7 @@
     <h2 data-lumi-l10n>Данные</h2>
     <div class="row stack">
       <div class="text"><b data-lumi-l10n>Папка данных</b><span data-lumi-l10n>Заметки LumiNotes, избранные обои. Пусто — папка по умолчанию</span></div>
-      <input id="home-dir" type="text" spellcheck="false">
+      <div class="key"><input id="home-dir" type="text" spellcheck="false"><button id="home-dir-pick" data-lumi-l10n>Обзор…</button></div>
     </div>
   </section>
 
@@ -425,7 +440,7 @@
       <div class="text"><b><span data-lumi-l10n>Доступна</span> <span id="update-new"></span></b><span><a id="update-page" href="#" data-lumi-l10n>Что нового</a> <span data-lumi-l10n>· Zen перезапустится сам</span></span></div>
       <button id="update-apply" class="primary" data-lumi-l10n>Обновить</button>
     </div>
-    <label class="row" title="Раз в сутки запрашивает GitHub; обновить без вашего нажатия мод не может" data-lumi-l10n-title><div class="text"><b data-lumi-l10n>Проверять раз в сутки</b><span data-lumi-l10n>Сам мод без вашего нажатия не обновится</span></div><input type="checkbox" id="update-auto" data-pref="luminoctis.update.auto-check" data-default="true"></label>
+    <label class="row"><div class="text"><b data-lumi-l10n>Проверять и устанавливать обновления при запуске</b><span data-lumi-l10n>Новая версия ставится сама, вкладки вернутся</span></div><input type="checkbox" id="update-auto" data-pref="luminoctis.update.auto-check" data-default="true"></label>
     <p id="update-none" class="note" hidden data-lumi-l10n>Обновления недоступны: мод поставлен не установщиком (под Sine его обновляет сам Sine).</p>
 
     <h2><span data-lumi-l10n>Перенос настроек</span> <span class="hint" data-lumi-l10n>· на другой компьютер или профиль</span></h2>

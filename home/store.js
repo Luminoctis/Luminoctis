@@ -11,6 +11,7 @@ export const defaultDir = () => {
   try { return PathUtils.join(Services.dirsvc.get("Docs", Ci.nsIFile).path, "Luminoctis Home"); } catch { return FB(); }
 };
 export const dir = () => cur() || pref() || defaultDir();
+export const usingFallback = () => !!cur(); // true — выбранная/стандартная папка недоступна, данные сейчас в запасной папке профиля
 export const path = (rel = "") => {
   const parts = rel.split(/[\/]+/).filter(Boolean);
   if (parts.includes("..")) throw new Error(`store: путь вне папки данных: ${rel}`); // l10n-skip
@@ -38,10 +39,31 @@ async function recover() {
 export async function readJSON(rel, fb = null) {
   try { return await IOUtils.readJSON(path(rel)); } catch (e) { if (missing(e)) return fb; if (await recover()) return readJSON(rel, fb); throw e; }
 }
+// Файл на миг занят другой программой (антивирус, OneDrive, индексатор, Obsidian): замена файла падает NotAllowedError — пробуем ещё пару раз
+const busy = e => DOMException.isInstance(e) && ["NotAllowedError", "NotReadableError"].includes(e.name);
+async function again(f) {
+  for (let i = 1; ; i++) try { return await f(); } catch (e) {
+    if (i > 2 || !busy(e)) throw e;
+    const { setTimeout } = ChromeUtils.importESModule("resource://gre/modules/Timer.sys.mjs");
+    await new Promise(r => setTimeout(r, i * 200));
+  }
+}
+// сама папка рабочая? (запасная включена — нет; иначе каталог есть и в него можно писать): отличает «папка недоступна» от «занят один файл»
+export async function healthy() {
+  if (usingFallback()) return false;
+  try {
+    await ensureDir();
+    if (usingFallback()) return false;
+    const p = path(".lumi-probe");
+    await IOUtils.writeUTF8(p, "1");
+    await IOUtils.remove(p, { ignoreAbsent: true });
+    return true;
+  } catch { return false; }
+}
 export async function writeJSON(rel, data) {
   await parent(rel);
   const p = path(rel);
-  await IOUtils.writeJSON(p, data, { tmpPath: p + ".tmp" });
+  await again(() => IOUtils.writeJSON(p, data, { tmpPath: p + ".tmp" }));
 }
 export async function readText(rel, fb = null) {
   try { return await IOUtils.readUTF8(path(rel)); } catch (e) { if (missing(e)) return fb; if (await recover()) return readText(rel, fb); throw e; }
@@ -49,7 +71,7 @@ export async function readText(rel, fb = null) {
 export async function writeText(rel, text) {
   await parent(rel);
   const p = path(rel);
-  await IOUtils.writeUTF8(p, text, { tmpPath: p + ".tmp" });
+  await again(() => IOUtils.writeUTF8(p, text, { tmpPath: p + ".tmp" }));
 }
 // имена файлов и папок внутри (нет папки — пусто)
 export async function list(rel = "") {

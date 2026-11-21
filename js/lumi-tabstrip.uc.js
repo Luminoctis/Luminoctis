@@ -565,12 +565,25 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const first = list.findIndex(el => el.tab && !el.tab.pinned), end = first < 0 ? list.length : first;
     return dragged?.isZenFolder || (dragged?.pinned && !folderOf(dragged)) ? Math.min(i, end) : Math.max(i, end); // закреп с рейки (dragged нет) — как обычная вкладка
   };
+  // Фишка под курсором — по месту БЕЗ сдвигов (shiftOf), а не по цели события: расступание соседей и сама фишка при «рядом» едут, и решение по тому,
+  // что сейчас под курсором, прыгало «в папку» ↔ «рядом» (фишка уезжала из-под курсора и возвращалась, таймер раскрытия сбрасывался).
+  // chipHold — гистерезис: решили «в папку» — держим, пока курсор не вышел за край (запас 4px вместо 12), иначе дрожь руки на границе дёргала вкладку.
+  let chipHold = null;
+  const chipAt = event => {
+    const rr = row.getBoundingClientRect();
+    if (!row.contains(event.target) || event.clientY < rr.top || event.clientY > rr.bottom) return null; // над рядом, не над зоной под ним
+    return liveItems().find(el => {
+      if (!el.folder) return false;
+      const r = el.getBoundingClientRect(), left = r.left - luminoctis.shiftOf(el, "x"), slack = el === chipHold || el === hoverChip ? 4 : 0;
+      return event.clientX >= left - slack && event.clientX <= left + r.width + slack;
+    }) ?? null;
+  };
   // фишка под курсором, если бросок на неё положит вкладку в папку (та же папка — нет)
   const folderTarget = event => {
-    const chip = (dragged || luminoctis.dragPin) && !dragged?.isZenFolder && !splitOf(dragged) && chipOf(event); // плитку Split View в папку не кладём
+    const chip = (dragged || luminoctis.dragPin) && !dragged?.isZenFolder && !splitOf(dragged) && chipAt(event); // плитку Split View в папку не кладём
     if (!chip || (dragged && folderOf(dragged) === chip.folder)) return null;
-    const r = chip.getBoundingClientRect(), edge = Math.min(12, r.width / 4);
-    return event.clientX > r.left + edge && event.clientX < r.right - edge ? chip : null;
+    const r = chip.getBoundingClientRect(), left = r.left - luminoctis.shiftOf(chip, "x"), edge = Math.min(chip === chipHold ? 4 : 12, r.width / 4);
+    return event.clientX > left + edge && event.clientX < left + r.width - edge ? chip : null;
   };
   const clearTarget = () => row.querySelectorAll("[drop-into]").forEach(el => el.removeAttribute("drop-into"));
   // Выделенные вкладки тянутся вместе (одна из них — за курсором); не из выделения — выделение снимается. В полосе-источнике уже нет папок и Home
@@ -751,12 +764,21 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   onZone("dragover", event => {
     const foreign = dragged || luminoctis.dragPin ? [] : foreignTabs(event);
     if (!dragged && !luminoctis.dragPin && !foreign.length) return;
+    if (dragged && chipAt(event)?.folder === folderOf(dragged)) { // строку списка несут над фишкой её же папки: это не цель (бросок вынес бы вкладку из папки на полосу)
+      clearTarget();
+      chipHold = null;
+      hoverFolder(chipAt(event));
+      dropLine.hidden = true;
+      luminoctis.clearGap(liveItems(), false);
+      return;
+    }
     event.preventDefault();
     if (foreign.length) event.dataTransfer.dropEffect = "move";
     clearTarget();
     const list = liveItems();
     const into = folderTarget(event);
-    hoverFolder(chipOf(event));
+    chipHold = into;
+    hoverFolder(chipAt(event));
     if (track) track.into = !!into;
     if (into) { // на фишку: подсветка, щель и черта не нужны; вкладка у курсора — картинкой (едущая закрыла бы подсветку), на месте — гаснет
       into.toggleAttribute("drop-into", true);
@@ -782,6 +804,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   });
   onZone("dragleave", event => {
     if (inZone(event.relatedTarget)) return;
+    chipHold = null;
     hoverFolder(null);
     clearTarget();
     dropLine.hidden = true;
@@ -961,6 +984,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     closeTimer = setTimeout(() => { closeTimer = 0; if (dragOpened) hideFolder(); }, 450);
   };
   const endHover = () => {
+    chipHold = null;
     clearTimeout(hoverTimer);
     hoverTimer = 0;
     hoverChip = null;
@@ -991,6 +1015,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const clearMarks = () => fList.querySelectorAll("[drop-before], [drop-after]").forEach(el => (el.removeAttribute("drop-before"), el.removeAttribute("drop-after")));
   releasePanelGap = instant => {
     panelGapPending = false;
+    fList.removeAttribute("lumi-dropping");
     luminoctis.clearGap(panelKids(), instant);
     clearMarks();
   };
@@ -1011,6 +1036,7 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const kids = panelKids(), to = panelDropIndex(event.clientY), own = rowEls.get(dragged);
     own?.toggleAttribute("dragging", true); // тянущаяся строка гаснет, даже если метка не встала
     clearMarks();
+    fList.toggleAttribute("lumi-dropping", !kids.includes(own)); // чужую вкладку несут над списком: он растёт на строку (CSS), последняя не уезжает за край
     if (calm()) (kids[to] ?? kids.at(-1)).toggleAttribute(kids[to] ? "drop-before" : "drop-after", true);
     else luminoctis.gap(kids, "y", ((own?.offsetHeight || 32) + 2) * dragSet.length, kids.indexOf(own), to);
   });
@@ -1025,7 +1051,8 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const fresh = tabs.filter(tab => tab.group !== folder);
     if (fresh.length) folder.addTabs(fresh);
     if (next) return tabs.forEach(tab => gBrowser.moveTabBefore(tab, next.tab ?? next.folder));
-    let at = folder.allItems.filter(item => !tabs.includes(item)).at(-1);
+    // не пустая вкладка Zen: moveTabAfter(вкладка, она) выбросила бы вкладку из папки (пустая папка, единственная вкладка папки)
+    let at = folder.allItems.filter(item => !tabs.includes(item) && !item.hasAttribute("zen-empty-tab")).at(-1);
     if (at) for (const tab of tabs) (gBrowser.moveTabAfter(tab, at), (at = tab));
   };
   folderPanel.addEventListener("drop", event => {

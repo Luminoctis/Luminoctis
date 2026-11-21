@@ -71,3 +71,34 @@ export function setGlass(hwnd, on) {
   try { h.write(glass.size ? h.stub : h.orig); } catch (e) { console.warn("Luminoctis: перехват стекла окна", e); /* l10n-skip */ return false; }
   return true;
 }
+
+// ---------- обои рабочего стола для подложки без прозрачности ----------
+// Windows (Energy saver / «Эффекты прозрачности» выкл) не рисует стекло — под окном чёрное. lumi-home-live.uc.js тогда кладёт под интерфейс размытые обои:
+// файл, который Windows показывает на самом деле (Themes\TranscodedWallpaper, обновляется при смене обоев и слайд-шоу), иначе путь из реестра.
+// Стиль — WallpaperStyle (10 заполнить, 22 по всем мониторам = заполнить, 6 вписать, 2 растянуть, 0 по центру; плитка — как по центру). Один монитор — основной.
+const DESK = String.raw`Control Panel\Desktop`;
+const reg = (path, name) => {
+  try {
+    const k = Cc["@mozilla.org/windows-registry-key;1"].createInstance(Ci.nsIWindowsRegKey);
+    k.open(k.ROOT_KEY_CURRENT_USER, path, k.ACCESS_READ);
+    try { return k.readStringValue(name); } finally { k.close(); }
+  } catch { return null; }
+};
+// { path|null, mtime, style, bg: [r,g,b] }. Проверки подменяют glassIO.wallpaper
+export const glassIO = {
+  async wallpaper() {
+    const style = parseInt(reg(DESK, "WallpaperStyle") ?? "10") || 0;
+    const bg = (reg(String.raw`Control Panel\Colors`, "Background") ?? "0 0 0").split(" ").map(n => Math.min(255, parseInt(n) || 0));
+    const themes = PathUtils.join(Services.dirsvc.get("AppData", Ci.nsIFile).path, "Microsoft", "Windows", "Themes", "TranscodedWallpaper");
+    for (const path of [themes, reg(DESK, "WallPaper")]) {
+      try { const st = path && await IOUtils.stat(path); if (st?.type == "regular" && st.size) return { path, mtime: st.lastModified, style, bg }; } catch {}
+    }
+    return { path: null, mtime: 0, style, bg };
+  },
+};
+// куда ложится картинка iw×ih на монитор mw×mh; cover — закрывает монитор целиком (края можно расширять под размытие)
+export function placeWallpaper(iw, ih, mw, mh, style) {
+  if (style == 2) return { x: 0, y: 0, w: mw, h: mh, cover: true };
+  const fit = style == 6, s = fit ? Math.min(mw / iw, mh / ih) : style == 10 || style == 22 ? Math.max(mw / iw, mh / ih) : 1;
+  return { x: (mw - iw * s) / 2, y: (mh - ih * s) / 2, w: iw * s, h: ih * s, cover: style == 10 || style == 22 };
+}

@@ -391,6 +391,7 @@ export const data = { loaded: false, settings: loadSettings(null), state: idleSt
   records: [], resets: [], foreign: [], journalError: null, writeError: null, rev: 0,
   daily: emptyDaily(), dailyError: null, dailyWriteError: null }; // ежедневные задачи (time/daily.json)
 const dirty = new Map();   // записи, ещё не записанные в journal.json (лежат и в state.json — не пропадут)
+let stale = false;         // удаление записи ещё не попало в journal.json (запись повторяется кнопкой «Повторить»)
 let allowed = new Set();   // «всё равно открыть» — до конца текущего фокуса
 let queue = Promise.resolve(), alarm = null, saver = null, loading = null, gen = 0;
 const listeners = new Set();
@@ -444,7 +445,7 @@ async function load() {
   const byId = new Map();
   data.foreign = [];
   for (const r of journal?.records ?? []) isRecord(r) ? byId.set(r.id, r) : data.foreign.push(r); // чужое не выбрасываем
-  dirty.clear();
+  dirty.clear(); stale = false;
   for (const r of Array.isArray(saved?.outbox) ? saved.outbox.filter(isRecord) : []) { byId.set(r.id, r); dirty.set(r.id, r); }
   data.records = [...byId.values()];
   data.resets = Array.isArray(journal?.resets) ? journal.resets.filter(e => e && typeof e.id == "string" && Number.isFinite(e.at)) : [];
@@ -476,12 +477,13 @@ function flush() {
   write(FILES.journal, { version: 1, records: [...data.records].sort((a, b) => a.startedAt - b.startedAt), resets: data.resets, ...(data.foreign.length ? { foreign: data.foreign } : {}) })
     .then(() => {
       for (const [id, r] of sent) if (dirty.get(id) === r) dirty.delete(id);
+      stale = false;
       data.writeError = null;
       persist();
       bump("journal");
-    }, e => { data.writeError = String(e.message ?? e); console.error("LumiTime journal:", e); persist(); bump("journal"); });
+    }, e => { stale = true; data.writeError = String(e.message ?? e); console.error("LumiTime journal:", e); persist(); bump("journal"); });
 }
-export const pendingCount = () => dirty.size;
+export const pendingCount = () => dirty.size + (stale && !dirty.size ? 1 : 0);
 export const flushJournal = () => { flush(); return queue; };
 export const whenSaved = () => queue.catch(() => {});
 
@@ -582,6 +584,34 @@ export function addManual(kind, topic, durationMs) {
   putRecord({ version: 1, id: uuid(), kind, topic: kind == "Focus" ? topic.trim().slice(0, 200) || "Фокус" : "", result: "Completed", // l10n-skip
     startedAt, endedAt, timezoneOffset: new Date(startedAt).getTimezoneOffset(), plannedMs: durationMs,
     acceptedOvertime: false, manual: true, active: [[startedAt, endedAt]], pauses: [], timerMode: data.timerMode });
+  flush(); bump();
+  return true;
+}
+// правка записи журнала: patch { kind, topic, minutes, startedAt } (любые из полей). Идущий цикл (data.state) не трогается — запись всегда отдельная.
+// Длительность — «засчитанное время» (countedOverrideMs, как у ±1 мин), начало — сдвиг всей записи (паузы сохраняются). Минуты 1..1440, начало не в будущем.
+export function editRecord(id, patch = {}) {
+  const r = data.records.find(x => x.id == id);
+  if (!r || !data.loaded) return false;
+  const kind = patch.kind ?? r.kind, cur = countedRecordMs(r);
+  if (!["Focus", "Break", "Long break"].includes(kind)) return false;
+  let next = { ...r, kind, topic: kind == "Focus" ? String(patch.topic ?? r.topic).trim().slice(0, 200) || "Фокус" : "" }; // l10n-skip
+  if (patch.minutes !== undefined && Math.round(cur / MIN) != patch.minutes) {
+    if (!Number.isInteger(patch.minutes) || patch.minutes < 1 || patch.minutes > 1440) return false;
+    next.countedOverrideMs = patch.minutes * MIN;
+  }
+  if (patch.startedAt !== undefined && Math.floor(patch.startedAt / MIN) != Math.floor(r.startedAt / MIN)) {
+    if (!Number.isFinite(patch.startedAt) || patch.startedAt > now()) return false;
+    const d = patch.startedAt - r.startedAt, sh = list => list.map(([a, b]) => [a + d, b + d]);
+    next = { ...next, startedAt: r.startedAt + d, endedAt: r.endedAt + d, active: sh(r.active), pauses: sh(r.pauses), timezoneOffset: new Date(patch.startedAt).getTimezoneOffset() };
+  }
+  if (!isRecord(next)) return false;
+  putRecord(next); flush(); bump();
+  return true;
+}
+export function deleteRecord(id) {
+  if (!data.records.some(x => x.id == id)) return false;
+  data.records = data.records.filter(x => x.id != id);
+  dirty.delete(id);
   flush(); bump();
   return true;
 }
@@ -731,11 +761,15 @@ export function playCheckSound(checked) {
     }).catch(() => {});
   } catch (e) { console.error(e); }
 }
+export let lastNotify = null; // { text, silent } — последнее показанное системное уведомление (для проверок)
 export let lastAlert = null; // { at, text } — для проверок и интерфейса
-export function notify(text) {
+// свой звук включён — уведомление беззвучное (иначе Windows играет свой поверх)
+export const ownSound = () => data.settings.sound && data.settings.volume > 0;
+export function notify(text, silent = ownSound()) {
   try {
     const n = Cc["@mozilla.org/alert-notification;1"].createInstance(Ci.nsIAlertNotification);
-    n.init("lumitime", "", "LumiTime", text);
+    n.init("lumitime", "", "LumiTime", text, false, "", "", "", "", null, false, false, silent, []);
+    lastNotify = { text, silent };
     Cc["@mozilla.org/alerts-service;1"].getService(Ci.nsIAlertsService).showAlert(n);
     return true;
   } catch (e) { console.error("LumiTime notification:", e); return false; }

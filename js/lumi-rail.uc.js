@@ -18,6 +18,56 @@
     return el;
   };
 
+  // Рейка слева или справа (luminoctis.rail.side = left|right): корню ставится [lumi-rail-right], им ведётся всё зеркало в chrome.css (раздел 12в);
+  // скрипты и страницы читают тот же атрибут. Скрипт идёт до первой отрисовки, меняется сразу, без перезапуска.
+  const SIDE = "luminoctis.rail.side", RIGHT = "lumi-rail-right";
+  // RTL (арабский): рейка и так справа — зеркалит flex-ряд, физические отступы справа не рассчитаны — настройка там не действует
+  const syncSide = () => document.documentElement.toggleAttribute(RIGHT, Services.prefs.getStringPref(SIDE, "left") == "right" && !document.documentElement.matches(":dir(rtl)"));
+  const onRight = () => document.documentElement.hasAttribute(RIGHT);
+  syncSide();
+  Services.prefs.addObserver(SIDE, syncSide);
+  window.addEventListener("unload", () => Services.prefs.removeObserver(SIDE, syncSide), { once: true });
+  // Плитка LumiTime по умолчанию скрыта. Тем, у кого мод уже стоял (pins.migrated ставится при первом запуске любой версии), плитку оставляем: один раз пишем time.rail=true, если пользователь сам не выбирал.
+  // Идёт до migratePins (она ставит pins.migrated и в новом профиле).
+  try {
+    const P = Services.prefs;
+    if (!P.getBoolPref("luminoctis.time.rail-migrated", false)) {
+      P.setBoolPref("luminoctis.time.rail-migrated", true);
+      if (P.getBoolPref("luminoctis.pins.migrated", false) && !P.prefHasUserValue("luminoctis.time.rail")) P.setBoolPref("luminoctis.time.rail", true);
+    }
+  } catch (e) { console.error(e); }
+  // Библиотека Zen (zen-library) выезжает слева: Zen пишет ей transform «calc(1 * -100% * …)». Справа (chrome.css 12в) — со стороны рейки: знак меняем (так же пишет сам Zen при своей «панели справа»).
+  // Сам сдвиг области сайтов Zen при этом гасится CSS: полоса вкладок с кнопками окна остаётся на месте.
+  const lib = document.querySelector("zen-library");
+  if (lib) new MutationObserver(() => {
+    const v = lib.style.transform;
+    if (onRight() && v.includes("calc(1 * -100%")) lib.style.transform = v.replace("calc(1 * -100%", "calc(-1 * -100%");
+  }).observe(lib, { attributeFilter: ["style"] });
+  // Библиотека открыта (атрибут open): кнопка под «L» подсвечена; Esc и клик по области сайтов рядом закрывают её.
+  // Клик ловит прозрачная накладка ниже библиотеки и выше области сайтов (под полосой вкладок: кнопки окна живы): под неё клик не доходит.
+  const libOpen = () => !!lib?.constructor.isLibraryOpen;
+  let veil;
+  const syncLib = () => {
+    const on = lib.hasAttribute("open");
+    document.getElementById("lumi-spaces-button")?.toggleAttribute("lumi-library-open", on);
+    if (on && !veil) {
+      veil = h("div", "", { id: "lumi-library-veil" });
+      veil.addEventListener("mousedown", e => { e.preventDefault(); e.stopPropagation(); lib.constructor.close(); });
+      document.getElementById("browser").append(veil);
+    } else if (!on && veil) veil = veil.remove();
+  };
+  if (lib) {
+    new MutationObserver(syncLib).observe(lib, { attributeFilter: ["open"] });
+    // Zen сам закрывает по Esc, только если фокус не в самой библиотеке; ему уступаем (defaultPrevented), в полях ввода Esc не трогаем
+    window.addEventListener("keydown", e => {
+      if (e.key != "Escape" || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey || !libOpen()) return;
+      if (e.target?.closest?.("input, textarea, [contenteditable]") && lib.contains(e.target)) return;
+      lib.constructor.close();
+    });
+    syncLib();
+  }
+
+
   // Настройки Luminoctis — панель справа от рейки (концепт, вид «edit»). Внутри — страница настроек
   // (Luminoctis\settings → профиль chrome\resources\luminoctis, адрес даёт fx-autoconfig), раздел — в её адресе (#sidebar).
   // Панель грузится при первом открытии, потом только прячется: раздел и прокрутка остаются как были.
@@ -51,6 +101,7 @@
       } else {
         // полный адрес: короткий «#раздел» браузер достроил бы от адреса окна (browser.xhtml), а не страницы
         const page = settings.firstChild.contentWindow;
+        settings.hidden = false; // до перехода: поле, к которому прокручивает страница, должно быть видно
         if (tab) {
           page.location.replace(SETTINGS_URL + hash);
           page.lumiShowTab?.(); // тот же адрес hashchange не шлёт — прокрутку к месту делаем сами
@@ -168,10 +219,16 @@
     rail.querySelector(".lumi-sep").after(icons);
 
     // Кнопка под «L»: родная Библиотека Zen (zen-library) на разделе «Пространства».
-    // cmd_zenManageWorkspaces = ZenLibrary.toggle("spaces"): открыта — закроет.
+    // Закрыта — открываем «Пространства»; открыта (с любого раздела) — закрываем (родной toggle("spaces") из другого раздела только переключил бы на Пространства).
     const manage = labeled(h("button", "", { id: "lumi-spaces-button" }), t("Библиотека Zen: пространства"));
-    manage.addEventListener("click", () => document.getElementById("cmd_zenManageWorkspaces").doCommand());
+    manage.addEventListener("click", () => { const L = document.querySelector("zen-library").constructor; if (L.isLibraryOpen) L.close(); else L.toggle("spaces"); });
     rail.querySelector("#lumi-logo").after(manage);
+    const LIB_BTN = "luminoctis.rail.library-button"; // кнопка Библиотеки в рейке (по умолчанию есть)
+    const applyLib = () => { manage.hidden = !Services.prefs.getBoolPref(LIB_BTN, true); };
+    applyLib();
+    Services.prefs.addObserver(LIB_BTN, applyLib);
+    window.addEventListener("unload", () => Services.prefs.removeObserver(LIB_BTN, applyLib), { once: true });
+    manage.toggleAttribute("lumi-library-open", !!document.querySelector("zen-library")?.hasAttribute("open"));
 
     // Цветная точка контейнера Firefox: цвет берём из контейнера пространства.
     const paintDots = () => {
@@ -331,7 +388,7 @@
     clearHole(); // прежняя вкладка снова видна под гаснущей рамкой — без скачка в конце
     const cur = shown;
     const fade = (el, ms, easing, shift) => el.animate(
-      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }], { duration: ms, easing, fill: "forwards" });
+      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? (onRight() ? "12px 0" : "-12px 0") : "0 0" }], { duration: ms, easing, fill: "forwards" });
     const anims = [fade(backdrop, 200, "cubic-bezier(0.4, 0, 1, 1)"), fade(frame, 200, "cubic-bezier(0.4, 0, 1, 1)", true), fade(grip, 200, "cubic-bezier(0.4, 0, 1, 1)", true)];
     if (withPanel && panelOf(cur.pin)) anims.push(fade(panelOf(cur.pin), 200, "cubic-bezier(0.4, 0, 1, 1)", true));
     await Promise.allSettled(anims.map(a => a.finished));
@@ -446,7 +503,8 @@
     document.documentElement.append(shield);
     let w = frame.getBoundingClientRect().width;
     const move = e => {
-      w = Math.round(Math.min(Math.max(e.clientX - box.getBoundingClientRect().left - 12, MIN_W), maxWidth()));
+      const b = box.getBoundingClientRect(); // справа ручка у левого края рамки: ширина от правого края области
+      w = Math.round(Math.min(Math.max((onRight() ? b.right - e.clientX : e.clientX - b.left) - 12, MIN_W), maxWidth()));
       box.style.setProperty("--lumi-pin-w", w + "px");
       updateHole();
     };
@@ -509,6 +567,21 @@
       else if (gZenWorkspaces._emptyTab) gBrowser.selectedTab = gZenWorkspaces._emptyTab;
     };
     for (const type of ["TabSelect", "TabAddedToEssentials"]) window.addEventListener(type, () => setTimeout(leavePin));
+    // Ссылки из закрепа (средняя кнопка, Ctrl+клик, ссылка на чужой сайт) — обычные вкладки, как из любой вкладки:
+    // 1) Zen для Essentials уводил переход на другой сайт в Glance (shouldOpenTabInGlance, pref zen.glance.open-essential-external-links) — для закрепов отключаем,
+    //    Alt+клик (openGlance) и закрепы-вкладки пространства не затронуты;
+    // 2) «рядом с открывшей» у Essential — начало списка обычных вкладок: ставим новую сразу за вкладкой под окошком (shown.prev) или в конец полосы.
+    const shouldGlance = gZenGlanceManager.shouldOpenTabInGlance;
+    gZenGlanceManager.shouldOpenTabInGlance = function (tab, uri) {
+      return !isPin(tab?.owner) && shouldGlance.call(this, tab, uri);
+    };
+    window.addEventListener("TabOpen", event => {
+      const tab = event.target, from = tab.owner;
+      if (!isPin(from) || isPin(tab)) return;
+      const inStrip = t => t && t !== tab && !isPin(t) && !t.closing && !t.hasAttribute("lumi-home") && !t.hasAttribute("lumi-time-full") && !t.hasAttribute("zen-empty-tab") && !t.hasAttribute("zen-glance-tab");
+      const anchor = (shown?.pin === from && gBrowser.visibleTabs.includes(shown.prev) && inStrip(shown.prev) ? shown.prev : null) ?? gBrowser.visibleTabs.filter(inStrip).at(-1);
+      if (anchor && !tab.pinned) gBrowser.moveTabAfter(tab, anchor);
+    });
     // Вопрос «покинуть страницу?» (beforeunload) при закрытии окна/вкладки открывается внутри вкладки закрепа. Firefox сам выбирает такую вкладку,
     // но leavePin сразу уводил выбор с закрепа, и вопрос оставался в невидимой панели (окно «зависало»). Показываем закреп окошком раньше Firefox (capture).
     window.addEventListener("DOMWillOpenModalDialog", event => {
@@ -915,7 +988,7 @@
   // рамка и затемнение — как у мини-окна закрепа, chrome.css §6). Весь LumiTime («Открыть целиком» и кнопки панелей внизу мини-окна) — как Home:
   // скрытая вкладка home/time.html с атрибутом lumi-time-full (не в полосе вкладок, рейке и сессии; Home и полоса её пропускают).
   // Мини-окно остаётся поверх неё (затемнение не ловит клики); уход на любую другую вкладку закрывает и вкладку, и мини-окно.
-  const TIME_RAIL = "luminoctis.time.rail"; // плитка на рейке (по умолчанию вкл; «Убрать таймер» выключает)
+  const TIME_RAIL = "luminoctis.time.rail"; // плитка на рейке (по умолчанию выкл, у обновившихся — вкл (миграция в начале скрипта); «Убрать таймер» выключает)
   const TIME_URL = pageUrl("home/time.html");
   let mini = null; // { backdrop, frame, iframe, closing }
   let miniTile = null; // плитка таймера: openTime по ней открывает мини-окно
@@ -1023,7 +1096,7 @@
     if (!smooth || calm()) return done();
     m.closing = true;
     const fade = (el, shift) => el.animate(
-      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? "-12px 0" : "0 0" }],
+      [{ opacity: 1, translate: "0 0" }, { opacity: 0, translate: shift ? (onRight() ? "12px 0" : "-12px 0") : "0 0" }],
       { duration: 200, easing: "cubic-bezier(0.4, 0, 1, 1)", fill: "forwards" });
     await Promise.allSettled([fade(m.backdrop).finished, fade(m.frame, true).finished]);
     done();
@@ -1061,7 +1134,7 @@
       else if (!on && timer) timer = clearInterval(timer);
     };
     const applyPref = () => {
-      tile.hidden = !Services.prefs.getBoolPref(TIME_RAIL, true);
+      tile.hidden = !Services.prefs.getBoolPref(TIME_RAIL, false);
       if (tile.hidden) closeMini(false);
       sync();
     };
@@ -1092,6 +1165,7 @@
         noNext: card.querySelector(".zen-media-nexttrack-button").disabled,
       }));
       // Zen каждую секунду обновляет время и прогресс — перерисовываем только при смене данных.
+      data.sort((a, b) => a.playing - b.playing); // играющие внизу списка; sort устойчив — порядок карточек Zen внутри групп не прыгает
       const key = JSON.stringify(data.map(({ card, ...rest }) => rest));
       if (key == last) return;
       last = key;

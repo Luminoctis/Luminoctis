@@ -80,10 +80,15 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     const st = loads.get(gBrowser.selectedBrowser);
     paint(st?.loading || st?.shown ? st : null, true);
   });
-  // Ctrl+V с картинкой в буфере — сразу поиск по ней в Google Lens (общий модуль lumi-lens.sys.mjs, как в поиске Home).
+  // Ctrl+V с картинкой в буфере — сразу поиск по ней поисковиком по умолчанию: Google → Lens, Яндекс, Bing, Baidu; у прочих — ничего, вставка игнорируется (общий модуль lumi-lens.sys.mjs, как в поиске Home).
   // На Home — в новой вкладке, на обычной странице — в текущей. Текст вставляется как обычно.
   const { jsUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
-  const { lensRequest, MAX_IMG } = ChromeUtils.importESModule(jsUrl("lumi-lens.sys.mjs"));
+  const { searchImageRequest, supportsImage, MAX_IMG } = ChromeUtils.importESModule(jsUrl("lumi-lens.sys.mjs"));
+  const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
+  const defaultEngine = async () => { // тот же, что использует поле: в приватном окне — отдельный, если включён
+    await SearchService.init();
+    return PrivateBrowsingUtils.isWindowPrivate(window) && Services.prefs.getBoolPref("browser.search.separatePrivateDefault", false) ? SearchService.getDefaultPrivate() : SearchService.getDefault();
+  };
   let hintTimer = 0, hintOrig = null;
   const hint = (msg, ms) => { // подсказка в поле: msg на ms мс (без ms — до следующего вызова), без msg — прежняя
     const f = gURLBar.inputField;
@@ -97,9 +102,10 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
     if (file.size > MAX_IMG) return hint(t("Картинка больше 20 МБ"), 3000);
     hint(t("Ищу по картинке…"));
     try {
-      const { url, postData } = await lensRequest(file, window);
+      const { url, postData, after } = await searchImageRequest(file, window, await defaultEngine());
       const where = gBrowser.selectedTab.hasAttribute("lumi-home") ? "tab" : "current";
       openTrustedLinkIn(url, where, { postData });
+      await after?.(); // Baidu: картинку кладёт в страницу сайта
       gURLBar.view.close();
       gURLBar.handleRevert();
       gURLBar.blur();
@@ -112,13 +118,14 @@ UC_API.Windows.waitWindowLoading(window).then(() => {
   const onPaste = e => {
     const file = [...(e.clipboardData?.files || [])].find(f => f.type.startsWith("image/"));
     if (!file) return;
+    const eng = PrivateBrowsingUtils.isWindowPrivate(window) && Services.prefs.getBoolPref("browser.search.separatePrivateDefault", false) ? SearchService.defaultPrivateEngine : SearchService.defaultEngine; // синхронно: решить до preventDefault
+    if (!supportsImage(eng)) return; // у поисковика нет поиска по картинке — игнор, текст вставится как обычно
     e.preventDefault();
     e.stopPropagation();
     return searchImage(file);
   };
   gURLBar.inputField.addEventListener("paste", onPaste, true);
-  window.lumiUrlbarPaste = { onPaste, searchImage }; // для dev/check-urlbar.js
-  const { SearchService } = ChromeUtils.importESModule("moz-src:///toolkit/components/search/SearchService.sys.mjs");
+  window.lumiUrlbarPaste = { onPaste, searchImage, defaultEngine }; // для dev/check-urlbar.js
   const list = gURLBar.querySelector(".searchmode-switcher-panel-list");
   // в родной строке заголовок «This time search with:» (разовый поиск); у нас пункт меняет поисковик по умолчанию
   const header = gURLBar.querySelector(".searchmode-switcher-panel-description");

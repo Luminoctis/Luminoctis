@@ -21,7 +21,7 @@
   & > * { flex-shrink: 0; } /* столбец прокручивается, строки не сжимаются */
 }
 #lumi-time, #lumi-time-panel, #lumi-time-add {
-  & button, & select, & input, & textarea {
+  & button, & input, & textarea {
     font: inherit; color: var(--lumi-fg); background: var(--lumi-raised); border: 1px solid transparent; border-radius: 9px;
     box-sizing: border-box; min-height: 30px; padding: 0 10px;
     &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
@@ -86,7 +86,7 @@ body[lumi-mini] {
   & .lt-primary { flex: 1 1 100%; }
   & .lt-wide { flex-basis: 100%; }
 }
-.lt-lengths { display: grid; grid-template-columns: 1.3fr 1fr .8fr; gap: 6px; & select { min-width: 0; padding: 0 6px !important; } }
+.lt-lengths { display: grid; grid-template-columns: 1.3fr 1fr .8fr; gap: 6px; & .lt-dd { min-width: 0; padding: 0 6px !important; } }
 .lt-count { text-align: center; font-size: 11px; color: var(--lumi-dim); margin-top: -4px; }
 .lt-today { padding-top: 8px; border-top: 1px solid var(--lt-line); }
 .lt-today-row { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; font-variant-numeric: tabular-nums;
@@ -105,6 +105,9 @@ body[lumi-mini] {
 
 html[lumi-passive] #lumi-time { background: color-mix(in srgb, var(--lumi-surface, #1f2335) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); } /* мини-окно над большой страницей: стекло, как панель */
 
+/* светлая тема: стекло 38% над тёмными обоями даёт серое поле, тёмный текст на нём не читается — плотнее (атрибут [lumi-light] ставит lumi-palette) */
+html[lumi-light][lumi-passive] #lumi-time, html[lumi-light] body[lumi-full] #lumi-time-panel { background: color-mix(in srgb, var(--lumi-surface, #1f2335) 84%, transparent); }
+
 /* большой режим (?full=1, скрытая вкладка): столбца таймера нет — таймер это мини-окно рейки слева, панель стыкуется к его правому краю
  * (--lt-mini-r/-y/-h ставит time.js из реальной рамки), верх и низ те же, вид рамки тот же; панель всегда открыта, × не нужен */
 body[lumi-full] {
@@ -116,6 +119,8 @@ body[lumi-full] {
     background: color-mix(in srgb, var(--lumi-surface, #1f2335) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); border-radius: var(--lumi-radius, 16px);
     border-color: color-mix(in srgb, var(--lumi-accent) 55%, transparent); box-shadow: 0 24px 60px rgb(0 0 0 / .5); }
   & .lt-close { display: none; }
+  /* рейка справа (корень окна [lumi-rail-right], time.js place): мини-окно у правого края, панель — слева от него */
+  &[lumi-rail-right] #lumi-time-panel { left: 12px; right: calc(100% - var(--lt-mini-l, calc(100% - 352px)) + 6px); }
 }
 
 /* ---------- панели: выезжают слева, столбец таймера остаётся ---------- */
@@ -202,6 +207,24 @@ body.lt-block {
   & .lt-primary { background: var(--lumi-accent, #7aa2f7); color: var(--lumi-bg0, #16161e); font-weight: 600; }
 }
 
+/* выпадающий список мода (home/time-dd.js): кнопка + список в body страницы; тот же вид, что у кнопок и полей LumiTime */
+.lt-dd { display: inline-flex; align-items: center; justify-content: space-between; gap: 6px; min-width: 0; max-width: 100%; text-align: start; cursor: pointer;
+  & .lt-dd-cap { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  &::after { content: ""; flex: none; width: 6px; height: 6px; border: solid currentColor; border-width: 0 1.5px 1.5px 0; rotate: 45deg; translate: 0 -2px; opacity: .6; transition: rotate .15s; }
+  &[aria-expanded="true"] { background: color-mix(in srgb, var(--lumi-accent) 18%, var(--lumi-raised)); &::after { rotate: 225deg; translate: 0 2px; } } }
+.lt-dd-pop { position: fixed; z-index: 40; box-sizing: border-box; padding: 4px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto; max-width: calc(100vw - 16px);
+  background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(24px);
+  border: 1px solid var(--lt-line); border-radius: 12px; box-shadow: 0 12px 40px rgb(0 0 0 / .45);
+  font: 13px Inter, system-ui, sans-serif; color: var(--lumi-fg); scrollbar-width: thin; scrollbar-color: var(--lumi-raised) transparent;
+  & .lt-dd-item { padding: 6px 10px; border-radius: 8px; cursor: pointer; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    &.hl { background: color-mix(in srgb, var(--lumi-accent) 22%, transparent); }
+    &.on { color: var(--lumi-accent); font-weight: 600; } } }
+
+/* правка записи журнала */
+.lt-edit-btn { width: 28px; min-height: 24px !important; padding: 0 !important; background: none !important; color: var(--lumi-dim); &:hover { color: var(--lumi-fg); } }
+.lt-edit-row > td { padding: 6px 4px; }
+.lt-edit { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; & input[type="text"] { flex: 1; min-width: 110px; } & .lt-num { width: 58px; } & .lt-when { width: 190px; } & .lt-error { flex: 1 0 100%; } }
+
 /* тема — выпадающий список; блок сайтов пресета — раскрывающаяся строка под пресетом */
 .lt-topic-pick { width: 100%; min-width: 0; }
 .lt-preset-item { display: flex; flex-direction: column; gap: 4px; }
@@ -218,7 +241,7 @@ body.lt-block {
   background: color-mix(in srgb, var(--lumi-surface, #1f2335) 94%, transparent); backdrop-filter: blur(32px);
   border: 1px solid var(--lt-line); border-radius: 14px; box-shadow: 0 12px 40px rgb(0 0 0 / .45); font-size: 13px; color: var(--lumi-fg);
   & .lt-add-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-  & .lt-add-topic select, & .lt-add-topic input { width: 100%; }
+  & .lt-add-topic .lt-dd, & .lt-add-topic input { width: 100%; }
   & .lt-seg { display: flex; gap: 4px; & button { min-height: 30px !important; font-size: 12px;
     &[aria-pressed="true"] { background: color-mix(in srgb, var(--lumi-accent) 25%, var(--lumi-raised)); } } }
   & .lt-add-actions { display: flex; gap: 6px; & .lt-primary { flex: 1 1 0; } }
@@ -249,7 +272,9 @@ body.lt-block {
 .lt-icon-pop { position: fixed; z-index: 30; width: 236px; padding: 8px; display: flex; flex-direction: column; gap: 6px; border-radius: 12px;
   background: color-mix(in srgb, var(--lumi-surface, #1f2335) 88%, transparent); backdrop-filter: blur(24px); border: 1px solid var(--lt-line); box-shadow: 0 8px 28px rgba(0, 0, 0, .35); }
 .lt-icon-grid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 4px; }
-.lt-icon-pop button { min-height: 0; padding: 0; border-radius: 8px; }
+/* окошко лежит в body, а не в #lumi-time-panel — общие правила кнопок до него не доходят: без своего фона и цвета кнопки родные тёмные (на светлой теме значки не видны) */
+.lt-icon-pop button { min-height: 0; padding: 0; border-radius: 8px; border: 1px solid transparent; font: inherit; color: var(--lumi-fg); background: var(--lumi-raised); cursor: pointer;
+  &:hover { background: color-mix(in srgb, var(--lumi-raised) 70%, var(--lumi-fg) 12%); } &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; } }
 .lt-icon-cell { height: 32px; display: grid; place-items: center; color: var(--lumi-fg); & .lt-ico { margin: 0; width: 20px; height: 20px; } }
 .lt-icon-cell.on, .lt-icon-none.on { background: color-mix(in srgb, var(--lumi-accent) 30%, var(--lumi-raised)) !important; }
 .lt-icon-none { height: 28px; font-size: 12px; }

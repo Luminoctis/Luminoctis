@@ -176,6 +176,64 @@ export async function writeRaw(name, text) {
   Services.obs.notifyObservers(null, SAVED, name);
 }
 export const writeSheet = (name, items) => writeRaw(name, serialize(items));
+
+// ---------- слияние правок листа (страница держала устаревший текст: другое окно Home, Obsidian, быстрая заметка) ----------
+// правки a → b построчно: [{s, e, r}] — строки a[s..e) заменены на r
+function hunks(a, b) {
+  let p = 0, q = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  const x = a.slice(p, a.length - q), y = b.slice(p, b.length - q), n = x.length, m = y.length;
+  if (!n && !m) return [];
+  if (n * m > 4e6) return [{ s: p, e: p + n, r: y }]; // shortcut: огромная середина — одна правка целиком (при расхождении сохранятся обе версии), upgrade — Myers
+  const L = Array.from({ length: n + 1 }, () => new Uint32Array(m + 1));
+  for (let i = n - 1; i >= 0; i--) for (let j = m - 1; j >= 0; j--) L[i][j] = x[i] === y[j] ? L[i + 1][j + 1] + 1 : Math.max(L[i + 1][j], L[i][j + 1]);
+  const out = [];
+  let i = 0, j = 0, h = null;
+  while (i < n || j < m) {
+    if (i < n && j < m && x[i] === y[j]) { if (h) out.push(h); h = null; i++; j++; continue; }
+    h ??= { s: p + i, e: p + i, r: [] };
+    if (j < m && (i == n || L[i][j + 1] >= L[i + 1][j])) h.r.push(y[j++]); else h.e = p + ++i;
+  }
+  if (h) out.push(h);
+  return out;
+}
+// Трёхстороннее слияние: base — что читала страница, ours — её текст, theirs — что на диске. Правки в разных местах складываются, одинаковые берутся
+// один раз; правки в одном месте — остаются обе версии (чужая, потом наша): ничего не пропадает.
+export function merge3(base, ours, theirs) {
+  const B = base.split("\n");
+  const all = [...hunks(B, ours.split("\n")).map(h => ({ ...h, o: 1 })), ...hunks(B, theirs.split("\n")).map(h => ({ ...h, o: 0 }))].sort((u, v) => u.s - v.s || u.e - v.e);
+  const out = [];
+  let pos = 0;
+  for (let k = 0; k < all.length;) {
+    const S = all[k].s, grp = [all[k++]];
+    let E = grp[0].e;
+    while (k < all.length && (all[k].s < E || all[k].s == S)) { E = Math.max(E, all[k].e); grp.push(all[k++]); } // соседние строки — разные правки; вставки в одно место — одна
+    const side = o => {
+      const hs = grp.filter(h => h.o == o), r = [];
+      let i = S;
+      for (const h of hs) { r.push(...B.slice(i, h.s), ...h.r); i = h.e; }
+      return hs.length ? [...r, ...B.slice(i, E)] : null;
+    };
+    const a = side(1), b = side(0);
+    out.push(...B.slice(pos, S), ...(a == null ? b : b == null ? a : a.join("\n") == b.join("\n") ? a : [...b, ...a]));
+    pos = E;
+  }
+  return [...out, ...B.slice(pos)].join("\n");
+}
+// Запись листа с проверкой. base — текст файла, который читала страница (undefined/null — неизвестен, пишем как есть). Файл на диске не менялся
+// (с точностью до разметки) — пишем наш текст; изменили снаружи — сливаем и пишем слитый; своих правок нет — файл не трогаем, отдаём его.
+// Возвращает {text: что теперь на диске, merged: диск менялся без нас — странице перечитать}.
+// shortcut: между проверкой и записью — миллисекунды, не атомарно; upgrade — файловая блокировка.
+export async function saveSheet(name, ours, base, doc = false) {
+  const norm = doc ? t => t.replace(/\r\n/g, "\n") : t => serialize(parse(t));
+  const cur = base == null ? null : await store.readText(file(name), null);
+  if (cur == null || norm(cur) === norm(base)) { await writeRaw(name, ours); return { text: ours, merged: false }; }
+  if (norm(ours) === norm(base)) return { text: cur, merged: true };
+  const text = merge3(norm(base), norm(ours), norm(cur));
+  await writeRaw(name, text);
+  return { text, merged: true };
+}
 const PREV = "notes/boards.prev.json"; // прежняя раскладка: запасная, если boards.json повреждён
 const parseJSON = t => { try { return JSON.parse(t); } catch { return null; } };
 const usable = raw => Array.isArray(raw) || Array.isArray(raw?.rows);

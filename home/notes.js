@@ -10,12 +10,13 @@
 import * as md from "./notes-md.mjs";
 import { createLive } from "./notes-live.mjs";
 import { JS } from "./paths.js";
+import * as store from "./store.js";
 const { locale, t } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
 const root = document.getElementById("lumi-notes");
 const win = window.browsingContext.topChromeWindow;
 const DIR = "luminoctis.home.dir", NEW = "luminoctis.home.notes.new"; // NEW: "task" | "note" — чем становится новый пункт
-const MIN_H = 140, MIN_W = 180, DEF_W = 320, DEF_H = 420, IND = 28; // IND — отступ подпункта, как --ind в notes.css
+const MIN_H = 140, MIN_W = 180, DEF_W = 320, DEF_H = 420, IND = 28, SNAP = 12; // SNAP — на сколько px размер листа липнет к размеру другого листа // IND — отступ подпункта, как --ind в notes.css
 const NAMES = { red: t("Красный"), orange: t("Оранжевый"), yellow: t("Жёлтый"), green: t("Зелёный"), teal: t("Бирюзовый"), blue: t("Синий"), purple: t("Фиолетовый"), pink: t("Розовый"), gray: t("Серый") };
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 const btn = (text, cls, title) => { const b = el("button", cls, text); b.type = "button"; if (title) b.title = title; return b; };
@@ -44,13 +45,33 @@ const errBox = el("div", "lumi-notes-error");
 errBox.hidden = true;
 errBox.title = t("Скрыть");
 errBox.onclick = () => (errBox.hidden = true);
-root.replaceChildren(box, errBox);
+// папка данных недоступна (мод перешёл на запасную в профиле или диск не отвечает) — одна спокойная подсказка с кнопкой в настройки; закрыли — до смены папки не возвращается
+const hintBox = el("div", "lumi-notes-error calm lumi-notes-hint"), hintOpen = btn(t("Выбрать папку"), "lumi-notes-hint-btn");
+hintBox.hidden = true;
+hintBox.append(el("span", "", t("Папка данных недоступна — выберите папку в настройках")), hintOpen);
+hintBox.onclick = e => { if (e.target != hintOpen) hintBox.hidden = true; };
+hintOpen.onclick = () => { hintBox.hidden = true; win.luminoctis?.openSettings("home/home-dir"); };
+let hinted = false;
+const dirHint = () => { if (!hinted) { hinted = true; hintBox.hidden = false; } };
+root.replaceChildren(box, errBox, hintBox);
 
-function fail(e, what) {
+// Подсказка про папку — только когда сама папка недоступна (запасная включена, нельзя создать/писать в каталог, список листов не читается). Ошибка диска на одном файле
+// (занят антивирусом/OneDrive/Obsidian) — тихий повтор через 1,5 с, до 3 раз (again; правка остаётся dirty), потом красный текст с причиной.
+const tries = new Map(); // what → сколько раз подряд повторяли
+async function fail(e, what, again) {
   console.error("LumiNotes:", what, e);
-  const io = e instanceof DOMException; // ошибка диска — спокойная подсказка вместо текста ошибки
-  errBox.classList.toggle("calm", io);
-  errBox.textContent = io ? t("Не удалось открыть папку данных — выберите её в настройках") : t("LumiNotes: не удалось {0} — {1}", what, e?.message ?? e);
+  if (DOMException.isInstance(e)) {
+    if (e.name == "InvalidStateError" || !(await store.healthy())) return dirHint();
+    const n = tries.get(what) ?? 0;
+    if (again && n < 3) return void (tries.set(what, n + 1), setTimeout(again, 1500));
+    tries.delete(what);
+    errBox.classList.remove("calm");
+    errBox.textContent = t("LumiNotes: не удалось {0} — файл занят другой программой или нет доступа ({1})", what, e.name);
+    errBox.hidden = false;
+    return;
+  }
+  errBox.classList.remove("calm");
+  errBox.textContent = t("LumiNotes: не удалось {0} — {1}", what, e?.message ?? e);
   errBox.hidden = false;
 }
 
@@ -64,10 +85,16 @@ function flush(b) {
   clearTimeout(b.timer);
   if (!b.dirty) return b.saving;
   b.dirty = false;
-  const doc = isDoc(b), data = doc ? b.text ?? "" : b.cards.map(c => ({ ...c })), name = b.name;
-  b.saving = (b.saving ?? Promise.resolve()).then(() => (doc ? md.writeRaw(name, data) : md.writeSheet(name, data)))
-    .then(() => (lastSig = null)) // диск изменили мы — следующее чтение перерисует
-    .catch(e => { b.dirty = true; fail(e, t("сохранить «{0}»", name)); });
+  const doc = isDoc(b), name = b.name, ours = doc ? b.text ?? "" : md.serialize(b.cards.map(c => ({ ...c })));
+  // b.base — текст файла при последнем чтении/записи: если на диске уже другой (другое окно, Obsidian), правки сливаются, а не затирают (md.saveSheet)
+  const what = t("сохранить «{0}»", name);
+  b.saving = (b.saving ?? Promise.resolve()).then(async () => {
+    const r = await md.saveSheet(name, ours, b.base, doc);
+    if (!r.merged) b.base = r.text; // при слиянии base не трогаем: его обновит перечитывание (иначе устаревшие карточки откатили бы чужую правку)
+    else setTimeout(() => { lastSig = null; reload(); }); // слили чужое — перечитать лист (пропустится, пока идёт ввод; следующая запись снова сольётся)
+  })
+    .then(() => { lastSig = null; tries.delete(what); if (!errBox.classList.contains("calm")) errBox.hidden = true; }) // диск изменили мы — следующее чтение перерисует
+    .catch(e => { b.dirty = true; fail(e, what, () => boards.includes(b) && flush(b)); });
   return b.saving;
 }
 const flushAll = () => Promise.all(boards.map(flush));
@@ -82,7 +109,7 @@ const saveLayout = () => (lp = lp.then(async () => {
     errBox.textContent = t("Раскладка изменилась в другом окне — правка не сохранена, повтори её");
     errBox.hidden = false;
   });
-}).catch(e => fail(e, t("сохранить раскладку"))));
+}).catch(e => fail(e, t("сохранить раскладку"), saveLayout)));
 const sync = () => { boards = layout.rows.flatMap(r => r.sheets).map(m => byMeta.get(m)); }; // плоский список — по раскладке
 const rowOf = b => layout.rows.find(r => r.sheets.includes(b.meta));
 
@@ -101,21 +128,24 @@ async function load() {
     const raws = new Map(await Promise.all(lay.rows.flatMap(r => r.sheets).map(async m => [m.name, await md.readRaw(m.name)])));
     const sig = JSON.stringify([lay, [...raws]]);
     errBox.hidden = true;
+    if (store.usingFallback()) dirHint();
     if (sig == lastSig && !boards.some(b => b.dirty)) return;
     lastSig = sig;
     await Promise.all(lay.rows.flatMap(r => r.sheets).map(async meta => {
       const b = old.get(meta.name);
       if (b?.dirty) return map.set(meta, Object.assign(b, { meta }));
-      if (meta.mode == "doc") return map.set(meta, Object.assign(b ?? { name: meta.name, cards: [] }, { meta, cards: [], text: raws.get(meta.name) }));
+      const base = raws.get(meta.name);
+      if (meta.mode == "doc") return map.set(meta, Object.assign(b ?? { name: meta.name, cards: [] }, { meta, cards: [], text: base, base }));
       const cards = md.parse(raws.get(meta.name));
       const same = b && md.serialize(cards) == md.serialize(b.cards); // не менялось — оставить объекты (на них держится «свёрнуто»)
-      map.set(meta, b ? Object.assign(b, { cards: same ? b.cards : cards, meta }) : { name: meta.name, meta, cards });
+      map.set(meta, b ? Object.assign(b, { cards: same ? b.cards : cards, meta, base }) : { name: meta.name, meta, cards, base });
     }));
     layout = lay;
     layoutBase = md.baseOf(lay);
     byMeta = map;
     sync();
-  } catch (e) { return fail(e, t("прочитать заметки")); }
+    tries.delete(t("прочитать заметки"));
+  } catch (e) { return fail(e, t("прочитать заметки"), () => { lastSig = null; reload(); }); }
   render();
   Services.obs.notifyObservers(null, md.SAVED); // рейка пересчитывает точку задач; Home на SAVED не подписана
 }
@@ -245,8 +275,12 @@ function composer(d, field, onKind) {
     const w = el("span", "lumi-date"), b = btn("", "lumi-date-btn"), clear = ibtn("x", "lumi-date-clear", t("Убрать дату")), inp = el("input");
     inp.type = "date";
     inp.tabIndex = -1;
-    b.onclick = () => { try { inp.showPicker(); } catch { inp.focus(); } };
-    inp.onchange = () => { d[key] = inp.value; refresh(); field.focus(); };
+    b.onclick = () => { // окно выбора даты отбирает фокус у поля — без метки blur поля правки закрыл бы поле раньше, чем придёт дата
+      field._picking = true;
+      field.addEventListener("focus", () => { field._picking = false; }, { once: true });
+      try { inp.showPicker(); } catch { field._picking = false; inp.focus(); }
+    };
+    inp.onchange = () => { field._picking = false; d[key] = inp.value; refresh(); field.focus(); };
     clear.onclick = () => { d[key] = ""; refresh(); };
     w.append(b, inp, clear);
     dates.append(w);
@@ -281,7 +315,7 @@ function grip(cls, title) { const g = el("div", cls); g.title = title; return g;
 const grips = s => s.append(grip("lumi-sheet-grip", t("Ширина листа")), grip("lumi-sheet-grip-b", t("Высота листа")), grip("lumi-sheet-grip-c", t("Размер листа")));
 const isDoc = b => b.meta.mode == "doc";
 function docEl(b) { // живой редактор: правка сразу в b.text, запись — save(b); при уходе фокуса — сразу
-  const live = createLive({ text: b.text ?? "", onChange: t => { b.text = t; save(b); }, onLink: href => win.openTrustedLinkIn(href, "tab"), onBlur: () => flush(b) }).el;
+  const live = createLive({ text: b.text ?? "", onChange: t => { b.text = t; save(b); }, onCheck: on => { if (on) win.lumiSounds?.play("task-done"); }, onLink: href => win.openTrustedLinkIn(href, "tab"), onBlur: () => flush(b) }).el;
   live.style.setProperty("--lumi-ph", JSON.stringify(t("Нажми, чтобы писать…"))); // подсказка пустого листа (home/notes.css) — CSS сам перевести не может
   return live;
 }
@@ -482,7 +516,7 @@ function openEditor(b, p, keep) { // keep — { text } черновик, кот�
     render();
     openEditor(b, np, { text: ta.value });
   };
-  ta.addEventListener("blur", e => { if (!comp.contains(e.relatedTarget)) commit(); });
+  ta.addEventListener("blur", e => { if (!ta._picking && !comp.contains(e.relatedTarget)) commit(); });
   ta.addEventListener("input", () => (ta.rows = Math.min(8, ta.value.split("\n").length + 1)));
   ta.addEventListener("keydown", e => {
     if (e.key == "Tab") { e.preventDefault(); e.stopPropagation(); move(e.shiftKey ? outdent : indent); }
@@ -511,7 +545,7 @@ function openAdd(b, p) { // строка ввода подпункта под п
     const text = input.value.trim();
     if (text) { c.children.push(...unhead(itemsFrom(text, d))); save(b); render(); if (again) openAdd(b, p); } else row.remove();
   };
-  input.addEventListener("blur", e => { if (!row.contains(e.relatedTarget)) finish(false); });
+  input.addEventListener("blur", e => { if (!input._picking && !row.contains(e.relatedTarget)) finish(false); });
   input.addEventListener("keydown", e => {
     if (e.key == "Enter" && !e.shiftKey && !e.isComposing) { e.preventDefault(); if (input.value.trim()) finish(true); }
     else if (e.key == "Escape") { e.preventDefault(); e.stopPropagation(); input.value = ""; finish(false); }
@@ -594,7 +628,7 @@ async function newSheet() {
   let name = t("Новый лист");
   for (let k = 2; boards.some(b => b.name.toLowerCase() == name.toLowerCase()); k++) name = t("Новый лист {0}", k);
   await md.writeSheet(name, []);
-  const meta = { name, color: null, width: null, height: null }, b = { name, meta, cards: [] };
+  const meta = { name, color: null, width: null, height: null }, b = { name, meta, cards: [], base: "" };
   byMeta.set(meta, b);
   return b;
 }
@@ -627,7 +661,7 @@ async function deleteSheet(b) { // файл — в Корзину Windows (md.tr
     let name = meta.name;
     for (let k = 2; boards.some(o => o.name.toLowerCase() == name.toLowerCase()); k++) name = `${meta.name} ${k}`; // имя заняли — берём соседнее
     await md.writeRaw(name, text);
-    const nm = { ...meta, name }, nb = { name, meta: nm, cards: meta.mode == "doc" ? [] : md.parse(text), ...(meta.mode == "doc" && { text }) };
+    const nm = { ...meta, name }, nb = { name, meta: nm, cards: meta.mode == "doc" ? [] : md.parse(text), base: text, ...(meta.mode == "doc" && { text }) };
     let r = gone ? null : layout.rows.includes(row) ? row : layout.rows[Math.min(rowIndex, layout.rows.length - 1)]; // раскладку могли перечитать — тогда ряд ищем по месту
     if (!r) { r = row; r.sheets = []; layout.rows.splice(Math.min(rowIndex, layout.rows.length), 0, r); } // исчезнувший ряд возвращается тем же (цвет, высота)
     r.sheets.splice(Math.min(index, r.sheets.length), 0, nm);
@@ -681,11 +715,19 @@ function deleteRow(r) { // листы не пропадают: уезжают в
 }
 
 function moveItem(from, p, to, tp) { // пункт p (с подпунктами) встаёт соседом перед пунктом tp листа to; tp = null — в конец верхнего уровня
-  if (from == to && tp && inside(tp, p)) return; // в самого себя или своего потомка нельзя
   if (tp && tp.length > 1 && itemAt(from, p).heading) tp = tp.slice(0, 1); // заголовок живёт только на верхнем уровне
-  const target = tp ? itemAt(to, tp) : null, list = tp ? listAt(to, tp.slice(0, -1)) : to.cards; // ссылки до удаления: индексы сдвинутся
+  if (tp) moveTo(from, p, to, tp.slice(0, -1), tp.at(-1)); else moveTo(from, p, to, [], to.cards.length);
+}
+function moveTo(from, p, to, pp, at) { // пункт p (с подпунктами) становится детьми пункта pp листа to (pp = [] — верхний уровень) на место at (индексы до удаления)
+  if (from == to && inside(pp, p)) return; // в самого себя или своего потомка нельзя
+  const host = pp.length ? itemAt(to, pp) : null, c0 = itemAt(from, p);
+  if (host?.heading || (c0.heading && pp.length)) return; // заголовки подпунктов не берут и сами не вкладываются
+  const list = listAt(to, pp);
+  let ref = list[at] ?? null; // ссылка до удаления: индексы сдвинутся
+  if (ref == c0) ref = list[at + 1] ?? null;
   const [c] = listAt(from, p.slice(0, -1)).splice(p.at(-1), 1);
-  list.splice(target ? list.indexOf(target) : list.length, 0, c);
+  list.splice(ref ? list.indexOf(ref) : list.length, 0, c);
+  if (host) collapsed.delete(host); // бросили подпунктом в свёрнутый — разворачиваем
   save(from);
   if (to != from) save(to);
   render();
@@ -758,6 +800,7 @@ box.addEventListener("change", e => {
   const b = e.target.closest(".lumi-sheet")._b;
   const path = pathOf(e.target.closest(".lumi-card"));
   itemAt(b, path).check = e.target.checked;
+  if (e.target.checked) win.lumiSounds?.play("task-done"); // при снятии галочки молчим
   save(b);
   render(); // зачёркивание, счётчики и цвет дат зависят от галочки
   cardLi(b, path)?.querySelector("input[type=checkbox]")?.classList.add("pop");
@@ -784,17 +827,31 @@ box.addEventListener("pointerdown", e => {
   e.preventDefault();
   const wide = !g.matches(".lumi-sheet-grip-b"), tall = !g.matches(".lumi-sheet-grip"), node = g.parentNode, meta = node._b.meta;
   const x0 = e.clientX, y0 = e.clientY, w0 = node.offsetWidth, h0 = node.offsetHeight;
+  const others = [...box.querySelectorAll(".lumi-sheet")].filter(n => n != node); // порядок: свой ряд, потом остальные — при равной близости побеждает сосед по ряду
+  const rowOf = n => n.closest(".lumi-row");
+  others.sort((a, b) => (rowOf(b) == rowOf(node)) - (rowOf(a) == rowOf(node)));
+  const snap = (v, key, hits) => { // ближайший размер другого листа в пределах SNAP
+    let best = null;
+    for (const n of others) { const o = n[key]; if (Math.abs(o - v) <= SNAP && (!best || Math.abs(o - v) < Math.abs(best.o - v))) best = { o, n }; }
+    if (best) hits.add(best.n);
+    return best ? best.o : v;
+  };
   let w = w0, h = h0, moved = false;
   try { g.setPointerCapture(e.pointerId); } catch {} // синтетические события проверок не имеют активного указателя
   g.classList.add("active");
   g.onpointermove = ev => {
     moved = true;
-    if (wide) { w = Math.round(Math.max(MIN_W, w0 + ev.clientX - x0)); node.style.setProperty("--w", w + "px"); }
-    if (tall) { h = Math.round(Math.max(MIN_H, h0 + ev.clientY - y0)); node.style.setProperty("--h", h + "px"); }
+    const hits = new Set(); // Alt — без прилипания
+    if (wide) { w = Math.round(Math.max(MIN_W, w0 + ev.clientX - x0)); if (!ev.altKey) w = snap(w, "offsetWidth", hits); node.style.setProperty("--w", w + "px"); }
+    if (tall) { h = Math.round(Math.max(MIN_H, h0 + ev.clientY - y0)); if (!ev.altKey) h = snap(h, "offsetHeight", hits); node.style.setProperty("--h", h + "px"); }
+    box.querySelectorAll(".lumi-snap").forEach(n => n.classList.toggle("lumi-snap", hits.has(n)));
+    for (const n of hits) n.classList.add("lumi-snap");
+    node.classList.toggle("lumi-snap", hits.size > 0);
   };
   g.onpointerup = g.onpointercancel = () => {
     g.onpointermove = g.onpointerup = g.onpointercancel = null;
     g.classList.remove("active");
+    box.querySelectorAll(".lumi-snap").forEach(n => n.classList.remove("lumi-snap"));
     if (!moved) return;
     if (wide) meta.width = w;
     if (tall) meta.height = h;
@@ -877,14 +934,22 @@ function sheetGhost(s) {
   g.style.height = s.offsetHeight + "px";
   return g;
 }
-function cardTarget(e) { // лист, в который бросаем, и пункт, перед которым встанет перетаскиваемый (null — в конец верхнего уровня)
+const depthOf = n => Number(n.style.getPropertyValue("--d"));
+function cardTarget(e) { // лист и место: вертикаль курсора выбирает щель между карточками, сдвиг по горизонтали от точки захвата — уровень (0…уровень карточки сверху + 1)
   const s = e.target.closest?.(".lumi-sheet");
   if (!s || isDoc(s._b)) return null; // в документ карточки не кладутся
-  const ul = s.querySelector(".lumi-cards"), y = e.clientY - ul.getBoundingClientRect().top + ul.scrollTop, all = [...ul.querySelectorAll(".lumi-card")];
-  const mine = s._b == drag.b, last = drag.nodes.at(-1);
-  if (mine && y >= drag.nodes[0].offsetTop && y <= last.offsetTop + last.offsetHeight) return null; // над своей «дыркой» (и своими подпунктами) — никуда
-  const li = all.find(n => !(mine && drag.nodes.includes(n)) && y < n.offsetTop + n.offsetHeight / 2) ?? null;
-  return { all, li, to: s._b, tp: li && pathOf(li), ul };
+  const ul = s.querySelector(".lumi-cards"), y = e.clientY - ul.getBoundingClientRect().top + ul.scrollTop, mine = s._b == drag.b;
+  const all = [...ul.querySelectorAll(".lumi-card")].filter(n => !(mine && drag.nodes.includes(n)));
+  const li = all.find(n => y < n.offsetTop + n.offsetHeight / 2 && (!drag.heading || !depthOf(n))) ?? null; // карточка после щели (заголовок встаёт только перед верхним уровнем)
+  const prev = li ? all[all.indexOf(li) - 1] : all.at(-1), pp0 = prev && pathOf(prev), pd = prev ? depthOf(prev) : -1;
+  const max = drag.heading || !prev ? 0 : pd + (itemAt(s._b, pp0).heading ? 0 : 1), min = Math.min(li ? depthOf(li) : 0, max);
+  const level = !prev || drag.heading ? 0 : Math.max(min, Math.min(max, pd + Math.round((e.clientX - drag.x0) / IND)));
+  let pp, at;
+  if (li && level == depthOf(li)) { const q = pathOf(li); pp = q.slice(0, -1); at = q.at(-1); } // встаёт перед li, соседом
+  else if (!prev) { pp = []; at = 0; }
+  else if (level == pd + 1) { pp = pp0; at = itemAt(s._b, pp0).children.length; } // подпункт карточки сверху — в конец её детей
+  else { pp = pp0.slice(0, level); at = pp0[level] + 1; } // после предка на этом уровне
+  return { all, li, to: s._b, pp, at, level, ul };
 }
 function rowTarget(e) { // место ряда: перед первым рядом, чья середина ниже курсора (кроме самого перетаскиваемого)
   const rows = [...box.querySelectorAll(".lumi-row")], y = e.clientY - box.getBoundingClientRect().top;
@@ -913,7 +978,7 @@ function showSlot(parent, css, line) {
   Object.assign(slot.style, css);
 }
 function showDrag(t) { // сдвиги соседей и метка места под текущую цель (null — всё на место)
-  const key = !t ? "" : drag.rowMove ? `row:${t.k}` : drag.card ? `${t.to.name}|${t.tp?.join(".") ?? "end"}` : `${layout.rows.indexOf(t.r)}:${t.k}`;
+  const key = !t ? "" : drag.rowMove ? `row:${t.k}` : drag.card ? `${t.to.name}|${t.pp.join(".")}.${t.at}|${t.li?.dataset.p ?? "end"}|${t.level}` : `${layout.rows.indexOf(t.r)}:${t.k}`;
   if (key == lastKey) return;
   lastKey = key;
   const map = new Map(), moving = !calm();
@@ -924,7 +989,7 @@ function showDrag(t) { // сдвиги соседей и метка места �
     const e = t.rows.findLast(n => n != drag.node);
     showSlot(box, { left: "24px", right: "24px", width: "auto", top: (t.nxt ? t.nxt.offsetTop - 10 : e ? e.offsetTop + e.offsetHeight + 6 : 0) + "px", height: "4px" }, true);
   } else if (drag.card) {
-    const H = drag.h, first = drag.nodes[0], last = drag.nodes.at(-1), depth = t.tp ? (drag.heading && t.tp.length > 1 ? 0 : t.tp.length - 1) : 0;
+    const H = drag.h, first = drag.nodes[0], last = drag.nodes.at(-1), depth = t.level;
     if (moving) {
       for (const n of first.parentNode.querySelectorAll(".lumi-card")) if (after(last, n)) map.set(n, -H); // исходное место смыкается
       if (t.li) for (const n of t.all) if (!drag.nodes.includes(n) && (n == t.li || after(t.li, n))) map.set(n, dy(n) + H); // место вставки раскрывается
@@ -964,7 +1029,7 @@ box.addEventListener("dragstart", e => {
   e.dataTransfer.effectAllowed = "move";
   if (li) {
     const p = pathOf(li), nodes = [...li.parentNode.querySelectorAll(".lumi-card")].filter(o => inside(pathOf(o), p)), last = nodes.at(-1);
-    drag = { card: true, b, p, nodes, h: last.offsetTop + last.offsetHeight - li.offsetTop + 6, heading: !!itemAt(b, p).heading };
+    drag = { card: true, b, p, nodes, x0: e.clientX, h: last.offsetTop + last.offsetHeight - li.offsetTop + 6, heading: !!itemAt(b, p).heading };
     setImage(e.dataTransfer, cardGhost(nodes, s), e, li);
     nodes.forEach(n => n.classList.add("lumi-hole"));
   } else {
@@ -986,7 +1051,7 @@ box.addEventListener("drop", e => {
   e.preventDefault();
   endDrag();
   if (!t) return;
-  if (d.rowMove) moveRow(d.r, t.k); else if (d.card) moveItem(d.b, d.p, t.to, t.tp); else moveSheet(d.b, t.r, t.k);
+  if (d.rowMove) moveRow(d.r, t.k); else if (d.card) moveTo(d.b, d.p, t.to, t.pp, t.at); else moveSheet(d.b, t.r, t.k);
 });
 box.addEventListener("dragend", endDrag); // Esc или мимо — всё плавно возвращается
 
@@ -994,7 +1059,7 @@ box.addEventListener("dragend", endDrag); // Esc или мимо — всё пл
 document.addEventListener("visibilitychange", () => (document.hidden ? flushAll() : reload()));
 window.addEventListener("focus", reload);
 window.addEventListener("pagehide", flushAll);
-const onDir = () => flushAll().then(() => { boards = []; lastSig = null; reload(); });
+const onDir = () => flushAll().then(() => { hinted = false; hintBox.hidden = true; boards = []; lastSig = null; reload(); });
 const onShow = () => reload();
 const onChanged = () => reload();
 const onNew = () => { for (const b of boards) { b.kind = undefined; b.draft = null; } lastSig = null; reload(); }; // новый вид по умолчанию — всем строкам ввода
@@ -1010,5 +1075,5 @@ window.addEventListener("unload", () => {
 });
 
 // для dev/check-home-notes.js
-window.lumiNotes = { get boards() { return boards; }, get layout() { return layout; }, get undoDepth() { return undoStack.length; }, reload, flushAll, moveItem, moveSheet, moveRow, undo };
+window.lumiNotes = { get boards() { return boards; }, get layout() { return layout; }, get undoDepth() { return undoStack.length; }, reload, flushAll, moveItem, moveTo, moveSheet, moveRow, undo };
 reload();

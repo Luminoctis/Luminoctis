@@ -170,6 +170,8 @@
 @media (prefers-reduced-motion: reduce) {
   #urlbar .urlbar-background::before { transition: opacity 120ms; }
 }
+/* Родная полоска загрузки Zen (создаётся в .browserSidebarContainer на время загрузки) без полосы вкладок Zen висела над сайтом — прячем, у мода своя в поле адреса */
+#zen-loading-progress-bar { display: none !important; }
 
 /* ---------- 4. Выгруженные вкладки — серые ---------- */
 .tabbrowser-tab:is([pending], [discarded]) .tab-content {
@@ -223,9 +225,11 @@
   transition: background-color 0.15s, color 0.15s, box-shadow 0.2s;
   &::before { content: ""; display: block; width: 20px; height: 20px; margin: 0 auto; background: currentColor;
     mask: center / contain no-repeat url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m12 3 9 5-9 5-9-5zM3 13l9 5 9-5'/%3E%3C/svg%3E"); }
-  &:hover { background: var(--lumi-surface); box-shadow: var(--lumi-rail-glow); }
+  &:hover, &[lumi-library-open] { background: var(--lumi-surface); box-shadow: var(--lumi-rail-glow); } /* lumi-library-open — открыта Библиотека Zen (js/lumi-rail.uc.js) */
   &:focus-visible { outline: 2px solid var(--lumi-accent); outline-offset: 1px; }
 }
+/* Прозрачная накладка, пока открыта Библиотека: клик по области сайтов её закрывает и ничего не нажимает под собой. Ниже библиотеки (z 9), выше области сайтов; полоса вкладок и рейка свободны */
+#lumi-library-veil { position: absolute; inset: 36px 0 0 48px; z-index: 8; -moz-window-dragging: no-drag; }
 .lumi-sep { width: 24px; height: 1px; background: var(--lumi-line); margin: 4px 0; flex-shrink: 0; }
 .lumi-spacer { flex-grow: 1; }
 
@@ -387,6 +391,7 @@
  * Над скрытой вкладкой LumiTime целиком ([lumi-passive]) затемнения нет и клики проходят к большой странице. */
 :root[lumi-glass] #lumi-time-backdrop[lumi-passive], #lumi-time-backdrop[lumi-passive] { background: none; pointer-events: none; animation: none; } /* :root[lumi-glass] — иначе стекловое правило (30% тёмного) выше по специфичности и большой LumiTime затемнён */
 #lumi-time-frame[lumi-passive] { background: color-mix(in srgb, var(--lumi-surface) 38%, transparent); backdrop-filter: blur(32px) saturate(1.2); } /* над большой страницей LumiTime — стекло, без затемнения */
+:root[lumi-light] #lumi-time-frame[lumi-passive] { background: color-mix(in srgb, var(--lumi-surface) 84%, transparent); } /* светлая тема: плотнее, как панель страницы (home/time.css) */
 #lumi-time-frame {
   bottom: auto; width: 340px; height: min(940px, calc(100% - 2 * var(--lumi-pin-y))); /* почти вдвое выше прежних 486px: внутри весь главный вид LumiTime, лишнее прокручивается */
   display: flex; flex-direction: column; overflow: hidden;
@@ -428,7 +433,8 @@
   & .lumi-player-cover {
     width: 34px; height: 34px; border-radius: 10px;
     background-color: var(--lumi-surface); background-size: 18px;
-    transition: filter 180ms;
+    transition: filter 180ms, width 180ms ease-in, height 180ms ease-in, margin 180ms ease-in, border-radius 180ms, background-color 180ms;
+    transition-delay: 0ms, calc(80ms + var(--ri, 0) * 30ms), calc(80ms + var(--ri, 0) * 30ms), calc(80ms + var(--ri, 0) * 30ms), calc(80ms + var(--ri, 0) * 30ms), calc(80ms + var(--ri, 0) * 30ms);
     position: relative; cursor: pointer;
     /* при наведении — затемнение и значок паузы/воспроизведения (маски те же, что у .lumi-player-play) */
     &::before, &::after { content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity 150ms; pointer-events: none; }
@@ -462,6 +468,8 @@
     opacity: 1; transition: opacity 150ms ease-out calc(140ms + var(--i, 0) * 35ms);
   }
   & .lumi-player-vol { pointer-events: auto; cursor: default; }
+  /* иконка — вся левая колонка карточки на всю высоту (клик = пауза/играть), сама иконка по центру колонки; поля гасят padding карточки */
+  & .lumi-player-cover { width: 40px; height: 54px; margin: -3px 0 -15px -3px; border-radius: 0; background-color: transparent; transition-duration: 200ms; transition-timing-function: var(--ease-out); transition-delay: calc(var(--i, 0) * 35ms); }
   &.playing .lumi-player-cover { filter: none; } /* серость снимаем только у играющих */
 }
 @media (prefers-reduced-motion: reduce) {
@@ -607,11 +615,20 @@ zen-library {
   background: var(--pill-bg);
 }
 /* Узкие вкладки. Ширина контейнера = вкладка минус 4px отступа; полная вкладка = 206. Порядок уступок: название (само сжимается) →
- * «−» и «×» сливаются в одну кнопку (<206) → значок Glance/звук → общая кнопка → только значок сайта. Размеры: значок 9+16=25, кнопки/звук 20,
- * Glance 18+2, промежутки 8. Минимум: значок+название(0)+кнопка = 61; +звук = 89; +Glance = 117 (с кнопкой и звуком). */
-@container (width < 206px) { /* сжата: «−» и «×» на одном месте — «−», пока вкладку можно выгрузить, иначе «×» */
+ * «−» и «×» сливаются в одну кнопку (вдвое и уже, ≤103; раньше — если рядом значок Glance/звук, иначе они не помещаются) → значок Glance/звук →
+ * общая кнопка → только значок сайта. Размеры: значок 9+16=25, кнопки/звук 20, Glance 18+2, промежутки 8, «−» налезает на «×» на 6.
+ * Минимум: значок+название(0)+две кнопки = 83, одна общая = 61; +звук или Glance 28 каждый. */
+@container (max-width: 103px) { /* сжата вдвое и сильнее: «−» и «×» на одном месте — «−», пока вкладку можно выгрузить, иначе «×» */
   .lumi-tab-unload { margin-right: 0 !important; }
   .lumi-tab[unloadable] .lumi-tab-close { display: none; }
+}
+@container (max-width: 110px) { /* с одним значком (звук/Glance) две кнопки не помещаются — 83+28 */
+  .lumi-tab:is([glance], [soundplaying], [muted]) .lumi-tab-unload { margin-right: 0 !important; }
+  .lumi-tab:is([glance], [soundplaying], [muted])[unloadable] .lumi-tab-close { display: none; }
+}
+@container (min-width: 117px) and (max-width: 138px) { /* и звук, и Glance (до 116 Glance прячется сам) — 83+56 */
+  .lumi-tab[glance]:is([soundplaying], [muted]) .lumi-tab-unload { margin-right: 0 !important; }
+  .lumi-tab[glance]:is([soundplaying], [muted])[unloadable] .lumi-tab-close { display: none; }
 }
 @container (max-width: 116px) { .lumi-tab:is([soundplaying], [muted]) .lumi-tab-glance { display: none !important; } }
 @container (max-width: 88px) { .lumi-tab-glance, .lumi-tab-audio { display: none !important; } }
@@ -737,6 +754,9 @@ img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb,
 /* список папки: появление и уход (~150мс), клик по фишке/мимо/по строке закрывает с уходом (js/lumi-tabstrip.uc.js: hideFolder) */
 @keyframes lumi-folder-in { from { opacity: 0; transform: translateY(-6px) scale(0.97); } }
 @keyframes lumi-folder-out { to { opacity: 0; transform: translateY(-6px) scale(0.97); } }
+/* пока над списком тащат чужую вкладку — запас на одну строку (32px + щель 2px): последняя остаётся видна, в конец можно бросить; в низ окна упирается max-height → прокрутка */
+#lumi-folder-list { transition: padding-bottom 120ms ease-out; &[lumi-dropping] { padding-bottom: 34px; } }
+@media (prefers-reduced-motion: reduce) { #lumi-folder-list { transition: none; } }
 #lumi-folder-list { transform-origin: top left; animation: lumi-folder-in 150ms cubic-bezier(0.2, 0.8, 0.2, 1); }
 #lumi-folder-panel[closing] #lumi-folder-list { animation: lumi-folder-out 150ms ease-in forwards; }
 @media (prefers-reduced-motion: reduce) { #lumi-folder-list, #lumi-folder-panel[closing] #lumi-folder-list { animation: none; } }
@@ -762,7 +782,7 @@ img[lumi-dot] { background: radial-gradient(circle at center, color-mix(in srgb,
   &[muted] .lumi-fr-audio { background-image: url("chrome://global/skin/media/audio-muted.svg"); }
   /* перетаскивание (js/lumi-tabstrip.uc.js): остальные строки расступаются сдвигом translate, тянущаяся гаснет */
   transition: translate 150ms cubic-bezier(0.2, 0.8, 0.2, 1);
-  &[dragging] { opacity: 0.35; }
+  &[dragging] { opacity: 0; } /* соседи сдвигаются на её место — полупрозрачный след накладывался бы на них */
   /* при «уменьшить анимацию» вместо сдвигов — метка места, куда встанет вкладка */
   &[drop-before] { box-shadow: 0 -2px 0 var(--lumi-accent); }
   &[drop-after] { box-shadow: 0 2px 0 var(--lumi-accent); }
@@ -969,6 +989,58 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 /* и торчащий кусок адресной строки (у #urlbar свой visibility:visible поверх collapse панели) */
 :root[inDOMFullscreen="true"] :is(#zen-appcontent-navbar-wrapper, #urlbar-container, #urlbar) { display: none !important; }
 
+/* ---------- 12в. Рейка справа (настройка luminoctis.rail.side = right, «Рейка» в настройках; js/lumi-rail.uc.js ставит корню [lumi-rail-right]) ----------
+ * Полоса вкладок идёт по всей ширине окна сверху, кнопки окна — в правом верхнем углу, как обычно; рейка — колонкой справа ПОД полосой (36px = --lumi-strip-h),
+ * контент слева от неё. Зеркало слева: порядок в #browser, отступы, мини-окна у правого края области, панель настроек, библиотека, плееры, Compacting. */
+:root[lumi-rail-right]:not([inDOMFullscreen="true"]) {
+  & #lumi-rail { order: 2; margin: 36px 0 8px 0; padding-top: 8px; border-width: 0 0 1px 1px; border-radius: 0 0 0 12px; }
+  & #zen-appcontent-wrapper { margin: 0 8px 0 0 !important; }
+  & #lumi-tabstrip { margin-right: -56px; } /* до самого правого края окна: над рейкой (48) и зазором (8) */
+  & #lumi-logo::after { inset: -4px; } /* зона до угла окна нужна только слева: справа над «L» полоса вкладок */
+  & zen-library { left: auto !important; right: 48px !important; top: 36px !important; background: var(--lumi-solid); } /* под полосой: кнопки окна на месте; фон — вместо сдвинутой области сайтов, которая слева была бы видна между карточками */
+  & #lumi-library-veil { inset: 36px 48px 0 0; }
+  & #zen-appcontent-wrapper { transform: none !important; } /* Zen сдвигает область сайтов на ширину библиотеки (слева — вправо, там под ней окно): справа не двигаем — полоса с кнопками окна остаётся на месте */
+  & #lumi-settings { inset: 44px 64px 8px auto; @starting-style { translate: 12px 0; } } /* ниже полосы: кнопки окна остаются открытыми */
+  & .lumi-pin[unpinning] { translate: 64px 0; }
+  & #lumi-pin-dropline { left: 6px; }
+}
+:root[lumi-rail-right] {
+  & :is(#lumi-pin-frame, #lumi-time-frame) { left: auto; right: var(--lumi-pin-x); }
+  & #tabbrowser-tabpanels > .browserSidebarContainer.lumi-pin-window { left: auto !important; right: calc(var(--lumi-pin-x) + 1px) !important; }
+  & #lumi-pin-grip { left: auto; right: calc(var(--lumi-pin-x) + var(--lumi-pin-w) - 5px); }
+  & :is(#lumi-pin-frame, #lumi-time-frame, .lumi-pin-window) { animation-name: lumi-pin-in-r; }
+  /* плееры: карточка выезжает влево, плитка остаётся на месте (правый край), кнопки — слева от названия */
+  & #lumi-players { align-items: flex-end; }
+  & .lumi-player { flex-direction: row-reverse; }
+  & .lumi-player-text { order: 1; }
+  & .lumi-player-next { order: 2; }
+  & .lumi-player-play { order: 3; }
+  & .lumi-player-prev { order: 4; }
+  & .lumi-player .lumi-player-vol { left: 12px; right: 45px; }
+  & #lumi-players[open] .lumi-player { padding: 3px 3px 15px 8px; }
+  & #lumi-players[open] .lumi-player .lumi-player-cover { margin: -3px -3px -15px 0; }
+}
+@keyframes lumi-pin-in-r { from { opacity: 0; translate: 12px 0; } }
+/* RTL (Zen на арабском): кнопки окна слева, а библиотека Zen прижата к левому краю с top:1px и закрывала их — опускаем под полосу вкладок, как при рейке справа; остальное в RTL не зеркалим (docs/areas/i18n.md) */
+:root:dir(rtl):not([inDOMFullscreen="true"]) { & zen-library { top: 36px !important; } }
+@media (prefers-reduced-motion: reduce) { :root[lumi-rail-right] :is(#lumi-pin-frame, #lumi-time-frame, .lumi-pin-window) { animation: none; } }
+/* Compacting полосы при рейке справа: выезжает на всю ширину окна (кнопки окна — в углу над рейкой) */
+@media -moz-pref("luminoctis.compact.tabstrip") {
+  :root[lumi-rail-right]:not([inDOMFullscreen="true"]) #lumi-tabstrip { right: -56px; }
+}
+/* Compacting рейки справа: прячется за правый край под полосой, горячая зона — у правого края */
+@media -moz-pref("luminoctis.compact.sidebar") {
+  :root[lumi-rail-right]:not([inDOMFullscreen="true"]) {
+    & #lumi-hot-left { left: auto; right: 0; top: 36px; }
+    & #lumi-hot-left::after { inset: 0 0 0 auto; }
+    & #lumi-rail { top: 36px; bottom: 0; left: auto; right: 0; margin: 0; padding-top: 8px; translate: calc(100% + 12px) 0; }
+    &[lumi-show-sidebar] #lumi-rail { translate: 0 0; }
+    & #zen-appcontent-wrapper { margin-right: 0 !important; }
+    & #lumi-tabstrip { margin-right: 0; margin-left: 0 !important; right: 0; }
+    &[lumi-show-sidebar] #zen-appcontent-navbar-wrapper { margin-left: 0 !important; margin-right: 48px !important; }
+  }
+}
+
 /* ---------- 13. Карточка при наведении на вкладку полосы или закреп рейки ----------
  * Строит js/lumi-hovercard.uc.js (#lumi-hovercard в корне окна): название и память вкладки; выключается luminoctis.tabs.hover-memory. */
 #lumi-hovercard {
@@ -1045,6 +1117,13 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
    * переменные --lumi-hole-x/y/w/h и радиус карточки --lumi-hole-r — инлайн; backdrop-filter у карточки над сайтом бессилен, а здесь сквозь неё видно стекло окна */
   /* рейка, полоса вкладок и адресная строка в Compacting лежат на сайте с тем же стеклом, что и на месте (--lumi-bg0/bg1) — подложки нет */
 }
+/* Windows не рисует прозрачность (Energy saver, «Эффекты прозрачности» выкл): под окном было бы чёрное. js/lumi-home-live.uc.js ставит корню [lumi-nofx], картинку
+ * размытых обоев рабочего стола --lumi-fb-image (одно размытие при загрузке, не каждый кадр) и их сдвиг --lumi-fb-x/y по положению окна. Картинка лежит фоном корня —
+ * под всеми полупрозрачными слоями палитры, как настоящее стекло. Нет картинки — сплошной цвет палитры. Повторённый атрибут поднимает вес над `:root[lumi-home-live] { background: transparent }`
+ * (раздел 15): Home и сайты «насквозь» тоже видят обои, а не чёрное. */
+:root[lumi-nofx][lumi-nofx]:not([inDOMFullscreen="true"]) {
+  background: var(--lumi-fb-image, none) var(--lumi-fb-x, 0) var(--lumi-fb-y, 0) / var(--lumi-fb-w, 100vw) var(--lumi-fb-h, 100vh) no-repeat var(--lumi-solid) !important;
+}
 /* Compacting в стекле: пока панель выехала, сайт под ней не рисуется (js/lumi-compact.uc.js ставит --lumi-cut = inset() по живым прямоугольникам
  * панелей), сквозь неё видно то, что за окном (рабочий стол / в «Обоях» #lumi-home-wall). Без выехавших панелей и в непрозрачном режиме клипа нет */
 :root[lumi-glass]:not([inDOMFullscreen="true"], [lumi-site-blur]) #tabbrowser-tabpanels { clip-path: var(--lumi-cut, none); }
@@ -1069,6 +1148,12 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
       --panel-border-color: transparent !important; --panel-box-shadow-margin: 0px !important;
       /* подложка Windows сама светло-серая — поверх неё тёмная заливка фона палитры, иначе меню «серое» (просьба пользователя); размытие видно сквозь ~40% */
       --panel-background-color: color-mix(in srgb, var(--lumi-solid) 60%, transparent) !important;
+      @media (prefers-reduced-transparency: reduce) { --panel-background-color: var(--lumi-solid) !important; } /* без прозрачности подложка Windows сплошная — заливка тоже */
+      /* список папки и выбор поисковика — плотнее (см. ниже); вложено сюда, иначе 60% выше побеждает по специфичности (два id в :not/:is) */
+      &:is(#lumi-folder-panel, .searchmode-switcher-panel) {
+        --panel-background-color: color-mix(in srgb, var(--lumi-solid) 80%, var(--lumi-surface)) !important;
+        @media (prefers-reduced-transparency: reduce) { --panel-background-color: var(--lumi-solid) !important; }
+      }
     }
   }
   @media not (-moz-windows-mica-popups) { --panel-background-color: var(--lumi-solid) !important; }
@@ -1077,9 +1162,8 @@ panel toolbarseparator { border-color: var(--lumi-line) !important; }
 /* Список папки (#lumi-folder-panel, js/lumi-tabstrip.uc.js) — обычная panel (не type="arrow"), размытие под ней даёт подложка Windows (правило выше).
  * Заливка не ниже ~85% плотности при любой прозрачности: пока размытия нет (Windows 10, нет аппаратного ускорения) или ползунок
  * на максимуме, названия вкладок под списком не должны читаться насквозь. color-mix смешивает непрозрачный bg0 (80%) и surface палитры:
- * итоговая плотность = 0.8 + 0.2 × плотность surface. (::part(content) из userChrome в виджет панели не достаёт — только переменная.) */
-:root[lumi-glass] :is(#lumi-folder-panel, .searchmode-switcher-panel) { --panel-background-color: color-mix(in srgb, var(--lumi-solid) 80%, var(--lumi-surface)) !important; }
-/* Список выбора поисковика в адресной строке (panel.searchmode-switcher-panel, Zen 1.24, без id) — тот же приём: стекло Windows + плотность не ниже ~85% */
+ * итоговая плотность = 0.8 + 0.2 × плотность surface. (::part(content) из userChrome в виджет панели не достаёт — только переменная.) Само правило — внутри блока выше.
+ * Список выбора поисковика в адресной строке (panel.searchmode-switcher-panel, Zen 1.24, без id) — тот же приём. */
 
 /* Home и скрытую вкладку LumiTime целиком не показываем в списке вкладок Библиотеки Zen (<zen-library>, копии вкладок сохраняют атрибут) */
 zen-library :is(tab[lumi-home], tab[lumi-time-full]) { display: none !important; }

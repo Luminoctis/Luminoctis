@@ -17,7 +17,7 @@
 (() => {
   const { jsUrl } = ChromeUtils.importESModule(Components.stack.filename.replace(/[^/]*$/, "lumi-paths.sys.mjs"));
   const { windowMode } = ChromeUtils.importESModule(jsUrl("lumi-palette.sys.mjs"));
-  const { setGlass } = ChromeUtils.importESModule(jsUrl("lumi-glass.sys.mjs"));
+  const { setGlass, glassIO, placeWallpaper } = ChromeUtils.importESModule(jsUrl("lumi-glass.sys.mjs"));
   const mica = matchMedia("(-moz-windows-mica)"); // без него Windows не рисует прозрачные пиксели окна
   const DESKTOP = "desktop";
 
@@ -143,17 +143,81 @@
     if (!through) site ? document.documentElement.setAttribute("lumi-home-live", "site") : document.documentElement.removeAttribute("lumi-home-live"); // "site" — дыра под обычным сайтом (chrome.css раздел 15)
     if (site || through?.hasAttribute("lumi-time-full")) holeRect(); // у большого LumiTime стену под интерфейсом (маска вне вкладки) задаёт не страница Home, а мы
     applyAccent();
+    fallback();
   }
+
+  // ---------- Windows не рисует прозрачность: вместо чёрного — размытые обои рабочего стола ----------
+  // Energy saver (экономия заряда) и «Эффекты прозрачности» выкл: UISettings.AdvancedEffectsEnabled = false, Firefox отдаёт это как prefers-reduced-transparency
+  // (событие change, опрос не нужен). Стекла нет, а окно по-прежнему «растянуто» на стекло — под полупрозрачными слоями палитры чёрное. Тогда корню ставится
+  // [lumi-nofx] (chrome.css раздел 14): фон корня — картинка обоев, размытая один раз и сдвинутая так, как будто окно прозрачное (--lumi-fb-x/y следят за положением окна).
+  // Нет обоев (сплошной цвет, ошибка чтения) — просто сплошной цвет палитры. Вернулась прозрачность — атрибут и картинка снимаются, стекло снова настоящее.
+  const reduced = matchMedia("(prefers-reduced-transparency: reduce)");
+  const FB = { on: false, key: "", token: 0, timer: 0, geo: "", checked: 0, force: null }; // force — подмена датчика в проверках
+  const fbWant = () => (FB.force ?? reduced.matches) && mica.matches && window.windowState != window.STATE_MINIMIZED &&
+    (windowMode(window) != "opaque" || !!through || site) && !document.documentElement.hasAttribute("inDOMFullscreen");
+  async function fbRender() {
+    const token = ++FB.token, root = document.documentElement, kind = Services.prefs.getStringPref(KIND, "acrylic"), mw = screen.width, mh = screen.height;
+    FB.checked = Date.now();
+    const info = await glassIO.wallpaper();
+    const key = [info.path, info.mtime, info.style, info.bg, kind, mw, mh].join("|");
+    if (key == FB.key || token != FB.token || !FB.on) return;
+    let url = "";
+    try {
+      if (!info.path) throw 0;
+      const bmp = await createImageBitmap(new Blob([await IOUtils.read(info.path)]));
+      const R = kind == "none" ? 0 : 40, S = R ? 0.25 : 0.5, c = document.createElementNS("http://www.w3.org/1999/xhtml", "canvas"); // R — радиус размытия в css px; одно размытие при рисовании
+      c.width = Math.ceil(mw * S); c.height = Math.ceil(mh * S);
+      const g = c.getContext("2d"), p = placeWallpaper(bmp.width, bmp.height, mw, mh, info.style), pad = p.cover ? R * 2.5 : 0; // край расширен, чтобы размытие не темнело у границы
+      g.fillStyle = `rgb(${info.bg.join(",")})`; g.fillRect(0, 0, c.width, c.height);
+      g.filter = R ? `blur(${R * S}px)` : "none";
+      g.drawImage(bmp, (p.x - pad) * S, (p.y - pad) * S, (p.w + 2 * pad) * S, (p.h + 2 * pad) * S);
+      bmp.close();
+      if (kind == "acrylic") { g.filter = "none"; g.fillStyle = "rgba(35,35,35,0.23)"; g.fillRect(0, 0, c.width, c.height); } // тот же оттенок, что у accent policy
+      url = c.toDataURL("image/jpeg", 0.9);
+    } catch (e) { if (e) console.warn("Luminoctis: обои рабочего стола для подложки", e); /* l10n-skip */ }
+    if (token != FB.token || !FB.on) return;
+    FB.key = key;
+    url ? root.style.setProperty("--lumi-fb-image", `url("${url}")`) : root.style.removeProperty("--lumi-fb-image");
+    FB.geo = ""; fbPlace();
+  }
+  // положение окна на мониторе: обои неподвижны, окно сдвигает их; true — окно двигалось
+  function fbPlace() {
+    const r = document.documentElement.style, x = window.mozInnerScreenX - screen.left, y = window.mozInnerScreenY - screen.top, geo = [x, y, screen.width, screen.height].join();
+    if (geo == FB.geo) return false;
+    FB.geo = geo;
+    r.setProperty("--lumi-fb-x", -x + "px"); r.setProperty("--lumi-fb-y", -y + "px");
+    r.setProperty("--lumi-fb-w", screen.width + "px"); r.setProperty("--lumi-fb-h", screen.height + "px");
+    return true;
+  }
+  // окно не шлёт событий перемещения: опрос положения (дёшево; при движении — каждый кадр) и раз в 2 с проверка, не сменились ли обои
+  function fbLoop() {
+    FB.timer = 0;
+    if (!FB.on) return;
+    const moved = fbPlace();
+    if (!moved && Date.now() - FB.checked > 2000) fbRender();
+    FB.timer = setTimeout(fbLoop, moved ? 16 : 300);
+  }
+  function fallback() {
+    const on = fbWant(), root = document.documentElement;
+    if (on == FB.on) return;
+    FB.on = on;
+    root.toggleAttribute("lumi-nofx", on);
+    if (on) { fbRender(); fbLoop(); return; }
+    FB.token++; FB.key = ""; FB.geo = ""; clearTimeout(FB.timer); FB.timer = 0;
+    for (const v of ["image", "x", "y", "w", "h"]) root.style.removeProperty("--lumi-fb-" + v);
+  }
+  reduced.addEventListener("change", () => update());
 
   window.lumiHomeLive = {
     DESKTOP,
     want() { update(); return wantDesktop() ? DESKTOP : null; }, // аргумент (желание страницы) не читаем: см. шапку
     refresh: () => update(), // lumi-home.uc.js зовёт после выбора только что созданной Home (на TabSelect у неё ещё нет атрибута)
+    fallback: v => { if (v !== undefined) { FB.force = v; update(); } return { on: FB.on, key: FB.key, geo: FB.geo }; }, // для проверок: подложка из обоев; аргумент true/false/null подменяет prefers-reduced-transparency
     // для проверок: accent policy окна браузера (2 — чёткий рабочий стол, 3 — размытие Windows, 0 — нет)
     win: () => api() && { accent: accentSet, browserHwnd: window.docShell.treeOwner.QueryInterface(Ci.nsIBaseWindow).nativeHandle },
   };
 
-  const onPref = () => { update(); setTimeout(() => { accentSet = -2; update(); }, 150); }; // Zen ставит свою подложку по toplevel-backdrop после нас — перекрываем
+  const onPref = () => { update(); if (FB.on) fbRender(); setTimeout(() => { accentSet = -2; update(); }, 150); }; // Zen ставит свою подложку по toplevel-backdrop после нас — перекрываем
   const PREFS = [KIND, WIN, TRANSPARENT, HT, WPMODE];
   for (const n of PREFS) Services.prefs.addObserver(n, onPref); // применяются сразу
   window.addEventListener("unload", () => { for (const n of PREFS) Services.prefs.removeObserver(n, onPref); if (handle) setGlass(handle, false); }, { once: true }); // иначе хвост в glass остаётся после закрытия окна

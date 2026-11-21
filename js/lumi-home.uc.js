@@ -118,6 +118,16 @@
       return orig.call(this, url, fromHome ? "tab" : where, ...rest);
     };
   }
+  // Zen 1.24: Enter в адресной строке грузит через parentController.loadURL мимо openLinkIn; «куда» решает только этот вызов
+  const ui = window.gZenUIManager, where0 = ui?.getOpenUILinkWhere;
+  if (typeof where0 == "function") ui.getOpenUILinkWhere = function (url, browser, where, ...r) {
+    const res = where0.call(this, url, browser, where, ...r);
+    if (res != "current") return res;
+    const t = gBrowser.getTabForBrowser(browser) ?? gBrowser.selectedTab;
+    if (!(isHome(t) || isFull(t))) return res;
+    gURLBar.userTypedValue = null;
+    return "tab";
+  };
 
   // Ссылка, брошенная на страницу Home (handleDroppedLink → gBrowser.loadTabs с replace в её вкладку), идёт мимо openLinkIn — это и был путь «сайт внутри Home»
   const loadTabs = gBrowser.loadTabs;

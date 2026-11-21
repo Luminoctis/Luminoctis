@@ -91,16 +91,17 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
   const nav = document.getElementById("zen-appcontent-navbar-wrapper"), panels = document.getElementById("tabbrowser-tabpanels");
   let cutUntil = 0, running = false, last = "";
   const cut = () => {
-    let l = 0, t = 0, tp;
+    let l = 0, t = 0, tp, right = root.hasAttribute("lumi-rail-right"); // рейка справа: её рез — у правого края
     if (root.hasAttribute("lumi-glass") && root.getAttribute("inDOMFullscreen") !== "true") {
       tp = panels.getBoundingClientRect();
       const n = nav.getBoundingClientRect();
-      l = rail.getBoundingClientRect().right - tp.left;
+      const rr = rail.getBoundingClientRect();
+      l = right ? tp.right - rr.left : rr.right - tp.left;
       t = Math.max(strip.getBoundingClientRect().bottom, n.height > 20 ? n.bottom : 0) - tp.top; // свёрнутая строка (8px) — лишь невидимая зона показа
     }
-    window.lumiSiteBlur?.set("compact-rail", l >= 1 ? { left: tp.left, top: tp.top, right: tp.left + l, bottom: tp.bottom } : null);
+    window.lumiSiteBlur?.set("compact-rail", l >= 1 ? (right ? { left: tp.right - l, top: tp.top, right: tp.right, bottom: tp.bottom } : { left: tp.left, top: tp.top, right: tp.left + l, bottom: tp.bottom }) : null);
     window.lumiSiteBlur?.set("compact-top", t >= 1 ? { left: tp.left, top: tp.top, right: tp.right, bottom: tp.top + t } : null);
-    const value = l >= 1 || t >= 1 ? `inset(${Math.max(t, 0)}px 0 0 ${Math.max(l, 0)}px)` : "";
+    const value = l >= 1 || t >= 1 ? (right ? `inset(${Math.max(t, 0)}px ${Math.max(l, 0)}px 0 0)` : `inset(${Math.max(t, 0)}px 0 0 ${Math.max(l, 0)}px)`) : "";
     if (value != last) { last = value; value ? panels.style.setProperty("--lumi-cut", value) : panels.style.removeProperty("--lumi-cut"); }
   };
   const frame = () => { cut(); if (Date.now() < cutUntil) requestAnimationFrame(frame); else running = false; };
@@ -108,7 +109,7 @@ UC_API.Windows.waitWindowLoading(window).then(async () => {
   new MutationObserver(kick).observe(root, { attributes: true });
   new MutationObserver(kick).observe(nav, { attributes: true, attributeFilter: ["zen-has-hover", "zen-has-implicit-hover", "style"] });
   for (const el of [rail, strip, nav]) el.addEventListener("transitionrun", kick);
-  const prefs = ["luminoctis.compact.sidebar", "luminoctis.compact.tabstrip", "zen.view.compact.hide-toolbar"];
+  const prefs = ["luminoctis.compact.sidebar", "luminoctis.compact.tabstrip", "zen.view.compact.hide-toolbar", "luminoctis.rail.side"];
   for (const name of prefs) Services.prefs.addObserver(name, kick);
   window.addEventListener("unload", () => { for (const name of prefs) Services.prefs.removeObserver(name, kick); }, { once: true });
   window.addEventListener("resize", kick);

@@ -1,14 +1,16 @@
 // ==UserScript==
 // @name           Luminoctis: обновление мода
-// @description    Проверка новой версии в GitHub Releases раз в сутки и по кнопке; обновление = скачать релиз, проверить SHA-256, запустить installer\update.ps1 и перезапустить Zen.
+// @description    Проверка новой версии в GitHub Releases при каждом запуске (нашлась — сразу ставится), раз в сутки и по кнопке; обновление = скачать релиз, проверить SHA-256, запустить installer\update.ps1 (своё окно прогресса) и перезапустить Zen.
 // ==/UserScript==
 
 // Один экземпляр (chrome://userscripts/content/lumi-update.sys.mjs): грузится при старте, им пользуется панель настроек.
 // Работает только если мод поставлен установщиком (<профиль>\luminoctis-install.json) — у dev-профиля (dev\run.ps1) состояния нет, сети нет.
-// Настройки luminoctis.update.*: url (откуда), auto-check, relaunch (поднять Zen после обновления), available (найденная версия, "" — нет),
-// page (адрес страницы релиза), last-check (секунды).
+// Настройки luminoctis.update.*: url (откуда), auto-check (проверять и ставить при запуске), relaunch (поднять Zen после обновления),
+// available (найденная версия, "" — нет), page (адрес страницы релиза), last-check (секунды),
+// attempt (версия, до которой начали обновляться), failed (версия, до которой обновление упало: сама при запуске больше не ставится, кнопка работает).
 import { setTimeout, setInterval } from "resource://gre/modules/Timer.sys.mjs";
-const { t } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
+import { PrivateBrowsingUtils } from "resource://gre/modules/PrivateBrowsingUtils.sys.mjs";
+const { t, lang } = ChromeUtils.importESModule(new URL("lumi-i18n.sys.mjs", import.meta.url).href);
 
 const P = "luminoctis.update.";
 const defaults = Services.prefs.getDefaultBranch(P);
@@ -17,7 +19,18 @@ defaults.setBoolPref("auto-check", true);
 defaults.setBoolPref("relaunch", true);
 defaults.setStringPref("available", "");
 defaults.setStringPref("page", "");
+defaults.setStringPref("attempt", "");
+defaults.setStringPref("failed", "");
 const DAY = 86400;
+
+// ход скачивания и подготовки для панели настроек: { phase: "" | "download" | "verify" | "prepare" | "restart", pct };
+// смена — наблюдателю "luminoctis-update-status"
+export const status = { phase: "", pct: 0 };
+const setStatus = (phase, pct = 0) => {
+  status.phase = phase;
+  status.pct = pct;
+  Services.obs.notifyObservers(null, "luminoctis-update-status", phase);
+};
 
 const STATE = () => PathUtils.join(PathUtils.profileDir, "luminoctis-install.json");
 export async function installedVersion() {
@@ -90,13 +103,37 @@ async function download(url) {
   return r;
 }
 
-// Скачивает релиз, проверяет SHA-256, распаковывает, запускает installer\update.ps1 и закрывает Zen.
-// Любая ошибка до запуска скрипта — исключение, ничего в профиле не меняется.
-export async function apply() {
+// тело ответа кусками: пока качается, в настройках виден процент, а интерфейс не стоит
+async function bytes(r, onPct) {
+  if (!r.body?.getReader) return new Uint8Array(await r.arrayBuffer());
+  const total = +r.headers.get("content-length") || 0, reader = r.body.getReader(), chunks = [];
+  let n = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value);
+    n += value.length;
+    if (total) onPct(Math.min(99, Math.floor((n * 100) / total)));
+  }
+  const out = new Uint8Array(n);
+  let o = 0;
+  for (const c of chunks) { out.set(c, o); o += c.length; }
+  return out;
+}
+
+// Скачивает релиз, проверяет SHA-256, достаёт из архива только installer\ (остальное распакует update.ps1 в своём окне — не в потоке Zen)
+// и запускает его без окна консоли; потом закрывает Zen. Любая ошибка до запуска скрипта — исключение, ничего в профиле не меняется.
+// Один вызов за раз: повторный (кнопка во время автообновления) получает тот же результат.
+let job = null, stage = "";
+export const apply = () => (job ??= run().then(() => { job = null; }, e => { job = null; setStatus(""); throw e; })); // успех: статус «Перезапускаю Zen…» остаётся до закрытия окна
+
+async function run() {
+  stage = "download";
   const have = await installedVersion();
   if (!have) throw new Error(t("мод не установлен установщиком"));
+  setStatus("download", 0);
   const pair = async (zipUrl, shaUrl) => ({
-    zip: await (await download(zipUrl)).arrayBuffer(),
+    zip: await bytes(await download(zipUrl), p => setStatus("download", p)),
     want: (await (await download(shaUrl)).text()).trim().split(/\s+/)[0].toLowerCase(),
   });
   // версия уже найдена проверкой — качаем прямо с github.com (без лимита API); не вышло — старый путь через API
@@ -118,21 +155,26 @@ export async function apply() {
   }
   const { zip, want } = got;
   const name = `Luminoctis-${version}.zip`;
+  stage = "verify";
+  setStatus("verify");
   if (hex(await crypto.subtle.digest("SHA-256", zip)) != want) throw new Error(t("SHA-256 не совпал — обновление отменено"));
 
-  const dir = PathUtils.join(PathUtils.tempDir, "luminoctis-update-" + version);
-  await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true });
+  stage = "prepare";
+  setStatus("prepare");
+  let dir = PathUtils.join(PathUtils.tempDir, "luminoctis-update-" + version);
+  try { await IOUtils.remove(dir, { recursive: true, ignoreAbsent: true }); } catch { dir += "-" + Date.now(); } // остаток прошлого обновления занят — берём другую папку
   await IOUtils.makeDirectory(dir);
   const zipPath = PathUtils.join(dir, name);
-  await IOUtils.write(zipPath, new Uint8Array(zip));
+  await IOUtils.write(zipPath, zip);
+  // из архива сразу берём только installer\ (несколько маленьких файлов); остальное распаковывает update.ps1 уже при закрытом Zen, в своём окне
   const out = PathUtils.join(dir, "release");
   const zr = Cc["@mozilla.org/libjar/zip-reader;1"].createInstance(Ci.nsIZipReader);
   zr.open(file(zipPath));
   try {
-    for (const entry of zr.findEntries("*")) {
+    for (const entry of zr.findEntries("installer/*")) {
       const rel2 = entry.replaceAll("\\", "/");
       if (rel2.split("/").includes("..")) throw new Error(t("в архиве недопустимый путь: {0}", entry));
-      if (rel2.endsWith("/")) { await IOUtils.makeDirectory(PathUtils.join(out, ...rel2.split("/")), { createAncestors: true }); continue; }
+      if (rel2.endsWith("/")) continue;
       const target = PathUtils.join(out, ...rel2.split("/"));
       await IOUtils.makeDirectory(PathUtils.parent(target), { createAncestors: true });
       zr.extract(entry, file(target));
@@ -143,23 +185,72 @@ export async function apply() {
   const script = PathUtils.join(out, "installer", "update.ps1");
   if (!(await IOUtils.exists(script))) throw new Error(t("в архиве нет installer\\update.ps1"));
 
-  const args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script,
-    "-ZenPid", String(Services.appinfo.processID), "-ProfileDir", PathUtils.profileDir,
-    "-ZenExe", Services.dirsvc.get("XREExeF", Ci.nsIFile).path];
-  if (Services.prefs.getBoolPref(P + "relaunch")) args.push("-Relaunch");
+  const psArgs = ["-ZenPid", String(Services.appinfo.processID), "-ProfileDir", PathUtils.profileDir,
+    "-ZenExe", Services.dirsvc.get("XREExeF", Ci.nsIFile).path, "-Lang", lang, "-Zip", zipPath];
+  const relaunch = Services.prefs.getBoolPref(P + "relaunch");
+  if (relaunch) psArgs.push("-Relaunch");
+  // wscript.exe (без консоли) запускает powershell сразу скрытым окном: прямой запуск powershell.exe из Zen на миг показывает консоль
+  const sys = PathUtils.join(Services.env.get("SystemRoot"), "System32");
+  const vbs = PathUtils.join(out, "installer", "update.vbs"), wscript = PathUtils.join(sys, "wscript.exe");
+  let exe, args;
+  if ((await IOUtils.exists(vbs)) && (await IOUtils.exists(wscript))) {
+    exe = wscript;
+    args = ["//B", "//NoLogo", vbs, ...psArgs];
+  } else {
+    exe = PathUtils.join(sys, "WindowsPowerShell", "v1.0", "powershell.exe");
+    args = ["-NoProfile", "-ExecutionPolicy", "Bypass", "-WindowStyle", "Hidden", "-File", script, ...psArgs];
+  }
+  Services.prefs.setStringPref(P + "attempt", version);
+  if (relaunch) Services.prefs.setBoolPref("browser.sessionstore.resume_session_once", true); // вкладки вернутся, даже если «открывать прошлую сессию» выключено
+  setStatus("restart");
   const ps = Cc["@mozilla.org/process/util;1"].createInstance(Ci.nsIProcess);
-  ps.init(file(PathUtils.join(Services.env.get("SystemRoot"), "System32", "WindowsPowerShell", "v1.0", "powershell.exe")));
+  ps.init(file(exe));
   ps.runw(false, args, args.length); // не ждём: скрипт сам дождётся выхода Zen
   Services.startup.quit(Ci.nsIAppStartup.eAttemptQuit);
 }
 
-// после обновления сохранённая «доступная» версия уже установлена — сбрасываем (точка на шестерёнке гаснет)
+// Запуск браузера: проверка и, если есть новая версия, сразу установка. Тихо при любой неудаче (нет сети, лимит GitHub, нет установки).
+// failed == найденной версии — не пробуем (иначе падающее обновление шло бы по кругу при каждом запуске); кнопка в настройках работает всегда.
+// Ошибку скачивания (нет сети) failed не помечает: она не про эту версию.
+export async function startupCheck(applyFn = apply) {
+  if (!Services.prefs.getBoolPref(P + "auto-check")) return "off";
+  if (!(await installedVersion())) return "none-installed";
+  const r = await check();
+  if (r.error) return "check-error";
+  if (!r.available) return "uptodate";
+  if (Services.prefs.getStringPref(P + "failed", "") == r.available) return "failed-before";
+  try {
+    await applyFn();
+    return "applied";
+  } catch {
+    if (stage != "download") Services.prefs.setStringPref(P + "failed", r.available);
+    return "error";
+  }
+}
+
+// После запуска: обновление, начатое в прошлый раз, либо дошло (версия в состоянии стала новой), либо нет — тогда не повторяем его само
 installedVersion().then(have => {
   const found = Services.prefs.getStringPref(P + "available", "");
-  if (found && have && !newer(found, have)) Services.prefs.setStringPref(P + "available", "");
+  if (found && have && !newer(found, have)) Services.prefs.setStringPref(P + "available", ""); // установленная «доступная» версия — точка на шестерёнке гаснет
+  const attempt = Services.prefs.getStringPref(P + "attempt", "");
+  if (attempt && have) {
+    if (newer(attempt, have)) Services.prefs.setStringPref(P + "failed", attempt);
+    else Services.prefs.setStringPref(P + "failed", "");
+    Services.prefs.setStringPref(P + "attempt", "");
+  }
 });
-// раз в сутки: первая проверка через минуту после старта, дальше раз в час смотрим, не пора ли
+
+// Один раз за запуск приложения: ждём первое обычное (не приватное) окно с восстановленной сессией и ещё немного, чтобы не мешать старту
+const normalWindow = () => {
+  const w = Services.wm.getMostRecentWindow("navigator:browser");
+  return w && !w.closed && w.gBrowserInit?.delayedStartupFinished && !PrivateBrowsingUtils.isWindowPrivate(w);
+};
+(async () => {
+  try { await ChromeUtils.importESModule("resource:///modules/sessionstore/SessionStore.sys.mjs").SessionStore.promiseAllWindowsRestored; } catch {}
+  for (let i = 0; i < 30 && !normalWindow(); i++) await new Promise(r => setTimeout(r, 2000));
+  await new Promise(r => setTimeout(r, 10000));
+  if (normalWindow()) await startupCheck();
+})();
+// и раз в сутки, пока браузер не закрывали: только проверка (точка на шестерёнке), ставит пользователь кнопкой
 const due = () => Services.prefs.getBoolPref(P + "auto-check") && Date.now() / 1000 - Services.prefs.getIntPref(P + "last-check", 0) > DAY;
-const tick = () => { if (due()) check(); };
-setTimeout(tick, 60000);
-setInterval(tick, 3600000);
+setInterval(() => { if (due()) check(); }, 3600000);

@@ -5,6 +5,7 @@ import { JS } from "./paths.js";
 import * as store from "./store.js";
 import { COLORS } from "./notes-md.mjs";
 import { ICONS } from "./time-icons.mjs";
+import { dropdown } from "./time-dd.js";
 export const E = ChromeUtils.importESModule(JS("lumi-time.sys.mjs"));
 const { t, locale } = ChromeUtils.importESModule(JS("lumi-i18n.sys.mjs"));
 
@@ -47,11 +48,7 @@ const plain = v => JSON.parse(JSON.stringify(v));
 const dateTitle = (date, opts = { weekday: "short", day: "numeric", month: "long" }) =>
   new Intl.DateTimeFormat(locale, opts).format(new Date(`${date}T12:00:00`));
 const field = (label, ...control) => h("label", { class: "lt-field" }, h("span", { text: label }), ...control);
-const select = (options, value, onchange) => {
-  const el = h("select", { on: { change: () => onchange(el.value) } }, options.map(([v, t]) => h("option", { value: String(v), text: t })));
-  el.value = String(value);
-  return el;
-};
+const select = dropdown; // свой выпадающий список мода (home/time-dd.js): (options, value, onchange)
 const toggle = (label, checked, onchange, hint) => h("label", { class: "lt-toggle" },
   h("input", { type: "checkbox", checked, on: { change: e => onchange(e.target.checked) } }),
   h("span", {}, h("b", { text: label }), hint && h("small", { text: hint })));
@@ -82,6 +79,10 @@ export function goalsBlock(period, title) {
 
 // ---------- «Каждый день»: ежедневные задачи (движок: E.daily*, логика и формат — js/lumi-time-daily.sys.mjs) ----------
 // значок задачи (линейный, home/time-icons.mjs); неизвестный id или «без значка» — null
+// понятные названия значков (подсказка и aria-label в выборе значка); id в time-icons.mjs — служебный
+const iconName = id => ({ workout: t("Тренировка"), run: t("Бег"), walk: t("Прогулка"), bike: t("Велосипед"), food: t("Еда"), water: t("Вода"), sleep: t("Сон"), sun: t("Солнце"), book: t("Книга"), study: t("Учёба"),
+  code: t("Код"), music: t("Музыка"), meditate: t("Медитация"), pill: t("Лекарства"), clean: t("Уборка"), "phone-off": t("Без телефона"), journal: t("Дневник"), language: t("Языки"), heart: t("Сердце"),
+  star: t("Звезда"), check: t("Галочка"), plant: t("Растение"), shower: t("Душ"), money: t("Деньги") })[id] ?? id;
 export const dailyIcon = id => (ICONS[id] ? s("svg", { viewBox: "0 0 24 24", class: "lt-ico", "aria-hidden": "true" }, ICONS[id].map(d => s("path", { d }))) : null);
 // всё, от чего зависит вид блока в столбце (time.js перерисовывает блок, только когда это изменилось; в том числе в полночь — меняется день)
 export const dailyKey = () => JSON.stringify([E.data.daily, E.dailyToday(), E.data.dailyError, E.data.dailyWriteError, E.data.settings.dailyEnabled]);
@@ -379,7 +380,7 @@ function iconPicker(anchor, task) {
   const pick = id => { closeIconPicker(); E.dailySetIcon(task.id, id); };
   iconPop = h("div", { class: "lt-icon-pop", role: "dialog", "aria-label": t("Значок задачи"), "data-id": task.id },
     h("button", { class: "lt-icon-none" + (task.icon ? "" : " on"), text: t("Без значка"), on: { click: () => pick("") } }),
-    h("div", { class: "lt-icon-grid" }, Object.keys(ICONS).map(id => h("button", { class: "lt-icon-cell" + (task.icon == id ? " on" : ""), "data-icon": id, "aria-label": id, /* без title: id — английское имя, подсказка без перевода хуже, чем никакой */ on: { click: () => pick(id) } }, dailyIcon(id)))));
+    h("div", { class: "lt-icon-grid" }, Object.keys(ICONS).map(id => h("button", { class: "lt-icon-cell" + (task.icon == id ? " on" : ""), "data-icon": id, title: iconName(id), "aria-label": iconName(id), on: { click: () => pick(id) } }, dailyIcon(id)))));
   document.body.append(iconPop);
   const r = anchor.getBoundingClientRect(), w = iconPop.offsetWidth, hh = iconPop.offsetHeight;
   iconPop.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + "px";
@@ -439,9 +440,36 @@ function statsView(root) {
 
 // ---------- Журнал ----------
 function journalView(root) {
-  let shown = 14;
+  let shown = 14, editing = null; // editing — id записи, чья строка сейчас форма правки
+  const p2 = n => String(n).padStart(2, "0");
+  const localInput = ms => { const d = new Date(ms); return `${E.localDate(ms)}T${p2(d.getHours())}:${p2(d.getMinutes())}`; }; // значение datetime-local
+  // форма правки записи: тип, тема, длительность, начало; «Сохранить» / «Отмена» / «Удалить» (вторым нажатием)
+  function editForm(r) {
+    const total = Math.round(E.countedRecordMs(r) / 60000);
+    let kind = r.kind;
+    const kinds = [["Focus", t("Фокус")], ["Break", t("Перерыв")], ...(r.kind == "Long break" ? [["Long break", t("Длинный перерыв")]] : [])];
+    const type = select(kinds, kind, v => { kind = v; topic.hidden = v != "Focus"; });
+    const topic = h("input", { type: "text", maxLength: 200, list: topicList(), placeholder: t("Тема"), "aria-label": t("Тема"), value: topicName(r.topic), hidden: r.kind != "Focus" });
+    const hours = h("input", { type: "number", class: "lt-num", min: 0, max: 24, step: 1, value: Math.floor(total / 60), title: t("часы") });
+    const mins = h("input", { type: "number", class: "lt-num", min: 0, max: 59, step: 1, value: total % 60, title: t("минуты") });
+    const when = h("input", { type: "datetime-local", class: "lt-when", value: localInput(r.startedAt), max: localInput(E.now()), "aria-label": t("Дата и время начала"), title: t("Дата и время начала") });
+    const err = h("p", { class: "lt-error", hidden: true, text: t("Проверь значения: длительность от 1 мин до 24 ч, начало не в будущем.") });
+    const save = () => {
+      const hh = Number(hours.value), mm = Number(mins.value), minutes = hh * 60 + mm, start = new Date(when.value).getTime();
+      const durOk = Number.isInteger(hh) && Number.isInteger(mm) && hh >= 0 && mm >= 0 && minutes >= 1 && minutes <= 1440, startOk = Number.isFinite(start) && start <= E.now();
+      hours.classList.toggle("lt-bad", !durOk); mins.classList.toggle("lt-bad", !durOk); when.classList.toggle("lt-bad", !startOk);
+      const name = topic.value.trim();
+      const done = durOk && startOk && E.editRecord(r.id, { kind, topic: name == t("Фокус") ? "Фокус" : name, minutes, startedAt: start }); // l10n-skip: хранимый ключ темы по умолчанию
+      err.hidden = !!done;
+      if (done) { editing = null; render(); }
+    };
+    return h("div", { class: "lt-edit" }, type, topic, hours, h("span", { text: t("ч") }), mins, h("span", { text: t("мин") }), when,
+      h("button", { class: "lt-primary", text: t("Сохранить"), on: { click: save } }),
+      h("button", { text: t("Отмена"), on: { click: () => { editing = null; render(); } } }),
+      confirmButton(t("Удалить"), t("Стереть?"), () => { E.deleteRecord(r.id); editing = null; render(); }), err);
+  }
   function render() {
-    const days = E.journalDays(), last = E.lastRecord(), S = E.data;
+    const days = E.journalDays(), last = E.lastRecord(), S = E.data, formShown = new Set();
     const type = select([["Focus", t("Фокус")], ["Break", t("Перерыв")]], "Focus", v => (topic.hidden = v != "Focus"));
     const topic = h("input", { type: "text", maxLength: 200, list: topicList(), placeholder: t("Тема"), value: S.selection.topic.trim() || S.settings.topics[0] || "" });
     const hours = h("input", { type: "number", class: "lt-num", min: 0, max: 23, step: 1, value: 0, title: t("часы") });
@@ -469,18 +497,21 @@ function journalView(root) {
         h("div", { class: "lt-day-head" }, h("b", { text: dateTitle(d.date, { weekday: "short", day: "numeric", month: "long", year: "numeric" }) }),
           h("span", { class: "lt-dim", text: d.breakMs ? t("фокус {0} · перерывы {1}", clockOf(d.focusMs), clockOf(d.breakMs)) : t("фокус {0}", clockOf(d.focusMs)) })),
         h("table", { class: "lt-table" },
-          h("thead", {}, h("tr", {}, [t("Тип"), t("Режим"), t("Тема"), t("Время"), t("Пауза"), t("Итог")].map(lb => h("th", { text: lb })))),
-          h("tbody", {}, d.rows.map(({ record: r, ms, pausedMs }) => h("tr", { class: r.kind == "Focus" ? "lt-row-focus" : "" },
+          h("thead", {}, h("tr", {}, [t("Тип"), t("Режим"), t("Тема"), t("Время"), t("Пауза"), t("Итог"), ""].map(lb => h("th", { text: lb })))),
+          h("tbody", {}, d.rows.map(({ record: r, ms, pausedMs }) => editing == r.id && !formShown.has(r.id) && formShown.add(r.id)
+            ? h("tr", { class: "lt-edit-row" }, h("td", { colSpan: 7 }, editForm(r)))
+            : h("tr", { class: r.kind == "Focus" ? "lt-row-focus" : "" },
             h("td", { text: KIND()[r.kind] }), h("td", { text: r.manual ? t("{0} · вручную", MODE()[r.timerMode ?? "Countdown"]) : MODE()[r.timerMode ?? "Countdown"] }),
             r.kind == "Focus" ? topicTag(r.topic, "td") : h("td", { text: "—" }), h("td", { text: clockOf(ms) }),
-            h("td", { text: pausedMs ? clockOf(pausedMs) : "—" }), h("td", { text: RESULT()[r.result] })))))))
+            h("td", { text: pausedMs ? clockOf(pausedMs) : "—" }), h("td", { text: RESULT()[r.result] }),
+            h("td", {}, h("button", { class: "lt-edit-btn", text: "✎", title: t("Изменить запись"), "aria-label": t("Изменить запись"), on: { click: () => { editing = r.id; render(); } } }))))))))
         : h("p", { class: "lt-dim", text: t("Журнал пуст. Сессии от 3 минут записываются сами; короче — можно добавить вручную.") }),
       days.length > shown && h("button", { class: "lt-add", text: t("Показать ещё"), on: { click: () => { shown += 14; render(); } } }),
       h("p", { class: "lt-dim", text: t("Файл: {0}", store.path("time/journal.json")) }),
     );
   }
   render();
-  return { update(kind) { if (kind != "settings" && !root.contains(document.activeElement)) render(); } };
+  return { update(kind) { if (kind != "settings" && !root.contains(document.activeElement) && !(editing && E.data.records.some(r => r.id == editing))) render(); } };
 }
 
 // ---------- День (Daily Log): задачи-чекбоксы и комментарии на каждый день ----------

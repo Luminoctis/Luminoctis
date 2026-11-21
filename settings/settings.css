@@ -249,7 +249,8 @@ kbd {
   & select { margin-left: auto; } }
 .clock-styles .lumi-clock-analog .lumi-clock-dial { width: 1.8em; height: 1.8em; }
 .clock-styles .lumi-clock-stacked { --clock-size: 22px; }
-#wp-folder { flex: 1; min-width: 0; }
+#wp-folder, #home-dir { flex: 1; min-width: 0; }
+.flash { box-shadow: 0 0 0 3px color-mix(in srgb, var(--lumi-accent) 45%, transparent); } /* поле, к которому привели (openSettings("home/home-dir")) */
 .src-link { display: inline-flex; width: 18px; height: 18px; align-items: center; justify-content: center; border-radius: 5px; color: var(--lumi-muted); flex-shrink: 0;
   & svg { width: 11px; height: 11px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
   &:hover { color: var(--lumi-accent); background: var(--lumi-bg1); } }

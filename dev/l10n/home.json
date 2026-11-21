@@ -21,6 +21,28 @@
     "ja": "データフォルダーを開けませんでした。設定でフォルダーを選んでください。",
     "de": "Der Datenordner konnte nicht geöffnet werden. Wählen Sie in den Einstellungen einen aus."
   },
+  "Папка данных недоступна — выберите папку в настройках": {
+    "en": "The data folder is unavailable. Choose a folder in Settings.",
+    "zh": "数据文件夹不可用，请在设置中选择文件夹。",
+    "es": "La carpeta de datos no está disponible. Elige una carpeta en Ajustes.",
+    "ar": "مجلد البيانات غير متاح. اختر مجلدًا في الإعدادات.",
+    "pt": "A pasta de dados não está disponível. Escolha uma pasta em Configurações.",
+    "id": "Folder data tidak tersedia. Pilih folder di Pengaturan.",
+    "fr": "Le dossier de données est inaccessible. Choisissez un dossier dans les paramètres.",
+    "ja": "データフォルダーを利用できません。設定でフォルダーを選んでください。",
+    "de": "Der Datenordner ist nicht verfügbar. Wählen Sie in den Einstellungen einen Ordner aus."
+  },
+  "Выбрать папку": {
+    "en": "Choose folder",
+    "zh": "选择文件夹",
+    "es": "Elegir carpeta",
+    "ar": "اختيار مجلد",
+    "pt": "Escolher pasta",
+    "id": "Pilih folder",
+    "fr": "Choisir un dossier",
+    "ja": "フォルダーを選ぶ",
+    "de": "Ordner wählen"
+  },
   "Не удалось прочитать доски": {
     "en": "Couldn't read the boards",
     "zh": "无法读取看板",
@@ -339,6 +361,17 @@
     "fr": "LumiNotes : impossible de {0} — {1}",
     "ja": "LumiNotes：{0}に失敗しました — {1}",
     "de": "LumiNotes: {0} fehlgeschlagen — {1}"
+  },
+  "LumiNotes: не удалось {0} — файл занят другой программой или нет доступа ({1})": {
+    "en": "LumiNotes: couldn't {0} — the file is in use by another program or access is denied ({1})",
+    "zh": "LumiNotes：无法{0} — 文件被其他程序占用或无访问权限（{1}）",
+    "es": "LumiNotes: no se pudo {0} — otro programa usa el archivo o no hay acceso ({1})",
+    "ar": "LumiNotes: تعذّر {0} — الملف قيد الاستخدام من برنامج آخر أو لا يوجد وصول ({1})",
+    "pt": "LumiNotes: não foi possível {0} — o arquivo está em uso por outro programa ou o acesso foi negado ({1})",
+    "id": "LumiNotes: gagal {0} — berkas dipakai program lain atau akses ditolak ({1})",
+    "fr": "LumiNotes : impossible de {0} — le fichier est utilisé par un autre programme ou l’accès est refusé ({1})",
+    "ja": "LumiNotes：{0}に失敗しました — ファイルが他のプログラムで使用中か、アクセスが拒否されました（{1}）",
+    "de": "LumiNotes: {0} fehlgeschlagen — die Datei wird von einem anderen Programm verwendet oder der Zugriff wurde verweigert ({1})"
   },
   "сохранить «{0}»": {
     "en": "save “{0}”",
@@ -1406,5 +1439,16 @@
     "fr": "Son du fond d'écran",
     "ja": "壁紙の音",
     "de": "Ton des Hintergrundbilds"
+  },
+  "Что нового в Luminoctis {0}": {
+    "en": "What's new in Luminoctis {0}",
+    "zh": "Luminoctis {0} 的新功能",
+    "es": "Novedades de Luminoctis {0}",
+    "ar": "الجديد في Luminoctis {0}",
+    "pt": "Novidades do Luminoctis {0}",
+    "id": "Yang baru di Luminoctis {0}",
+    "fr": "Nouveautés de Luminoctis {0}",
+    "ja": "Luminoctis {0} の新機能",
+    "de": "Neu in Luminoctis {0}"
   }
 }

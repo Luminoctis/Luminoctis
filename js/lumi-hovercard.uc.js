@@ -62,7 +62,8 @@
     const place = el => {
       const r = el.getBoundingClientRect(), c = card.getBoundingClientRect();
       const pin = el.classList.contains("lumi-pin");
-      const x = pin ? r.right + 10 : Math.min(Math.max(8, r.left), innerWidth - c.width - 8);
+      const x = pin ? (document.documentElement.hasAttribute("lumi-rail-right") ? r.left - 10 - c.width : r.right + 10) : // рейка справа — карточка слева от плитки
+         Math.min(Math.max(8, r.left), innerWidth - c.width - 8);
       const y = pin ? Math.min(Math.max(8, r.top + r.height / 2 - c.height / 2), innerHeight - c.height - 8) : r.bottom + 4;
       card.style.left = `${x}px`;
       card.style.top = `${y}px`;
